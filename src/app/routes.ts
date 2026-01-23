@@ -13,9 +13,8 @@ import Categories from "./components/Categories";
 import CategoryDetails from "./components/CategoryDetails";
 import SubcategoryDetails from "./components/SubcategoryDetails";
 import ManageShop from "./components/ManageShop";
-import Marketing from "./components/Marketing";
-import CreateCampaign from "./components/CreateCampaign";
 import SignIn from "./components/SignIn";
+import Subscription from "./components/Subscription";
 import { authService } from "./lib/auth";
 
 // Loader function to check authentication
@@ -49,10 +48,9 @@ export const router = createBrowserRouter([
       { path: "categories/:categoryId/:subcategoryId", Component: SubcategoryDetails },
       { path: "orders", Component: Orders },
       { path: "intelligence", Component: ConversationIntelligence },
-      { path: "marketing", Component: Marketing },
-      { path: "marketing/create-campaign", Component: CreateCampaign },
       { path: "knowledge", Component: Knowledge },
       { path: "reports", Component: Reports },
+      { path: "subscription", Component: Subscription },
     ],
   },
 ]);

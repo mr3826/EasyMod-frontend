@@ -1,566 +1,464 @@
-import { useState } from "react";
-import { Truck, Plus, X, Package, ChevronDown, ChevronUp, Eye, EyeOff, Trash2 } from "lucide-react";
-import pathaoLogo from "figma:asset/41b7d92733e22d8e3b0b9529b78d56c340085602.png";
+import { useState, useEffect } from 'react';
+import { Truck, Check, X, AlertCircle, Loader2, Power, TestTube } from 'lucide-react';
+import { 
+  apiClient, 
+  DeliveryProvider, 
+  DeliveryProviderStatus, 
+  PathaoCredentials, 
+  SteadfastCredentials 
+} from '../lib/api';
 
-interface WeightCharge {
-  weight: number;
-  charge: number;
-}
-
-interface CourierCredentials {
-  [key: string]: string;
-}
-
-interface CourierService {
-  id: string;
-  name: string;
+interface ProviderConfig {
+  provider: DeliveryProvider;
+  display_name: string;
+  description: string;
   logo: string;
-  subtitle: string;
-  enabled: boolean;
-  configured: boolean;
-  credentials?: CourierCredentials;
   fields: {
-    name: string;
+    name: keyof PathaoCredentials | keyof SteadfastCredentials;
     label: string;
-    type: 'text' | 'password';
+    type: 'text' | 'password' | 'email';
     placeholder: string;
+    required: boolean;
   }[];
 }
 
-export default function DeliverySettings() {
-  const [defaultCharge, setDefaultCharge] = useState(60);
-  const [defaultCod, setDefaultCod] = useState(true);
-  const [chargeRefundable, setChargeRefundable] = useState(false);
-  const [insideDhakaCharge, setInsideDhakaCharge] = useState(60);
-  const [insideDhakaCod, setInsideDhakaCod] = useState(true);
-  const [subDhakaCharge, setSubDhakaCharge] = useState(80);
-  const [subDhakaCod, setSubDhakaCod] = useState(true);
-  const [outsideDhakaCharge, setOutsideDhakaCharge] = useState(120);
-  const [outsideDhakaCod, setOutsideDhakaCod] = useState(true);
-  const [weightCharges, setWeightCharges] = useState<WeightCharge[]>([
-    { weight: 5, charge: 50 },
-    { weight: 10, charge: 80 },
-  ]);
-
-  const [courierServices, setCourierServices] = useState<CourierService[]>([
-    {
-      id: '1',
-      name: 'Pathao',
-      logo: '🚚',
-      subtitle: 'Configure delivery credentials',
-      enabled: false,
-      configured: false,
-      fields: [
-        { name: 'storeId', label: 'Store ID', type: 'text', placeholder: 'Store ID' },
-        { name: 'clientId', label: 'Client ID', type: 'text', placeholder: 'Client ID' },
-        { name: 'clientSecret', label: 'Client Secret', type: 'password', placeholder: 'Client Secret' },
-        { name: 'password', label: 'Password', type: 'password', placeholder: 'Password' },
-        { name: 'username', label: 'Username', type: 'text', placeholder: 'Username' },
-      ],
-    },
-    {
-      id: '2',
-      name: 'Steadfast',
-      logo: '📦',
-      subtitle: 'Configure delivery credentials',
-      enabled: false,
-      configured: false,
-      fields: [
-        { name: 'apiKey', label: 'API key', type: 'password', placeholder: 'API key' },
-        { name: 'appSecret', label: 'App Secret', type: 'password', placeholder: 'App Secret' },
-      ],
-    },
-    {
-      id: '3',
-      name: 'Redx',
-      logo: '🚛',
-      subtitle: 'Configure delivery credentials',
-      enabled: false,
-      configured: false,
-      fields: [
-        { name: 'apiKey', label: 'API key', type: 'password', placeholder: 'API key' },
-      ],
-    },
-  ]);
-
-  const [expandedCourier, setExpandedCourier] = useState<string | null>(null);
-  const [courierFormData, setCourierFormData] = useState<{ [key: string]: CourierCredentials }>({});
-  const [showPasswords, setShowPasswords] = useState<{ [key: string]: boolean }>({});
-
-  const addWeightCharge = () => {
-    setWeightCharges([...weightCharges, { weight: 0, charge: 0 }]);
-  };
-
-  const updateWeightCharge = (index: number, field: 'weight' | 'charge', value: number) => {
-    const updated = [...weightCharges];
-    updated[index] = { ...updated[index], [field]: value };
-    setWeightCharges(updated);
-  };
-
-  const removeWeightCharge = (index: number) => {
-    setWeightCharges(weightCharges.filter((_, i) => i !== index));
-  };
-
-  const toggleCourierService = (id: string) => {
-    setCourierServices(courierServices.map(cs =>
-      cs.id === id ? { ...cs, enabled: !cs.enabled } : cs
-    ));
-  };
-
-  const toggleCourierExpand = (id: string) => {
-    if (expandedCourier === id) {
-      setExpandedCourier(null);
-    } else {
-      setExpandedCourier(id);
-      // Initialize form data if not exists
-      const courier = courierServices.find(c => c.id === id);
-      if (courier && !courierFormData[id]) {
-        const initialData: CourierCredentials = {};
-        courier.fields.forEach(field => {
-          initialData[field.name] = courier.credentials?.[field.name] || '';
-        });
-        setCourierFormData({ ...courierFormData, [id]: initialData });
+const PROVIDER_CONFIGS: ProviderConfig[] = [
+  {
+    provider: 'pathao',
+    display_name: 'Pathao Courier',
+    description: 'Fast and reliable delivery across Bangladesh',
+    logo: '🚚',
+    fields: [
+      {
+        name: 'client_id',
+        label: 'Client ID',
+        type: 'text',
+        placeholder: 'Enter your Pathao Client ID',
+        required: true
+      },
+      {
+        name: 'client_secret',
+        label: 'Client Secret',
+        type: 'password',
+        placeholder: 'Enter your Pathao Client Secret',
+        required: true
+      },
+      {
+        name: 'username',
+        label: 'Username (Email)',
+        type: 'email',
+        placeholder: 'merchant@example.com',
+        required: true
+      },
+      {
+        name: 'password',
+        label: 'Password',
+        type: 'password',
+        placeholder: 'Enter your Pathao account password',
+        required: true
       }
+    ]
+  },
+  {
+    provider: 'steadfast',
+    display_name: 'Steadfast Courier',
+    description: 'Trusted delivery partner for e-commerce',
+    logo: '📦',
+    fields: [
+      {
+        name: 'api_key',
+        label: 'API Key',
+        type: 'text',
+        placeholder: 'Enter your Steadfast API Key',
+        required: true
+      },
+      {
+        name: 'secret_key',
+        label: 'Secret Key',
+        type: 'password',
+        placeholder: 'Enter your Steadfast Secret Key',
+        required: true
+      }
+    ]
+  }
+];
+
+export default function DeliverySettings() {
+  const [providers, setProviders] = useState<DeliveryProviderStatus[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [connectingProvider, setConnectingProvider] = useState<DeliveryProvider | null>(null);
+  const [disconnectingProvider, setDisconnectingProvider] = useState<DeliveryProvider | null>(null);
+  const [testingProvider, setTestingProvider] = useState<DeliveryProvider | null>(null);
+  const [togglingProvider, setTogglingProvider] = useState<DeliveryProvider | null>(null);
+  const [showCredentialsForm, setShowCredentialsForm] = useState<DeliveryProvider | null>(null);
+  const [credentials, setCredentials] = useState<Record<string, string>>({});
+  const [isSandbox, setIsSandbox] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Load delivery settings on mount
+  useEffect(() => {
+    loadDeliverySettings();
+  }, []);
+
+  const loadDeliverySettings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const settings = await apiClient.getDeliverySettings();
+      setProviders(settings.providers);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load delivery settings');
+      console.error('Failed to load delivery settings:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const updateCourierField = (courierId: string, fieldName: string, value: string) => {
-    setCourierFormData({
-      ...courierFormData,
-      [courierId]: {
-        ...(courierFormData[courierId] || {}),
-        [fieldName]: value,
-      },
-    });
+  const handleConnect = async (provider: DeliveryProvider) => {
+    try {
+      setConnectingProvider(provider);
+      setError(null);
+      setSuccessMessage(null);
+
+      const config = PROVIDER_CONFIGS.find(c => c.provider === provider);
+      if (!config) return;
+
+      // Validate all required fields
+      for (const field of config.fields) {
+        if (field.required && !credentials[field.name]) {
+          throw new Error(`${field.label} is required`);
+        }
+      }
+
+      await apiClient.connectDeliveryProvider({
+        provider,
+        credentials: credentials as any,
+        is_sandbox: isSandbox
+      });
+
+      setSuccessMessage(`${config.display_name} connected successfully!`);
+      setShowCredentialsForm(null);
+      setCredentials({});
+      await loadDeliverySettings();
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Failed to connect provider');
+      console.error('Failed to connect provider:', err);
+    } finally {
+      setConnectingProvider(null);
+    }
   };
 
-  const togglePasswordVisibility = (fieldKey: string) => {
-    setShowPasswords({
-      ...showPasswords,
-      [fieldKey]: !showPasswords[fieldKey],
-    });
+  const handleDisconnect = async (provider: DeliveryProvider) => {
+    const config = PROVIDER_CONFIGS.find(c => c.provider === provider);
+    if (!confirm(`Are you sure you want to disconnect ${config?.display_name}? This will deactivate the provider.`)) {
+      return;
+    }
+
+    try {
+      setDisconnectingProvider(provider);
+      setError(null);
+      setSuccessMessage(null);
+
+      await apiClient.disconnectDeliveryProvider({ provider });
+
+      setSuccessMessage(`${config?.display_name} disconnected successfully`);
+      await loadDeliverySettings();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to disconnect provider');
+      console.error('Failed to disconnect provider:', err);
+    } finally {
+      setDisconnectingProvider(null);
+    }
   };
 
-  const addCourier = (courierId: string) => {
-    setCourierServices(courierServices.map(cs =>
-      cs.id === courierId
-        ? { ...cs, configured: true, credentials: courierFormData[courierId], subtitle: 'Configured and active' }
-        : cs
-    ));
-    setExpandedCourier(null);
+  const handleToggle = async (provider: DeliveryProvider, currentStatus: boolean) => {
+    try {
+      setTogglingProvider(provider);
+      setError(null);
+      setSuccessMessage(null);
+
+      await apiClient.toggleDeliveryProvider({
+        provider,
+        is_active: !currentStatus
+      });
+
+      const config = PROVIDER_CONFIGS.find(c => c.provider === provider);
+      setSuccessMessage(`${config?.display_name} ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+      await loadDeliverySettings();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to toggle provider');
+      console.error('Failed to toggle provider:', err);
+    } finally {
+      setTogglingProvider(null);
+    }
   };
 
-  const removeCourier = (courierId: string) => {
-    setCourierServices(courierServices.map(cs =>
-      cs.id === courierId
-        ? { ...cs, configured: false, enabled: false, credentials: undefined, subtitle: 'Configure delivery credentials' }
-        : cs
-    ));
-    setCourierFormData({ ...courierFormData, [courierId]: {} });
-    setExpandedCourier(null);
+  const handleTest = async (provider: DeliveryProvider) => {
+    try {
+      setTestingProvider(provider);
+      setError(null);
+      setSuccessMessage(null);
+
+      await apiClient.testDeliveryConnection(provider);
+
+      const config = PROVIDER_CONFIGS.find(c => c.provider === provider);
+      setSuccessMessage(`${config?.display_name} connection test successful!`);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Connection test failed');
+      console.error('Connection test failed:', err);
+    } finally {
+      setTestingProvider(null);
+    }
   };
+
+  const openCredentialsForm = (provider: DeliveryProvider) => {
+    setShowCredentialsForm(provider);
+    setCredentials({});
+    setIsSandbox(false);
+    setError(null);
+    setSuccessMessage(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Delivery Settings</h1>
-        <p className="text-gray-600 mt-1">Configure delivery charges and courier services</p>
+    <div className="p-6 max-w-5xl">
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <Truck className="w-6 h-6 text-gray-700" />
+          <h1 className="text-2xl font-semibold text-gray-900">Delivery Settings</h1>
+        </div>
+        <p className="text-sm text-gray-600">
+          Configure your delivery providers for automated order fulfillment
+        </p>
       </div>
 
-      <div className="max-w-4xl space-y-6">
-        {/* Default Delivery Charge */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Default Delivery Settings</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Default Delivery Charge
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-600">৳</span>
-                <input
-                  type="number"
-                  value={defaultCharge}
-                  onChange={(e) => setDefaultCharge(parseFloat(e.target.value) || 0)}
-                  className="w-40 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  step="10"
-                  min="0"
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Default delivery charge applies unless overridden by district
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between py-3 border-t border-gray-200">
-              <div>
-                <div className="font-medium text-gray-900">Enable COD for Default Delivery</div>
-                <div className="text-sm text-gray-600">Allow cash on delivery for default areas</div>
-              </div>
-              <button
-                onClick={() => setDefaultCod(!defaultCod)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  defaultCod ? 'bg-blue-600' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    defaultCod ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between py-3 border-t border-gray-200">
-              <div>
-                <div className="font-medium text-gray-900">Delivery Charge Not Refundable</div>
-                <div className="text-sm text-gray-600">Delivery charge won't be refunded on returns</div>
-              </div>
-              <button
-                onClick={() => setChargeRefundable(!chargeRefundable)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  chargeRefundable ? 'bg-blue-600' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    chargeRefundable ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Weight-Based Extra Charges */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Weight-Based Extra Charges</h2>
-          <p className="text-sm text-gray-600 mb-4">Add extra charges based on package weight</p>
-
-          <div className="space-y-3 mb-4">
-            {weightCharges.map((wc, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <div className="flex-1 grid grid-cols-2 gap-3">
-                  <div>
-                    <input
-                      type="number"
-                      value={wc.weight}
-                      onChange={(e) => updateWeightCharge(index, 'weight', parseFloat(e.target.value) || 0)}
-                      placeholder="Weight (kg)"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      step="0.5"
-                      min="0"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-600">৳</span>
-                    <input
-                      type="number"
-                      value={wc.charge}
-                      onChange={(e) => updateWeightCharge(index, 'charge', parseFloat(e.target.value) || 0)}
-                      placeholder="Extra charge"
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      step="10"
-                      min="0"
-                    />
-                  </div>
-                </div>
-                <button
-                  onClick={() => removeWeightCharge(index)}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            ))}
-          </div>
-
+      {/* Success Message */}
+      {successMessage && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+          <Check className="w-5 h-5 text-green-600" />
+          <p className="text-sm text-green-700">{successMessage}</p>
           <button
-            onClick={addWeightCharge}
-            className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400 hover:text-gray-900 transition-colors w-full justify-center"
+            onClick={() => setSuccessMessage(null)}
+            className="ml-auto text-green-600 hover:text-green-700"
           >
-            <Plus className="w-4 h-4" />
-            Add Weight Range
-          </button>
-
-          <p className="text-xs text-gray-500 mt-3">
-            Example: 5kg = ৳50, 10kg = ৳80
-          </p>
-        </div>
-
-        {/* Specific Delivery Charges */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Specific Delivery Charges</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Set custom delivery charges for specific districts. These will override the default charge.
-          </p>
-
-          <div className="space-y-3 mb-4">
-            {/* Inside Dhaka */}
-            <div className="p-4 border border-gray-200 rounded-lg space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 grid grid-cols-2 gap-3">
-                  <div>
-                    <select
-                      disabled
-                      value="Dhaka"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                    >
-                      <option value="Dhaka">Dhaka</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-600">৳</span>
-                    <input
-                      type="number"
-                      value={insideDhakaCharge}
-                      onChange={(e) => setInsideDhakaCharge(parseFloat(e.target.value) || 0)}
-                      placeholder="Delivery charge"
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      step="10"
-                      min="0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pl-2">
-                <span className="text-sm text-gray-700">Enable COD for Inside Dhaka</span>
-                <button
-                  onClick={() => setInsideDhakaCod(!insideDhakaCod)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    insideDhakaCod ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      insideDhakaCod ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-
-            {/* Sub Dhaka */}
-            <div className="p-4 border border-gray-200 rounded-lg space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 grid grid-cols-2 gap-3">
-                  <div>
-                    <select
-                      disabled
-                      value="Sub Dhaka"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                    >
-                      <option value="Sub Dhaka">Sub Dhaka (Gazipur, Savar & Narayanganj)</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-600">৳</span>
-                    <input
-                      type="number"
-                      value={subDhakaCharge}
-                      onChange={(e) => setSubDhakaCharge(parseFloat(e.target.value) || 0)}
-                      placeholder="Delivery charge"
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      step="10"
-                      min="0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pl-2">
-                <span className="text-sm text-gray-700">Enable COD for Sub Dhaka</span>
-                <button
-                  onClick={() => setSubDhakaCod(!subDhakaCod)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    subDhakaCod ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      subDhakaCod ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-
-            {/* Outside Dhaka */}
-            <div className="p-4 border border-gray-200 rounded-lg space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 grid grid-cols-2 gap-3">
-                  <div>
-                    <select
-                      disabled
-                      value="Outside Dhaka"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                    >
-                      <option value="Outside Dhaka">Outside Dhaka</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-600">৳</span>
-                    <input
-                      type="number"
-                      value={outsideDhakaCharge}
-                      onChange={(e) => setOutsideDhakaCharge(parseFloat(e.target.value) || 0)}
-                      placeholder="Delivery charge"
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      step="10"
-                      min="0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pl-2">
-                <span className="text-sm text-gray-700">Enable COD for Outside Dhaka</span>
-                <button
-                  onClick={() => setOutsideDhakaCod(!outsideDhakaCod)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    outsideDhakaCod ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      outsideDhakaCod ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <button className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            Update Delivery Charges
+            <X className="w-4 h-4" />
           </button>
         </div>
+      )}
 
-        {/* Courier Services */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Courier Services</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Enable and configure third-party courier services
-          </p>
+      {/* Error Message */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-red-600" />
+          <p className="text-sm text-red-700">{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="ml-auto text-red-600 hover:text-red-700"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
-          <div className="space-y-4">
-            {courierServices.map((courier) => (
-              <div key={courier.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                {/* Courier Header */}
-                <div className="p-4 bg-white flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
-                    <span className="text-2xl">{courier.logo}</span>
+      {/* Provider Cards */}
+      <div className="space-y-4">
+        {PROVIDER_CONFIGS.map((config) => {
+          const providerStatus = providers.find(p => p.provider === config.provider);
+          const isConnected = providerStatus?.is_connected || false;
+          const isActive = providerStatus?.is_active || false;
+          const isConnecting = connectingProvider === config.provider;
+          const isDisconnecting = disconnectingProvider === config.provider;
+          const isTesting = testingProvider === config.provider;
+          const isToggling = togglingProvider === config.provider;
+          const showingForm = showCredentialsForm === config.provider;
+
+          return (
+            <div key={config.provider} className="border border-gray-200 rounded-lg bg-white overflow-hidden">
+              {/* Provider Header */}
+              <div className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 flex items-center justify-center bg-gray-100 rounded-lg text-2xl">
+                      {config.logo}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{config.display_name}</h3>
+                      <p className="text-sm text-gray-600 mt-1">{config.description}</p>
+                      {isConnected && (
+                        <div className="flex items-center gap-4 mt-2">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                            <span className="text-xs text-gray-600">Connected</span>
+                          </div>
+                          {providerStatus.last_validated_at && (
+                            <span className="text-xs text-gray-500">
+                              Last tested: {new Date(providerStatus.last_validated_at).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-gray-900">{courier.name}</div>
-                    <div className="text-sm text-gray-600">{courier.subtitle}</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {courier.configured && (
-                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+
+                  {/* Status Badge */}
+                  <div>
+                    {isActive && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
                         Active
                       </span>
                     )}
-                    <button
-                      onClick={() => toggleCourierService(courier.id)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        courier.enabled ? 'bg-blue-600' : 'bg-gray-300'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          courier.enabled ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
+                    {isConnected && !isActive && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        Inactive
+                      </span>
+                    )}
+                    {!isConnected && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                        Not Connected
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Expandable Configuration Panel */}
-                {courier.enabled && (
-                  <div className="border-t border-gray-200 bg-gray-50">
+                {/* Actions */}
+                <div className="flex items-center gap-3 mt-6">
+                  {!isConnected && (
                     <button
-                      onClick={() => toggleCourierExpand(courier.id)}
-                      className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-100 transition-colors"
+                      onClick={() => openCredentialsForm(config.provider)}
+                      disabled={isConnecting}
+                      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-900">
-                          {expandedCourier === courier.id ? 'Hide' : 'Show'} Configuration
-                        </span>
-                      </div>
-                      {expandedCourier === courier.id ? (
-                        <ChevronUp className="w-5 h-5 text-gray-600" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-gray-600" />
-                      )}
+                      {isConnecting && <Loader2 className="w-4 h-4 animate-spin" />}
+                      Connect
                     </button>
+                  )}
 
-                    {expandedCourier === courier.id && (
-                      <div className="p-6 bg-white border-t border-gray-200">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center">
-                            <span className="text-xl">{courier.logo}</span>
-                          </div>
-                          <h3 className="font-semibold text-gray-900">Configure {courier.name}</h3>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-4">
-                          Please provide your {courier.name} credentials to integrate {courier.name}
-                        </p>
+                  {isConnected && (
+                    <>
+                      <button
+                        onClick={() => handleToggle(config.provider, isActive)}
+                        disabled={isToggling}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 ${
+                          isActive
+                            ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            : 'bg-green-600 text-white hover:bg-green-700'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        {isToggling && <Loader2 className="w-4 h-4 animate-spin" />}
+                        {!isToggling && <Power className="w-4 h-4" />}
+                        {isActive ? 'Deactivate' : 'Activate'}
+                      </button>
 
-                        <div className="grid grid-cols-2 gap-3 mb-4">
-                          {courier.fields.map((field, index) => (
-                            <div key={field.name} className={field.name === 'username' ? 'col-span-2' : ''}>
-                              <div className="relative">
-                                <input
-                                  type={field.type === 'password' && !showPasswords[`${courier.id}-${field.name}`] ? 'password' : 'text'}
-                                  value={courierFormData[courier.id]?.[field.name] || ''}
-                                  onChange={(e) => updateCourierField(courier.id, field.name, e.target.value)}
-                                  placeholder={field.placeholder}
-                                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
-                                />
-                                {field.type === 'password' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => togglePasswordVisibility(`${courier.id}-${field.name}`)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                  >
-                                    {showPasswords[`${courier.id}-${field.name}`] ? (
-                                      <EyeOff className="w-5 h-5" />
-                                    ) : (
-                                      <Eye className="w-5 h-5" />
-                                    )}
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                      <button
+                        onClick={() => handleTest(config.provider)}
+                        disabled={isTesting}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {isTesting && <Loader2 className="w-4 h-4 animate-spin" />}
+                        {!isTesting && <TestTube className="w-4 h-4" />}
+                        Test Connection
+                      </button>
 
-                        {courier.configured ? (
-                          <button
-                            onClick={() => removeCourier(courier.id)}
-                            className="w-full px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-2"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                            Remove
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => addCourier(courier.id)}
-                            className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center justify-center gap-2"
-                          >
-                            <Plus className="w-5 h-5" />
-                            Add
-                          </button>
-                        )}
+                      <button
+                        onClick={() => handleDisconnect(config.provider)}
+                        disabled={isDisconnecting}
+                        className="px-4 py-2 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {isDisconnecting && <Loader2 className="w-4 h-4 animate-spin" />}
+                        {!isDisconnecting && <X className="w-4 h-4" />}
+                        Disconnect
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Credentials Form */}
+              {showingForm && (
+                <div className="border-t border-gray-200 bg-gray-50 p-6">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-4">
+                    Enter {config.display_name} Credentials
+                  </h4>
+
+                  <div className="space-y-4">
+                    {config.fields.map((field) => (
+                      <div key={field.name}>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {field.label}
+                          {field.required && <span className="text-red-500 ml-1">*</span>}
+                        </label>
+                        <input
+                          type={field.type}
+                          value={credentials[field.name] || ''}
+                          onChange={(e) => setCredentials({ ...credentials, [field.name]: e.target.value })}
+                          placeholder={field.placeholder}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    ))}
+
+                    {config.provider === 'pathao' && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="sandbox"
+                          checked={isSandbox}
+                          onChange={(e) => setIsSandbox(e.target.checked)}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="sandbox" className="text-sm text-gray-700">
+                          Use Sandbox/Test Environment
+                        </label>
                       </div>
                     )}
+
+                    <div className="flex items-center gap-3 pt-2">
+                      <button
+                        onClick={() => handleConnect(config.provider)}
+                        disabled={isConnecting}
+                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {isConnecting && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Save & Connect
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowCredentialsForm(null);
+                          setCredentials({});
+                        }}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Info Box */}
+      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex gap-3">
+          <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-blue-900">
+            <p className="font-medium mb-1">Important Information</p>
+            <ul className="list-disc list-inside space-y-1 text-blue-800">
+              <li>Only one delivery provider can be active at a time</li>
+              <li>Activating a provider will automatically deactivate others</li>
+              <li>Credentials are encrypted and stored securely</li>
+              <li>Test your connection before activating a provider</li>
+            </ul>
           </div>
         </div>
       </div>

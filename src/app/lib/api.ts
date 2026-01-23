@@ -246,6 +246,53 @@ export interface MetaIntegrationStatus {
   connected_at: string | null;
 }
 
+// Delivery provider types
+export type DeliveryProvider = 'pathao' | 'steadfast';
+
+export interface DeliveryProviderStatus {
+  provider: DeliveryProvider;
+  display_name: string;
+  is_connected: boolean;
+  is_active: boolean;
+  metadata?: Record<string, any>;
+  last_validated_at: string | null;
+  connected_at: string | null;
+}
+
+export interface DeliverySettings {
+  providers: DeliveryProviderStatus[];
+}
+
+export interface PathaoCredentials {
+  client_id: string;
+  client_secret: string;
+  username: string;
+  password: string;
+}
+
+export interface SteadfastCredentials {
+  api_key: string;
+  secret_key: string;
+}
+
+export type DeliveryCredentials = PathaoCredentials | SteadfastCredentials;
+
+export interface ConnectDeliveryProviderRequest {
+  provider: DeliveryProvider;
+  credentials: DeliveryCredentials;
+  is_sandbox?: boolean;
+  metadata?: Record<string, any>;
+}
+
+export interface DisconnectDeliveryProviderRequest {
+  provider: DeliveryProvider;
+}
+
+export interface ToggleDeliveryProviderRequest {
+  provider: DeliveryProvider;
+  is_active: boolean;
+}
+
 // API Client class
 class ApiClient {
   private client: AxiosInstance;
@@ -528,6 +575,45 @@ class ApiClient {
   async disconnectMetaPlatform(platform: MetaPlatform): Promise<{ message: string }> {
     const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.post('/integrations/meta/disconnect', { platform });
     return response.data.data;
+  }
+
+  // ============================================
+  // Delivery Provider Management
+  // ============================================
+
+  async getDeliverySettings(): Promise<DeliverySettings> {
+    const response: AxiosResponse<ApiResponse<DeliverySettings>> = await this.client.get('/shop/delivery/settings');
+    return response.data.data;
+  }
+
+  async connectDeliveryProvider(request: ConnectDeliveryProviderRequest): Promise<{ message: string; provider: string }> {
+    const response: AxiosResponse<ApiResponse<{ message: string; provider: string }>> = await this.client.post('/shop/delivery/connect', request);
+    return response.data.data || { message: response.data.message || 'Connected successfully', provider: request.provider };
+  }
+
+  async disconnectDeliveryProvider(request: DisconnectDeliveryProviderRequest): Promise<{ message: string }> {
+    const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.post('/shop/delivery/disconnect', request);
+    return response.data.data || { message: response.data.message || 'Disconnected successfully' };
+  }
+
+  async toggleDeliveryProvider(request: ToggleDeliveryProviderRequest): Promise<{ message: string }> {
+    const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.post('/shop/delivery/toggle', request);
+    return response.data.data || { message: response.data.message || 'Provider toggled successfully' };
+  }
+
+  async testDeliveryConnection(provider: DeliveryProvider): Promise<{ message: string; valid: boolean }> {
+    const response: AxiosResponse<ApiResponse<{ message: string; valid: boolean }>> = await this.client.post('/shop/delivery/test', { provider });
+    return response.data.data || { message: response.data.message || 'Test successful', valid: true };
+  }
+
+  async getPathaoStores(): Promise<any[]> {
+    const response: AxiosResponse<ApiResponse<{ stores: any[] }>> = await this.client.get('/shop/delivery/pathao/stores');
+    return response.data.data?.stores || [];
+  }
+
+  async updateDeliveryMetadata(provider: DeliveryProvider, metadata: Record<string, any>): Promise<{ message: string }> {
+    const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.put(`/shop/delivery/${provider}/metadata`, { metadata });
+    return response.data.data || { message: response.data.message || 'Metadata updated successfully' };
   }
 }
 
