@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CreditCard, Wallet, DollarSign, Upload, ChevronDown, ChevronUp } from "lucide-react";
+import { apiClient } from "@/app/lib/api";
 
 interface PaymentGateway {
   id: string;
@@ -50,6 +51,106 @@ export default function PaymentSettings() {
   const [advancePercentage, setAdvancePercentage] = useState(50);
   const [advanceFixed, setAdvanceFixed] = useState(100);
   const [paymentMessage, setPaymentMessage] = useState('Payment instructions will be sent after order confirmation.');
+  const [loading, setLoading] = useState(false);
+  const [savingGateway, setSavingGateway] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Load payment configurations on mount
+  useEffect(() => {
+    loadPaymentConfigs();
+  }, []);
+
+  const loadPaymentConfigs = async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.get('/api/payment/config');
+      
+      if (response.data.success && response.data.data) {
+        // Update gateways with loaded configurations
+        const loadedConfigs = response.data.data;
+        setGateways(prev => prev.map(gw => {
+          const config = loadedConfigs.find((c: any) => c.gateway === gw.id);
+          if (config) {
+            return {
+              ...gw,
+              enabled: config.is_enabled,
+              // Don't overwrite config if credentials exist but keep UI fields empty for security
+            };
+          }
+          return gw;
+        }));
+      }
+    } catch (error: any) {
+      console.error('Failed to load payment configs:', error);
+      setError('Failed to load payment configurations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveGatewayConfig = async (gatewayId: string) => {
+    try {
+      setSavingGateway(gatewayId);
+      setError(null);
+      setSuccess(null);
+
+      const gateway = gateways.find(gw => gw.id === gatewayId);
+      if (!gateway) return;
+
+      let credentials: any = null;
+
+      // Prepare credentials based on gateway type
+      if (gatewayId === 'aamarpay' && gateway.config) {
+        if (!gateway.config.storeId || !gateway.config.secretKey) {
+          setError('Please enter both Store ID and Secret Key for AamarPay');
+          return;
+        }
+        credentials = {
+          store_id: gateway.config.storeId,
+          secret_key: gateway.config.secretKey
+        };
+      } else if (gatewayId === 'sslcommerz' && gateway.config) {
+        if (!gateway.config.storeId || !gateway.config.storePassword) {
+          setError('Please enter both Store ID and Store Password for SSLCommerz');
+          return;
+        }
+        credentials = {
+          store_id: gateway.config.storeId,
+          store_password: gateway.config.storePassword
+        };
+      }
+
+      const payload = {
+        gateway: gatewayId,
+        is_enabled: gateway.enabled,
+        credentials,
+        config: gatewayId === 'sslcommerz' ? { environment: gateway.config?.environment } : {}
+      };
+
+      const response = await apiClient.post('/api/payment/config', payload);
+
+      if (response.data.success) {
+        setSuccess(`${gateway.name} configuration saved successfully!`);
+        
+        // Clear sensitive fields after save
+        if (gatewayId === 'aamarpay' || gatewayId === 'sslcommerz') {
+          setGateways(prev => prev.map(gw => 
+            gw.id === gatewayId 
+              ? { ...gw, config: { ...gw.config, storeId: '', secretKey: '', storePassword: '' } }
+              : gw
+          ));
+        }
+
+        setTimeout(() => setSuccess(null), 3000);
+      }
+    } catch (error: any) {
+      console.error('Failed to save gateway config:', error);
+      setError(error.response?.data?.message || 'Failed to save configuration');
+    } finally {
+      setSavingGateway(null);
+    }
+  };
 
   const toggleGateway = (id: string) => {
     setGateways(gateways.map(gw =>
@@ -75,6 +176,18 @@ export default function PaymentSettings() {
         <h1 className="text-3xl font-bold text-gray-900">Payment Settings</h1>
         <p className="text-gray-600 mt-1">Configure payment methods and advance payment rules</p>
       </div>
+
+      {/* Success/Error Messages */}
+      {error && (
+        <div className="max-w-4xl mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="max-w-4xl mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+          {success}
+        </div>
+      )}
 
       <div className="max-w-4xl space-y-6">
         {/* Payment Gateways */}
@@ -158,8 +271,12 @@ export default function PaymentSettings() {
                             Don't have an account? <a href="https://aamarpay.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Apply Now</a>
                           </p>
                         </div>
-                        <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                          Save Configuration
+                        <button 
+                          onClick={() => saveGatewayConfig('aamarpay')}
+                          disabled={savingGateway === 'aamarpay'}
+                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                          {savingGateway === 'aamarpay' ? 'Saving...' : 'Save Configuration'}
                         </button>
                       </div>
                     )}
@@ -204,8 +321,12 @@ export default function PaymentSettings() {
                             <option value="live">Live (Production)</option>
                           </select>
                         </div>
-                        <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                          Save Configuration
+                        <button 
+                          onClick={() => saveGatewayConfig('sslcommerz')}
+                          disabled={savingGateway === 'sslcommerz'}
+                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                          {savingGateway === 'sslcommerz' ? 'Saving...' : 'Save Configuration'}
                         </button>
                       </div>
                     )}

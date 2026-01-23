@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "react-router";
-import { LayoutDashboard, MessageSquare, Radio, Package, ShoppingCart, BarChart3, Brain, Target, FolderTree, Store, Megaphone, User, Check, Plus, LogOut, ChevronUp, X, AlertCircle } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Radio, Package, ShoppingCart, BarChart3, Brain, Target, FolderTree, Store, User, Check, Plus, LogOut, ChevronUp, X, AlertCircle, CreditCard } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { logout } from "@/app/lib/auth";
@@ -12,9 +12,9 @@ const navigation = [
   { name: 'Orders', path: '/orders', icon: ShoppingCart },
   { name: 'Customer', path: '/intelligence', icon: Target },
   { name: 'Manage Shop', path: '/manage-shop', icon: Store },
-  { name: 'Marketing', path: '/marketing', icon: Megaphone },
   { name: 'AI Knowledge', path: '/knowledge', icon: Brain },
   { name: 'Reports', path: '/reports', icon: BarChart3 },
+  { name: 'Subscription', path: '/subscription', icon: CreditCard },
 ];
 
 interface Shop {
