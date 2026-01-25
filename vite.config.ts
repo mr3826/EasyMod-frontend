@@ -10,6 +10,22 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  build: {
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) return 'react-vendor';
+            if (id.includes('@mui')) return 'mui-vendor';
+            if (id.includes('recharts')) return 'charts-vendor';
+            if (id.includes('@radix-ui')) return 'radix-vendor';
+          }
+          return undefined;
+        }
+      }
+    }
+  },
   resolve: {
     alias: {
       // Alias @ to the src directory
