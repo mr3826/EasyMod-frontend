@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { Link } from 'react-router-dom';
 import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { Checkbox } from '@/app/components/ui/checkbox';
@@ -156,9 +157,9 @@ export default function SignIn() {
         <div className="mt-6 text-center text-sm text-gray-500">
           <p>
             Don't have an account?{' '}
-            <a href="#" className="text-blue-600 hover:text-blue-700 transition-colors">
-              Contact Sales
-            </a>
+            <Link to="/signup" className="text-blue-600 hover:text-blue-700 transition-colors">
+              Create one
+            </Link>
           </p>
         </div>
       </div>
