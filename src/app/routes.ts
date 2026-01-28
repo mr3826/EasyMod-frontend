@@ -14,7 +14,7 @@ import CategoryDetails from "./components/CategoryDetails";
 import SubcategoryDetails from "./components/SubcategoryDetails";
 import ManageShop from "./components/ManageShop";
 import SignIn from "./components/SignIn";
-import SignUp from "./components/SignUp";
+
 import Subscription from "./components/Subscription";
 import { authService } from "./lib/auth";
 
@@ -39,11 +39,7 @@ export const router = createBrowserRouter([
     Component: SignIn,
     loader: publicLoader,
   },
-  {
-    path: "/signup",
-    Component: SignUp,
-    loader: publicLoader,
-  },
+
   {
     path: "/",
     Component: DashboardLayout,
