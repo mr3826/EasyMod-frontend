@@ -64,11 +64,11 @@ export default function PaymentSettings() {
   const loadPaymentConfigs = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/api/payment/config');
+      const response = await apiClient.getPaymentConfig();
       
-      if (response.data.success && response.data.data) {
+      if (response.success && response.data) {
         // Update gateways with loaded configurations
-        const loadedConfigs = response.data.data;
+        const loadedConfigs = response.data;
         setGateways(prev => prev.map(gw => {
           const config = loadedConfigs.find((c: any) => c.gateway === gw.id);
           if (config) {
@@ -128,9 +128,9 @@ export default function PaymentSettings() {
         config: gatewayId === 'sslcommerz' ? { environment: gateway.config?.environment } : {}
       };
 
-      const response = await apiClient.post('/api/payment/config', payload);
+      const response = await apiClient.updatePaymentConfig(payload);
 
-      if (response.data.success) {
+      if (response.success) {
         setSuccess(`${gateway.name} configuration saved successfully!`);
         
         // Clear sensitive fields after save

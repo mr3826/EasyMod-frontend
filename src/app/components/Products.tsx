@@ -42,7 +42,7 @@ export default function Products() {
           setError('No shop selected');
           return;
         }
-        const fetchedProducts = await apiClient.getProducts(shopId);
+        const fetchedProducts = await apiClient.getProducts();
         setProducts(fetchedProducts);
       } catch (error: any) {
         setError(error.response?.data?.message || 'Failed to load products');
