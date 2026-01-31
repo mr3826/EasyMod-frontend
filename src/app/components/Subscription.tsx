@@ -65,10 +65,10 @@ export default function Subscription() {
   const loadSubscriptionData = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/api/subscription');
+      const response = await apiClient.getSubscription();
       
-      if (response.data.success && response.data.data) {
-        const { subscription, usage: usageData, extra_usage } = response.data.data;
+      if (response.success && response.data) {
+        const { subscription, usage: usageData, extra_usage } = response.data;
         
         // Update current plan
         setCurrentPlan({
@@ -121,10 +121,10 @@ export default function Subscription() {
 
   const loadInvoices = async () => {
     try {
-      const response = await apiClient.get('/api/subscription/invoices');
+      const response = await apiClient.getSubscriptionInvoices();
       
-      if (response.data.success && response.data.data) {
-        const mappedInvoices = response.data.data.map((inv: any) => ({
+      if (response.success && response.data) {
+        const mappedInvoices = response.data.map((inv: any) => ({
           id: inv.invoice_number,
           billingPeriod: inv.billing_period,
           amount: parseFloat(inv.amount),
@@ -204,13 +204,13 @@ export default function Subscription() {
       const pack = conversationPacks.find(p => p.amount === selectedConversationPack);
       if (!pack) return;
 
-      const response = await apiClient.post('/api/subscription/conversation-pack', {
+      const response = await apiClient.purchaseConversationPack({
         amount: selectedConversationPack,
         price: pack.price
       });
 
-      if (response.data.success) {
-        setSuccess(response.data.message);
+      if (response.success) {
+        setSuccess(response.message);
         setSelectedConversationPack(null);
         // Reload invoices to show new one
         loadInvoices();
