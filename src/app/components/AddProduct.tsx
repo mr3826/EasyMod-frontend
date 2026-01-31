@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Upload, X, Plus, ChevronDown, ChevronUp, Save, Calendar, Package, Tag, FolderTree } from "lucide-react";
+import { apiClient } from "@/app/lib/api";
 
 export default function AddProduct() {
   const navigate = useNavigate();
@@ -111,9 +112,45 @@ export default function AddProduct() {
     setVariants(updated);
   };
 
-  const handleSave = (action: "draft" | "schedule" | "publish") => {
-    console.log("Saving product as:", action);
-    navigate("/products");
+  const handleSave = async (action: "draft" | "schedule" | "publish") => {
+    try {
+      if (!productName.trim()) {
+        alert('Product name is required');
+        return;
+      }
+
+      const price = parseFloat(basePrice);
+      if (isNaN(price) || price <= 0) {
+        alert('Valid selling price is required');
+        return;
+      }
+
+      const productData: any = {
+        name: productName.trim(),
+        description: description.trim(),
+        price,
+      };
+
+      if (comparePrice && !isNaN(parseFloat(comparePrice)) && parseFloat(comparePrice) > 0) {
+        productData.compare_at_price = parseFloat(comparePrice);
+      }
+
+      if (costPrice && !isNaN(parseFloat(costPrice)) && parseFloat(costPrice) > 0) {
+        productData.cost_per_item = parseFloat(costPrice);
+      }
+
+      if (selectedCategories.length > 0) {
+        productData.category_id = selectedCategories[0];
+      }
+
+      // Add other fields as needed
+
+      await apiClient.createProduct(productData);
+      console.log("Saving product as:", action);
+      navigate("/products");
+    } catch (error) {
+      console.error("Error saving product:", error);
+    }
   };
 
   // Mock categories for demonstration
@@ -153,10 +190,11 @@ export default function AddProduct() {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="product-name" className="block text-sm font-medium text-gray-700 mb-2">
                   Product Name <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="product-name"
                   type="text"
                   value={productName}
                   onChange={(e) => setProductName(e.target.value)}
@@ -184,12 +222,13 @@ export default function AddProduct() {
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="selling-price" className="block text-sm font-medium text-gray-700 mb-2">
                         Selling Price <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                         <input
+                          id="selling-price"
                           type="number"
                           value={basePrice}
                           onChange={(e) => setBasePrice(e.target.value)}

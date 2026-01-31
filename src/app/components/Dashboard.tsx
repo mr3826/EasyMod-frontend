@@ -215,6 +215,9 @@ export default function Dashboard() {
     },
   ];
 
+  // Use real chart data if available, fallback to mock data
+  const realChartData = dashboardData?.chartData?.length > 0 ? dashboardData.chartData : chartData;
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -276,13 +279,13 @@ export default function Dashboard() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Active Channels</span>
-              <span className="text-2xl font-bold text-gray-900">{activeChannels}/{totalChannels}</span>
+              <span className="text-2xl font-bold text-gray-900">{dashboardData?.channels?.active || 0}/{dashboardData?.channels?.total || 0}</span>
             </div>
             <div className="text-center py-8">
               <div className="text-4xl mb-2">📡</div>
               <p className="text-gray-600 text-sm">
-                {activeChannels > 0
-                  ? `${activeChannels} of ${totalChannels} channels are active`
+                {(dashboardData?.channels?.active || 0) > 0
+                  ? `${dashboardData.channels.active} of ${dashboardData.channels.total} channels are active`
                   : 'No active channels'
                 }
               </p>

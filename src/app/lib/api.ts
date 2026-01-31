@@ -377,6 +377,12 @@ class ApiClient {
     return data;
   }
 
+  // Dashboard endpoints
+  async getDashboardMetrics(): Promise<DashboardMetrics> {
+    const response: AxiosResponse<ApiResponse<DashboardMetrics>> = await this.client.get('/dashboard/metrics');
+    return response.data.data;
+  }
+
   // Product endpoints
   async getProducts(): Promise<Product[]> {
     const response: AxiosResponse<ApiResponse<Product[]>> = await this.client.get('/product');
@@ -614,6 +620,33 @@ class ApiClient {
   async updateDeliveryMetadata(provider: DeliveryProvider, metadata: Record<string, any>): Promise<{ message: string }> {
     const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.put(`/shop/delivery/${provider}/metadata`, { metadata });
     return response.data.data || { message: response.data.message || 'Metadata updated successfully' };
+  }
+
+  // Subscription endpoints
+  async getSubscription(): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/subscription');
+    return response.data;
+  }
+
+  async getSubscriptionInvoices(): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/subscription/invoices');
+    return response.data;
+  }
+
+  async purchaseConversationPack(data: any): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/subscription/conversation-pack', data);
+    return response.data;
+  }
+
+  // Payment endpoints
+  async getPaymentConfig(): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/payment/config');
+    return response.data;
+  }
+
+  async updatePaymentConfig(config: any): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/payment/config', config);
+    return response.data;
   }
 }
 
