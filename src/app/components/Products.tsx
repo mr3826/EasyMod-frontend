@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Plus, Upload, Bot, CheckCircle, Edit2, Trash2, AlertCircle, Search, Filter, Download, ChevronDown, X } from "lucide-react";
 import { Product } from "../lib/api";
 import { authService } from "../lib/auth";
 import { apiClient } from "../lib/api";
 import { useNavigate } from "react-router";
+import AddProduct from "./AddProduct";
 
 export default function Products() {
   const navigate = useNavigate();
@@ -12,47 +13,96 @@ export default function Products() {
   const [error, setError] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
-  const [showManualModal, setShowManualModal] = useState(false);
   const [aiGeneratedProducts, setAiGeneratedProducts] = useState<Product[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   // Search and Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [filters, setFilters] = useState({
-    category: '',
-    status: '',
+    category_id: '',
+    is_active: '',
     source: '',
     minPrice: '',
     maxPrice: '',
   });
+  
+  // Applied filters state - only used after clicking Apply
+  const [appliedFilters, setAppliedFilters] = useState({
+    category_id: '',
+    is_active: '',
+    source: '',
+    minPrice: '',
+    maxPrice: '',
+  });
+  
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
+  const searchDebounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Get unique categories from products
-  const categories = Array.from(new Set(products.map(p => p.category)));
+  // Delete confirmation dialog state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null);
 
-  // Fetch products on mount
+  // Get unique categories from products (build a map of category name to ID)
+  const categoryMap: { [key: string]: string } = {};
+  products.forEach(p => {
+    if (p.category && p.category_id) {
+      categoryMap[p.category] = p.category_id;
+    }
+  });
+  const categories = Object.keys(categoryMap);
+
+  // Fetch products with applied filters
+  const fetchProducts = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const shopId = authService.getCurrentShopId();
+      if (!shopId) {
+        setError('No shop selected');
+        return;
+      }
+      // Build query params from applied filters
+      const queryParams: any = {};
+      if (appliedSearchQuery) queryParams.search = appliedSearchQuery;
+      if (appliedFilters.category_id) queryParams.category_id = appliedFilters.category_id;
+      if (appliedFilters.is_active) queryParams.is_active = appliedFilters.is_active === 'active';
+      if (appliedFilters.minPrice) queryParams.min_price = appliedFilters.minPrice;
+      if (appliedFilters.maxPrice) queryParams.max_price = appliedFilters.maxPrice;
+
+      const fetchedProducts = await apiClient.getProducts(queryParams);
+      setProducts(fetchedProducts);
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Failed to load products');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch products on mount and when applied filters change
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const shopId = authService.getCurrentShopId();
-        if (!shopId) {
-          setError('No shop selected');
-          return;
-        }
-        const fetchedProducts = await apiClient.getProducts();
-        setProducts(fetchedProducts);
-      } catch (error: any) {
-        setError(error.response?.data?.message || 'Failed to load products');
-      } finally {
-        setIsLoading(false);
+    fetchProducts();
+  }, [appliedSearchQuery, appliedFilters]);
+
+  // Debounce search input - wait 2 seconds after user stops typing
+  useEffect(() => {
+    // Clear previous timer if exists
+    if (searchDebounceTimer.current) {
+      clearTimeout(searchDebounceTimer.current);
+    }
+
+    // Set new timer
+    searchDebounceTimer.current = setTimeout(() => {
+      setAppliedSearchQuery(searchQuery);
+    }, 2000);
+
+    // Cleanup on unmount or when searchQuery changes
+    return () => {
+      if (searchDebounceTimer.current) {
+        clearTimeout(searchDebounceTimer.current);
       }
     };
-
-    fetchProducts();
-  }, []);
+  }, [searchQuery]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -113,27 +163,42 @@ export default function Products() {
   };
 
   const handleEditProduct = (product: Product) => {
-    setEditingProduct(product);
-    setAiGeneratedProducts(aiGeneratedProducts.filter(p => p.id !== product.id));
-  };
-
-  const handleSaveEdit = () => {
-    if (editingProduct) {
-      if (editingProduct.aiGenerated && aiGeneratedProducts.find(p => p.id === editingProduct.id)) {
-        setProducts([...products, { ...editingProduct, status: 'active' }]);
-      } else {
-        setProducts(products.map(p => p.id === editingProduct.id ? editingProduct : p));
-      }
-      setEditingProduct(null);
-    }
+    navigate(`/products/${product.id}/edit`);
   };
 
   const handleRejectProduct = (productId: string) => {
     setAiGeneratedProducts(aiGeneratedProducts.filter(p => p.id !== productId));
   };
 
-  const handleDeleteProduct = (productId: string) => {
-    setProducts(products.filter(p => p.id !== productId));
+  const handleDeleteProduct = async (productId: string) => {
+    // Find product to get its name for confirmation dialog
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      setProductToDelete({ id: productId, name: product.name });
+      setShowDeleteConfirm(true);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!productToDelete) return;
+    
+    try {
+      await apiClient.deleteProduct(productToDelete.id);
+      setProducts(products.filter(p => p.id !== productToDelete.id));
+      setShowDeleteConfirm(false);
+      setProductToDelete(null);
+      // Refresh product list
+      fetchProducts();
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Failed to delete product');
+      setShowDeleteConfirm(false);
+      setProductToDelete(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setProductToDelete(null);
   };
 
   const handleDownloadTemplate = () => {
@@ -144,42 +209,35 @@ export default function Products() {
 
   const applyFilters = () => {
     setShowFilterPanel(false);
+    // Copy filters to applied filters to trigger fetch
+    setAppliedFilters({
+      category_id: filters.category_id,
+      is_active: filters.is_active,
+      source: filters.source,
+      minPrice: filters.minPrice,
+      maxPrice: filters.maxPrice,
+    });
   };
 
   const clearFilters = () => {
+    // Reset both filter states
     setFilters({
-      category: '',
-      status: '',
+      category_id: '',
+      is_active: '',
       source: '',
       minPrice: '',
       maxPrice: '',
     });
+    setSearchQuery('');
+    setAppliedFilters({
+      category_id: '',
+      is_active: '',
+      source: '',
+      minPrice: '',
+      maxPrice: '',
+    });
+    setAppliedSearchQuery('');
   };
-
-  // Filter products based on search and filters
-  const filteredProducts = products.filter(product => {
-    // Search filter
-    const matchesSearch = searchQuery === '' || 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchQuery.toLowerCase());
-
-    // Category filter
-    const matchesCategory = filters.category === '' || product.category === filters.category;
-
-    // Status filter
-    const matchesStatus = filters.status === '' || product.status === filters.status;
-
-    // Source filter
-    const matchesSource = filters.source === '' || 
-      (filters.source === 'ai' && product.aiGenerated) ||
-      (filters.source === 'manual' && !product.aiGenerated);
-
-    // Price range filter
-    const matchesMinPrice = filters.minPrice === '' || product.price >= parseFloat(filters.minPrice);
-    const matchesMaxPrice = filters.maxPrice === '' || product.price <= parseFloat(filters.maxPrice);
-
-    return matchesSearch && matchesCategory && matchesStatus && matchesSource && matchesMinPrice && matchesMaxPrice;
-  });
 
   return (
     <div className="p-8">
@@ -249,7 +307,7 @@ export default function Products() {
           >
             <Filter className="w-5 h-5" />
             Filter
-            {(filters.category || filters.status || filters.source || filters.minPrice || filters.maxPrice) && (
+            {(appliedFilters.category_id || appliedFilters.is_active || appliedFilters.source || appliedFilters.minPrice || appliedFilters.maxPrice) && (
               <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
             )}
           </button>
@@ -274,13 +332,13 @@ export default function Products() {
                     Category
                   </label>
                   <select
-                    value={filters.category}
-                    onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+                    value={filters.category_id}
+                    onChange={(e) => setFilters({ ...filters, category_id: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">All Categories</option>
-                    {categories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
+                    {categories.map(catName => (
+                      <option key={categoryMap[catName]} value={categoryMap[catName]}>{catName}</option>
                     ))}
                   </select>
                 </div>
@@ -291,13 +349,12 @@ export default function Products() {
                     Status
                   </label>
                   <select
-                    value={filters.status}
-                    onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                    value={filters.is_active}
+                    onChange={(e) => setFilters({ ...filters, is_active: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">All Status</option>
                     <option value="active">Active</option>
-                    <option value="pending">Pending</option>
                     <option value="inactive">Inactive</option>
                   </select>
                 </div>
@@ -374,26 +431,39 @@ export default function Products() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Variants</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {filteredProducts.map((product) => (
+            {products.map((product) => (
               <tr key={product.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4">
-                  <div>
-                    <div className="font-medium text-gray-900">{product.name}</div>
-                    {product.variants && (
-                      <div className="text-sm text-gray-500">Variants: {product.variants.join(', ')}</div>
-                    )}
-                  </div>
+                  <div className="font-medium text-gray-900">{product.name}</div>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">{product.sku}</td>
                 <td className="px-6 py-4 text-sm text-gray-900">${product.price}</td>
+                <td className="px-6 py-4 text-sm text-gray-900">
+                  {product.track_quantity ? product.quantity || 0 : '—'}
+                </td>
                 <td className="px-6 py-4 text-sm text-gray-500">{product.category}</td>
+                <td className="px-6 py-4 text-sm text-gray-500">
+                  {product.variants && Array.isArray(product.variants) && product.variants.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {product.variants.map((variant, idx) => (
+                        <span key={idx} className="inline-block px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded">
+                          {typeof variant === 'object' ? variant.name || variant : variant}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400">No variants</span>
+                  )}
+                </td>
                 <td className="px-6 py-4">
                   <span className={`px-3 py-1 rounded-full text-sm ${
                     product.status === 'active'
@@ -418,10 +488,7 @@ export default function Products() {
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-2">
                     <button
-                      onClick={() => {
-                        setEditingProduct(product);
-                        setShowManualModal(true);
-                      }}
+                      onClick={() => handleEditProduct(product)}
                       className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
                     >
                       <Edit2 className="w-4 h-4" />
@@ -605,98 +672,33 @@ export default function Products() {
         </div>
       )}
 
-      {/* Manual Product Modal */}
-      {showManualModal && editingProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-          <div className="bg-white rounded-xl p-8 max-w-2xl w-full mx-4 my-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              {editingProduct.id === Date.now().toString() ? 'Add New Product' : 'Edit Product'}
-            </h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
-                <input
-                  type="text"
-                  value={editingProduct.name}
-                  onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter product name"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">SKU</label>
-                  <input
-                    type="text"
-                    value={editingProduct.sku}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="SKU-001"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Price</label>
-                  <input
-                    type="number"
-                    value={editingProduct.price}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.target.value) })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                <input
-                  type="text"
-                  value={editingProduct.category}
-                  onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., Beverages"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Stock Status</label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={editingProduct.stock}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, stock: e.target.checked })}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-gray-700">In Stock</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && productToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Delete Product</h2>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete <span className="font-semibold">"{productToDelete.name}"</span>? This action cannot be undone.
+            </p>
+            
+            <div className="flex gap-3">
               <button
-                onClick={() => {
-                  setShowManualModal(false);
-                  setEditingProduct(null);
-                }}
-                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                onClick={cancelDelete}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  handleSaveEdit();
-                  setShowManualModal(false);
-                }}
-                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={confirmDelete}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
-                Save Product
+                Delete
               </button>
             </div>
           </div>
         </div>
       )}
+
       </>
       )}
     </div>

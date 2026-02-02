@@ -26,23 +26,7 @@ export default function PaymentSettings() {
       logo: <CreditCard className="w-6 h-6 text-orange-600" />,
       description: 'Accept card payments, mobile banking & more',
       enabled: false,
-      config: { storeId: '', secretKey: '' },
-    },
-    {
-      id: 'sslcommerz',
-      name: 'SSLCommerz',
-      logo: <CreditCard className="w-6 h-6 text-blue-600" />,
-      description: 'Leading payment gateway in Bangladesh',
-      enabled: false,
-      config: { storeId: '', storePassword: '', environment: 'sandbox' },
-    },
-    {
-      id: 'self-mfs',
-      name: 'Self MFS',
-      logo: <Wallet className="w-6 h-6 text-purple-600" />,
-      description: 'Use your personal/agent mobile banking account',
-      enabled: false,
-      config: { type: 'bkash', accountType: 'personal', phone: '', qr: null, instructions: '' },
+      config: { storeId: '', secretKey: '', environment: 'sandbox' },
     },
   ]);
 
@@ -55,6 +39,7 @@ export default function PaymentSettings() {
   const [savingGateway, setSavingGateway] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [savedGateways, setSavedGateways] = useState<Set<string>>(new Set());
 
   // Load payment configurations on mount
   useEffect(() => {
@@ -69,9 +54,12 @@ export default function PaymentSettings() {
       if (response.success && response.data) {
         // Update gateways with loaded configurations
         const loadedConfigs = response.data;
+        const savedSet = new Set<string>();
+        
         setGateways(prev => prev.map(gw => {
           const config = loadedConfigs.find((c: any) => c.gateway === gw.id);
           if (config) {
+            savedSet.add(gw.id); // Mark gateway as having saved config
             return {
               ...gw,
               enabled: config.is_enabled,
@@ -80,6 +68,8 @@ export default function PaymentSettings() {
           }
           return gw;
         }));
+        
+        setSavedGateways(savedSet);
       }
     } catch (error: any) {
       console.error('Failed to load payment configs:', error);
@@ -125,15 +115,22 @@ export default function PaymentSettings() {
         gateway: gatewayId,
         is_enabled: gateway.enabled,
         credentials,
-        config: gatewayId === 'sslcommerz' ? { environment: gateway.config?.environment } : {}
+        config: gatewayId === 'aamarpay' 
+          ? { environment: gateway.config?.environment }
+          : gatewayId === 'sslcommerz' 
+          ? { environment: gateway.config?.environment }
+          : {}
       };
 
       const response = await apiClient.updatePaymentConfig(payload);
 
       if (response.success) {
-        setSuccess(`${gateway.name} configuration saved successfully!`);
+        setSuccess(`✓ ${gateway.name} configuration saved successfully! Now use the toggle to activate this payment method.`);
         
-        // Clear sensitive fields after save
+        // Mark gateway as saved
+        setSavedGateways(prev => new Set(prev).add(gatewayId));
+        
+        // Clear sensitive fields after save for security
         if (gatewayId === 'aamarpay' || gatewayId === 'sslcommerz') {
           setGateways(prev => prev.map(gw => 
             gw.id === gatewayId 
@@ -142,7 +139,8 @@ export default function PaymentSettings() {
           ));
         }
 
-        setTimeout(() => setSuccess(null), 3000);
+        // Keep success message longer so user sees it
+        setTimeout(() => setSuccess(null), 4000);
       }
     } catch (error: any) {
       console.error('Failed to save gateway config:', error);
@@ -152,10 +150,39 @@ export default function PaymentSettings() {
     }
   };
 
-  const toggleGateway = (id: string) => {
-    setGateways(gateways.map(gw =>
-      gw.id === id ? { ...gw, enabled: !gw.enabled } : gw
-    ));
+  const toggleGateway = async (id: string) => {
+    const gateway = gateways.find(gw => gw.id === id);
+    if (!gateway) return;
+
+    try {
+      setError(null);
+      setSavingGateway(id);
+
+      const payload = {
+        gateway: id,
+        is_enabled: !gateway.enabled,
+        credentials: null, // Credentials already saved, just toggle active status
+        config: id === 'aamarpay' ? { environment: gateway.config?.environment } : {}
+      };
+
+      const response = await apiClient.updatePaymentConfig(payload);
+
+      if (response.success) {
+        // Update local state
+        setGateways(prev => prev.map(gw =>
+          gw.id === id ? { ...gw, enabled: !gw.enabled } : gw
+        ));
+        
+        const newStatus = !gateway.enabled ? 'activated' : 'deactivated';
+        setSuccess(`✓ ${gateway.name} ${newStatus} for payments!`);
+        setTimeout(() => setSuccess(null), 2500);
+      }
+    } catch (error: any) {
+      console.error('Failed to toggle gateway:', error);
+      setError(error.response?.data?.message || 'Failed to activate payment method');
+    } finally {
+      setSavingGateway(null);
+    }
   };
 
   const toggleExpand = (id: string) => {
@@ -211,9 +238,11 @@ export default function PaymentSettings() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => toggleGateway(gateway.id)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      disabled={!savedGateways.has(gateway.id) || savingGateway === gateway.id}
+                      title={!savedGateways.has(gateway.id) ? 'Save configuration first' : 'Click to activate/deactivate'}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
                         gateway.enabled ? 'bg-blue-600' : 'bg-gray-300'
-                      }`}
+                      } ${!savedGateways.has(gateway.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -265,6 +294,20 @@ export default function PaymentSettings() {
                             placeholder="Enter Secret Key"
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Environment
+                          </label>
+                          <select
+                            value={gateway.config.environment || 'sandbox'}
+                            onChange={(e) => updateGatewayConfig(gateway.id, 'environment', e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="sandbox">Sandbox (Testing)</option>
+                            <option value="live">Live (Production)</option>
+                          </select>
+                          <p className="text-xs text-gray-500 mt-1">Use Sandbox for testing, Live for real transactions</p>
                         </div>
                         <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                           <p className="text-sm text-blue-900">

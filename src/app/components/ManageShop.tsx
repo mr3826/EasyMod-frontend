@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { MessageSquare, Truck, CreditCard } from "lucide-react";
 import ChatSettings from "./ChatSettings";
 import DeliverySettings from "./DeliverySettings";
@@ -7,6 +8,7 @@ import PaymentSettings from "./PaymentSettings";
 type SettingsTab = 'chat' | 'delivery' | 'payment';
 
 export default function ManageShop() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<SettingsTab>('chat');
 
   const tabs = [
@@ -28,7 +30,12 @@ export default function ManageShop() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    if (tab.id === 'chat') {
+                      navigate('/manage-shop/chat-settings');
+                    }
+                  }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${
                     isActive
                       ? 'bg-blue-600 text-white'

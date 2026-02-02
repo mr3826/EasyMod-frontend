@@ -62,13 +62,29 @@ export interface Product {
   name: string;
   sku: string;
   price: number;
-  variants?: string[];
+  description?: string;
+  category?: string;
+  category_id?: string;
+  status?: 'active' | 'inactive' | 'pending';
+  variants?: any[];
   aliases?: string[];
-  category: string;
-  status: 'active' | 'inactive' | 'pending';
-  aiGenerated: boolean;
+  aiGenerated?: boolean;
   confidence?: number;
-  stock: boolean;
+  stock?: boolean;
+  images?: string[];
+  brand?: string;
+  weight?: number;
+  weight_unit?: string;
+  tags?: string[];
+  compare_at_price?: number;
+  cost_per_item?: number;
+  quantity?: number;
+  is_active?: boolean;
+  low_stock_threshold?: number;
+  track_quantity?: boolean;
+  allow_discounts?: boolean;
+  charge_tax?: boolean;
+  send_low_stock_alert?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -384,8 +400,8 @@ class ApiClient {
   }
 
   // Product endpoints
-  async getProducts(): Promise<Product[]> {
-    const response: AxiosResponse<ApiResponse<Product[]>> = await this.client.get('/product');
+  async getProducts(params?: any): Promise<Product[]> {
+    const response: AxiosResponse<ApiResponse<Product[]>> = await this.client.get('/product', { params });
     return response.data.data;
   }
 
@@ -401,6 +417,36 @@ class ApiClient {
 
   async deleteProduct(productId: string): Promise<void> {
     await this.client.delete(`/product/${productId}`);
+  }
+
+  async getProduct(productId: string): Promise<Product> {
+    const response: AxiosResponse<ApiResponse<Product>> = await this.client.get(`/product/${productId}`);
+    return response.data.data;
+  }
+
+  // Category endpoints
+  async getCategories(): Promise<Category[]> {
+    const response: AxiosResponse<ApiResponse<Category[]>> = await this.client.get('/category');
+    return response.data.data;
+  }
+
+  async getCategory(categoryId: string): Promise<Category> {
+    const response: AxiosResponse<ApiResponse<Category>> = await this.client.get(`/category/${categoryId}`);
+    return response.data.data;
+  }
+
+  async createCategory(category: Omit<Category, 'id' | 'created_at' | 'updated_at'>): Promise<Category> {
+    const response: AxiosResponse<ApiResponse<Category>> = await this.client.post('/category', category);
+    return response.data.data;
+  }
+
+  async updateCategory(categoryId: string, category: Partial<Category>): Promise<Category> {
+    const response: AxiosResponse<ApiResponse<Category>> = await this.client.patch(`/category/${categoryId}`, category);
+    return response.data.data;
+  }
+
+  async deleteCategory(categoryId: string): Promise<void> {
+    await this.client.delete(`/category/${categoryId}`);
   }
 
   // Channel endpoints
@@ -504,7 +550,7 @@ class ApiClient {
     };
     delete backendUpdates.status;
     
-    const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/order/update', { orderId, ...backendUpdates });
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/order/update', { order_id: orderId, ...backendUpdates });
     return transformOrderFromBackend(response.data.data);
   }
 
