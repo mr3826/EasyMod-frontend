@@ -10,7 +10,7 @@ const navigation = [
   { name: 'Products', path: '/products', icon: Package },
   { name: 'Categories', path: '/categories', icon: FolderTree },
   { name: 'Orders', path: '/orders', icon: ShoppingCart },
-  { name: 'Customer', path: '/intelligence', icon: Target },
+  { name: 'Customer', path: '/customers', icon: Target },
   { name: 'Manage Shop', path: '/manage-shop', icon: Store },
   { name: 'AI Knowledge', path: '/knowledge', icon: Brain },
   { name: 'Reports', path: '/reports', icon: BarChart3 },

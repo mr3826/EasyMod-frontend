@@ -8,11 +8,13 @@ import Orders from "./components/Orders";
 import Reports from "./components/Reports";
 import Knowledge from "./components/Knowledge";
 import AddProduct from "./components/AddProduct";
-import ConversationIntelligence from "./components/ConversationIntelligence";
+import ProductDetails from "./components/ProductDetails";
+import Customers from "./components/Customers";
 import Categories from "./components/Categories";
 import CategoryDetails from "./components/CategoryDetails";
 import SubcategoryDetails from "./components/SubcategoryDetails";
 import ManageShop from "./components/ManageShop";
+import ChatSettings from "./components/ChatSettings";
 import SignIn from "./components/SignIn";
 
 import Subscription from "./components/Subscription";
@@ -49,15 +51,18 @@ export const router = createBrowserRouter([
       { path: "inbox", Component: UnifiedInbox },
       { path: "channels", Component: Channels },
       { path: "manage-shop", Component: ManageShop },
+      { path: "manage-shop/chat-settings", Component: ChatSettings },
       { path: "products", Component: Products },
       { path: "products/add", Component: AddProduct },
+      { path: "products/:productId", Component: ProductDetails },
+      { path: "products/:productId/edit", Component: AddProduct },
       { path: "categories", Component: Categories },
       { path: "categories/create", Component: CategoryDetails },
       { path: "categories/:categoryId", Component: CategoryDetails },
       { path: "categories/:categoryId/edit", Component: CategoryDetails },
       { path: "categories/:categoryId/:subcategoryId", Component: SubcategoryDetails },
       { path: "orders", Component: Orders },
-      { path: "intelligence", Component: ConversationIntelligence },
+      { path: "customers", Component: Customers },
       { path: "knowledge", Component: Knowledge },
       { path: "reports", Component: Reports },
       { path: "subscription", Component: Subscription },
