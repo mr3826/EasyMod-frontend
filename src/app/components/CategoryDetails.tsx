@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, Upload, Loader2, Plus, Edit2, Trash2, X } from "lucide-react";
 import { apiClient } from "@/app/lib/api";
 
@@ -145,7 +145,7 @@ export default function CategoryDetails() {
         await apiClient.updateCategory(categoryId!, categoryData);
       }
 
-      navigate("/categories");
+      navigate("/app/categories");
     } catch (err: any) {
       const serverMessage = err?.response?.data?.error?.message;
       setError(serverMessage || err.message || `Failed to ${isCreateMode ? 'create' : 'update'} category`);
@@ -159,7 +159,7 @@ export default function CategoryDetails() {
     <div className="p-4 md:p-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-600 mb-6">
-        <button onClick={() => navigate("/categories")} className="hover:text-gray-900">
+        <button onClick={() => navigate("/app/categories")} className="hover:text-gray-900">
           Categories
         </button>
         <ChevronRight className="w-4 h-4" />
@@ -379,7 +379,7 @@ export default function CategoryDetails() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && subcategoryToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Subcategory</h3>
             <p className="text-gray-600 mb-6">
@@ -448,7 +448,7 @@ function SubcategoryModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-gray-900">

@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import config from './config';
+import type { BusinessInfo, BrandingRules, FAQ, KnowledgeGap } from './knowledgeTypes';
 
 // API Response types
 export interface ApiResponse<T = any> {
@@ -56,6 +57,10 @@ export interface SignupRequest {
   phone?: string;
 }
 
+export interface CreateShopRequest {
+  shop_name?: string;
+}
+
 // Product types (based on mockData.ts but aligned with backend)
 export interface Product {
   id: string;
@@ -94,7 +99,7 @@ export interface Channel {
   id: string;
   shop_id: string;
   name: string;
-  type: 'facebook' | 'whatsapp' | 'telegram' | 'webchat';
+  type: 'facebook' | 'whatsapp' | 'telegram' | 'webchat' | 'instagram';
   status: 'active' | 'inactive' | 'error';
   connected: boolean;
   config?: any; // JSONB field for channel-specific configuration
@@ -102,6 +107,8 @@ export interface Channel {
   message_count: number;
   created_at: string;
   updated_at: string;
+  lastSync?: string;
+  messageCount?: number;
 }
 
 // Customer types (aligned with backend entity)
@@ -376,8 +383,33 @@ class ApiClient {
   async signup(userData: SignupRequest): Promise<AuthResponse> {
     const response: AxiosResponse<ApiResponse<AuthResponse>> = await this.client.post('/auth/signup', userData);
     const { data } = response.data;
+    const normalizedData: AuthResponse = {
+      user: data.user,
+      currentShop: data.currentShop ?? data.shop,
+      allShops: data.allShops ?? (data.shop ? [data.shop] : []),
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+    };
+    this.setAccessToken(normalizedData.accessToken);
+    localStorage.setItem('refreshToken', normalizedData.refreshToken);
+    return normalizedData;
+  }
+
+  // Shop endpoints
+  async getShops(): Promise<Shop[]> {
+    const response: AxiosResponse<ApiResponse<Shop[]>> = await this.client.get('/shop/list');
+    return response.data.data;
+  }
+
+  async createShop(payload: CreateShopRequest): Promise<Shop> {
+    const response: AxiosResponse<ApiResponse<Shop>> = await this.client.post('/shop/create', payload);
+    return response.data.data;
+  }
+
+  async switchShop(shopId: string): Promise<{ accessToken: string; currentShop: Shop }> {
+    const response: AxiosResponse<ApiResponse<{ accessToken: string; currentShop: Shop }>> = await this.client.post('/shop/switch', { shopId });
+    const { data } = response.data;
     this.setAccessToken(data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
     return data;
   }
 
@@ -449,6 +481,80 @@ class ApiClient {
     await this.client.delete(`/category/${categoryId}`);
   }
 
+  async getSubcategoryDetails(categoryId: string, subcategoryId: string): Promise<Category> {
+    const response: AxiosResponse<ApiResponse<Category>> = await this.client.get(`/category/${categoryId}/subcategory/${subcategoryId}`);
+    return response.data.data;
+  }
+
+  // Knowledge endpoints
+  async getKnowledgeSummary(): Promise<KnowledgeSummary> {
+    const response: AxiosResponse<ApiResponse<KnowledgeSummary>> = await this.client.get('/knowledge');
+    return response.data.data;
+  }
+
+  async updateKnowledgeBusinessInfo(businessInfo: BusinessInfo): Promise<KnowledgeSummary> {
+    const response: AxiosResponse<ApiResponse<KnowledgeSummary>> = await this.client.put('/knowledge/business-info', businessInfo);
+    return response.data.data;
+  }
+
+  async updateKnowledgeBrandingRules(brandingRules: BrandingRules): Promise<KnowledgeSummary> {
+    const response: AxiosResponse<ApiResponse<KnowledgeSummary>> = await this.client.put('/knowledge/branding', brandingRules);
+    return response.data.data;
+  }
+
+  async listKnowledgeFaqs(): Promise<FAQ[]> {
+    const response: AxiosResponse<ApiResponse<FAQ[]>> = await this.client.get('/knowledge/faqs');
+    return response.data.data;
+  }
+
+  async createKnowledgeFaq(faq: Omit<FAQ, 'id' | 'createdAt' | 'updatedAt'>): Promise<FAQ> {
+    const response: AxiosResponse<ApiResponse<FAQ>> = await this.client.post('/knowledge/faqs', faq);
+    return response.data.data;
+  }
+
+  async updateKnowledgeFaq(faqId: string, updates: Partial<FAQ>): Promise<FAQ> {
+    const response: AxiosResponse<ApiResponse<FAQ>> = await this.client.patch(`/knowledge/faqs/${faqId}`, updates);
+    return response.data.data;
+  }
+
+  async deleteKnowledgeFaq(faqId: string): Promise<{ message: string }> {
+    const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.delete(`/knowledge/faqs/${faqId}`);
+    return response.data.data;
+  }
+
+  async listKnowledgeGaps(): Promise<KnowledgeGap[]> {
+    const response: AxiosResponse<ApiResponse<KnowledgeGap[]>> = await this.client.get('/knowledge/gaps');
+    return response.data.data;
+  }
+
+  async updateKnowledgeGaps(gaps: KnowledgeGap[]): Promise<KnowledgeGap[]> {
+    const response: AxiosResponse<ApiResponse<KnowledgeGap[]>> = await this.client.put('/knowledge/gaps', gaps);
+    return response.data.data;
+  }
+
+  async listKnowledgeDocuments(): Promise<any[]> {
+    const response: AxiosResponse<ApiResponse<any[]>> = await this.client.get('/knowledge/documents');
+    return response.data.data;
+  }
+
+  async createKnowledgeDocument(document: {
+    name: string;
+    contentType?: string;
+    size?: number;
+    url?: string;
+    text?: string;
+    tags?: string[];
+    source?: string;
+  }): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/knowledge/documents', document);
+    return response.data.data;
+  }
+
+  async deleteKnowledgeDocument(documentId: string): Promise<{ message: string }> {
+    const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.delete(`/knowledge/documents/${documentId}`);
+    return response.data.data;
+  }
+
   // Channel endpoints
   async getChannels(): Promise<Channel[]> {
     const response: AxiosResponse<ApiResponse<Channel[]>> = await this.client.get('/channel');
@@ -484,6 +590,16 @@ class ApiClient {
       config.headers = { 'Idempotency-Key': options.idempotencyKey };
     }
     const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.delete(`/channel/${channelId}`, config);
+    return response.data.data;
+  }
+
+  async connectChannel(payload: { type: Channel['type']; name?: string; appId: string; appSecret: string; assetId: string; config?: any }): Promise<Channel> {
+    const response: AxiosResponse<ApiResponse<Channel>> = await this.client.post('/channel/connect', payload);
+    return response.data.data;
+  }
+
+  async disconnectChannel(channelId: string): Promise<Channel> {
+    const response: AxiosResponse<ApiResponse<Channel>> = await this.client.post(`/channel/${channelId}/disconnect`);
     return response.data.data;
   }
 
@@ -684,6 +800,19 @@ class ApiClient {
     return response.data;
   }
 
+  async updateSubscriptionPlan(payload: {
+    plan_name: string;
+    plan_price: number;
+    billing_cycle: 'monthly' | 'yearly';
+    conversations_limit: number;
+    orders_limit: number;
+    products_limit: number;
+    features?: Record<string, boolean>;
+  }): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.put('/subscription/plan', payload);
+    return response.data;
+  }
+
   // Payment endpoints
   async getPaymentConfig(): Promise<any> {
     const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/payment/config');
@@ -692,6 +821,30 @@ class ApiClient {
 
   async updatePaymentConfig(config: any): Promise<any> {
     const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/payment/config', config);
+    return response.data;
+  }
+
+  async testPaymentConnection(config: any): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/payment/config/test', config);
+    return response.data;
+  }
+
+  async deletePaymentConfig(gateway: string): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.delete(`/payment/config/${gateway}`);
+    return response.data;
+  }
+
+  // Shop endpoints
+  async updateShop(shopId: string, updates: any): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/shop/update', {
+      shopId,
+      ...updates
+    });
+    return response.data;
+  }
+
+  async getShop(): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/shop/me');
     return response.data;
   }
 }
@@ -708,4 +861,11 @@ export const apiClient = new ApiClient();
 const storedToken = localStorage.getItem('accessToken');
 if (storedToken) {
   apiClient.setAccessToken(storedToken);
+}
+
+export interface KnowledgeSummary {
+  businessInfo: BusinessInfo;
+  brandingRules: BrandingRules;
+  faqs: FAQ[];
+  gaps: KnowledgeGap[];
 }

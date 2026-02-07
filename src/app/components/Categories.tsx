@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 import { Plus, Search, Edit2, Trash2, ChevronRight, Loader2 } from "lucide-react";
 import { apiClient } from "@/app/lib/api";
 
@@ -88,7 +88,7 @@ export default function Categories() {
             />
           </div>
           <button
-            onClick={() => navigate("/categories/create")}
+            onClick={() => navigate("/app/categories/create")}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap"
           >
             <Plus className="w-5 h-5" />
@@ -173,7 +173,7 @@ export default function Categories() {
               </p>
               {!searchQuery && (
                 <button
-                  onClick={() => navigate("/categories/create")}
+                  onClick={() => navigate("/app/categories/create")}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   <Plus className="w-5 h-5" />
@@ -187,7 +187,7 @@ export default function Categories() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && categoryToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Category</h3>
             <p className="text-gray-600 mb-6">

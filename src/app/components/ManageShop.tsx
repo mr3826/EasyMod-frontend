@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 import { MessageSquare, Truck, CreditCard } from "lucide-react";
 import ChatSettings from "./ChatSettings";
 import DeliverySettings from "./DeliverySettings";

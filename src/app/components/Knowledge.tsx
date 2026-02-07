@@ -1,136 +1,166 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import mammoth from "mammoth";
 import { Upload, Bot, CheckCircle, Edit2, Trash2, AlertCircle, FileText, Building2, MessageCircle, TrendingUp, Plus } from "lucide-react";
-import { mockBusinessInfo, mockBrandingRules, mockFAQs, mockKnowledgeGaps, FAQ, KnowledgeExtraction } from "../lib/knowledgeTypes";
-import { eventBus, EVENTS } from "../lib/events";
+import { BusinessInfo, BrandingRules, FAQ, KnowledgeExtraction, KnowledgeGap } from "../lib/knowledgeTypes";
+import { apiClient } from "../lib/api";
 
 export default function Knowledge() {
   const [activeTab, setActiveTab] = useState<'overview' | 'faqs' | 'business' | 'branding' | 'gaps'>('overview');
-  const [faqs, setFaqs] = useState(mockFAQs);
-  const [businessInfo, setBusinessInfo] = useState(mockBusinessInfo);
-  const [brandingRules, setBrandingRules] = useState(mockBrandingRules);
+  const [faqs, setFaqs] = useState<FAQ[]>([]);
+  const [businessInfo, setBusinessInfo] = useState<BusinessInfo>({
+    shopName: '',
+    address: '',
+    phone: '',
+    openingHours: '',
+    deliveryAreas: [],
+    paymentMethods: [],
+  });
+  const [brandingRules, setBrandingRules] = useState<BrandingRules>({
+    tone: 'formal',
+    languagePreference: '',
+    emojiUsage: 'none',
+    forbiddenPhrases: [],
+    greetingStyle: '',
+    closingStyle: '',
+  });
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [extractedKnowledge, setExtractedKnowledge] = useState<KnowledgeExtraction | null>(null);
   const [editingFAQ, setEditingFAQ] = useState<FAQ | null>(null);
   const [showFAQModal, setShowFAQModal] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [knowledgeGaps, setKnowledgeGaps] = useState<KnowledgeGap[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const backendEnabled = true;
+  const createTemporaryFaq = () => ({
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`,
+    question: '',
+    answer: '',
+    category: 'General',
+    confidence: 0.9,
+    source: 'manual',
+    active: true,
+    usageCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    const loadKnowledge = async () => {
+      try {
+        setIsLoading(true);
+        setLoadError(null);
+        const data = await apiClient.getKnowledgeSummary();
+        setFaqs(data.faqs || []);
+        setBusinessInfo(data.businessInfo || {
+          shopName: '',
+          address: '',
+          phone: '',
+          openingHours: '',
+          deliveryAreas: [],
+          paymentMethods: [],
+        });
+        setBrandingRules(data.brandingRules || {
+          tone: 'formal',
+          languagePreference: '',
+          emojiUsage: 'none',
+          forbiddenPhrases: [],
+          greetingStyle: '',
+          closingStyle: '',
+        });
+        setKnowledgeGaps(data.gaps || []);
+      } catch (error: any) {
+        setLoadError(error.response?.data?.error?.message || 'Failed to load knowledge data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadKnowledge();
+  }, []);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setIsUploading(true);
+    try {
+      const extension = file.name.split('.').pop()?.toLowerCase();
+      let text = '';
 
-    // Emit event for file upload
-    eventBus.emit(EVENTS.FILE_UPLOADED, { file: file.name });
-
-    // Simulate AI extraction
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setUploadProgress(progress);
-      
-      if (progress >= 100) {
-        clearInterval(interval);
-        
-        // Simulate extracted knowledge
-        const extracted: KnowledgeExtraction = {
-          id: Date.now().toString(),
-          fileName: file.name,
-          fileType: file.type,
-          uploadedAt: new Date().toISOString(),
-          status: 'review',
-          confidence: 0.87,
-          extractedData: {
-            businessInfo: {
-              openingHours: '10:00 AM - 8:00 PM (Mon-Sat)',
-              deliveryAreas: ['Gulshan', 'Banani', 'Baridhara'],
-            },
-            faqs: [
-              {
-                id: Date.now().toString(),
-                question: 'Do you offer same-day delivery?',
-                answer: 'Yes, we offer same-day delivery for orders placed before 2:00 PM within Dhaka city.',
-                category: 'Delivery',
-                confidence: 0.91,
-                source: file.name,
-                active: false,
-                usageCount: 0,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              },
-              {
-                id: (Date.now() + 1).toString(),
-                question: 'Can I track my order?',
-                answer: 'Yes, you will receive a tracking link via SMS once your order is dispatched.',
-                category: 'Order Tracking',
-                confidence: 0.88,
-                source: file.name,
-                active: false,
-                usageCount: 0,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              },
-            ],
-            branding: {
-              tone: 'friendly',
-              emojiUsage: 'moderate',
-              greetingStyle: 'Hello! Welcome to Fresh Mart Express! 🛒',
-            },
-          },
-        };
-
-        setExtractedKnowledge(extracted);
-        setShowReviewModal(true);
-        setShowUploadModal(false);
-        setUploadProgress(0);
+      if (extension === 'txt') {
+        text = await file.text();
+      } else if (extension === 'docx' || extension === 'doc') {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        text = result.value || '';
+      } else {
+        throw new Error('Only .txt, .doc, or .docx files are supported.');
       }
-    }, 300);
-  };
 
-  const handleApproveFAQ = (faq: FAQ) => {
-    const activeFAQ = { ...faq, active: true };
-    setFaqs([...faqs, activeFAQ]);
-    eventBus.emit(EVENTS.PRODUCT_APPROVED, { faq: activeFAQ });
-    
-    if (extractedKnowledge?.extractedData.faqs) {
-      setExtractedKnowledge({
-        ...extractedKnowledge,
-        extractedData: {
-          ...extractedKnowledge.extractedData,
-          faqs: extractedKnowledge.extractedData.faqs.filter(f => f.id !== faq.id),
-        },
+      await apiClient.createKnowledgeDocument({
+        name: file.name,
+        contentType: file.type,
+        size: file.size,
+        text,
+        source: 'upload'
       });
+      setNotice('Document uploaded and queued for indexing.');
+    } catch (error: any) {
+      setNotice(error.response?.data?.error?.message || error.message || 'Failed to upload document.');
+    } finally {
+      setIsUploading(false);
+      setShowUploadModal(false);
+      setUploadProgress(0);
     }
   };
 
-  const handleApproveAll = () => {
-    if (extractedKnowledge) {
-      // Approve FAQs
-      if (extractedKnowledge.extractedData.faqs) {
-        const newFAQs = extractedKnowledge.extractedData.faqs.map(faq => ({ ...faq, active: true }));
-        setFaqs([...faqs, ...newFAQs]);
-      }
-      
-      // Update business info
-      if (extractedKnowledge.extractedData.businessInfo) {
-        setBusinessInfo({ ...businessInfo, ...extractedKnowledge.extractedData.businessInfo });
-      }
-      
-      // Update branding
-      if (extractedKnowledge.extractedData.branding) {
-        setBrandingRules({ ...brandingRules, ...extractedKnowledge.extractedData.branding });
-      }
-      
-      setShowReviewModal(false);
-      setExtractedKnowledge(null);
+  const handleApproveFAQ = async (faq: FAQ) => {
+    try {
+      const updated = await apiClient.updateKnowledgeFaq(faq.id, { active: true });
+      setFaqs(faqs.map((item) => (item.id === faq.id ? updated : item)));
+      setNotice('FAQ approved and indexed.');
+    } catch (error: any) {
+      setNotice(error.response?.data?.error?.message || 'Failed to approve FAQ.');
     }
   };
 
-  const handleDeleteFAQ = (faqId: string) => {
-    setFaqs(faqs.filter(f => f.id !== faqId));
+  const handleApproveAll = async () => {
+    try {
+      const updates = await Promise.all(
+        faqs.filter((faq) => !faq.active).map((faq) => apiClient.updateKnowledgeFaq(faq.id, { active: true }))
+      );
+      const updatedMap = new Map(updates.map((faq) => [faq.id, faq]));
+      setFaqs(faqs.map((faq) => updatedMap.get(faq.id) || faq));
+      setNotice('All FAQs approved and indexed.');
+    } catch (error: any) {
+      setNotice(error.response?.data?.error?.message || 'Failed to approve all FAQs.');
+    }
   };
 
-  const handleToggleFAQ = (faqId: string) => {
-    setFaqs(faqs.map(f => f.id === faqId ? { ...f, active: !f.active } : f));
+  const handleDeleteFAQ = async (faqId: string) => {
+    try {
+      await apiClient.deleteKnowledgeFaq(faqId);
+      setFaqs(faqs.filter((faq) => faq.id !== faqId));
+      setNotice('FAQ deleted.');
+    } catch (error: any) {
+      setNotice(error.response?.data?.error?.message || 'Failed to delete FAQ.');
+    }
+  };
+
+  const handleToggleFAQ = async (faqId: string) => {
+    const faq = faqs.find((item) => item.id === faqId);
+    if (!faq) return;
+
+    try {
+      const updated = await apiClient.updateKnowledgeFaq(faqId, { active: !faq.active });
+      setFaqs(faqs.map((item) => (item.id === faqId ? updated : item)));
+      setNotice(`FAQ ${updated.active ? 'activated' : 'deactivated'}.`);
+    } catch (error: any) {
+      setNotice(error.response?.data?.error?.message || 'Failed to update FAQ.');
+    }
   };
 
   const totalKnowledge = faqs.filter(f => f.active).length + 
@@ -146,35 +176,39 @@ export default function Knowledge() {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => setShowUploadModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            onClick={() => backendEnabled ? setShowUploadModal(true) : setNotice('Knowledge upload requires backend API support.')}
+            disabled={!backendEnabled || isUploading}
+            className={`flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg ${!backendEnabled || isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-700'}`}
           >
             <Upload className="w-5 h-5" />
-            Upload Knowledge
+            {isUploading ? 'Uploading...' : 'Upload Knowledge'}
           </button>
           <button
             onClick={() => {
-              setEditingFAQ({
-                id: Date.now().toString(),
-                question: '',
-                answer: '',
-                category: '',
-                confidence: 1.0,
-                source: 'manual',
-                active: true,
-                usageCount: 0,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              });
+              setEditingFAQ(createTemporaryFaq());
               setShowFAQModal(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            disabled={!backendEnabled}
+            className={`flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg ${!backendEnabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
           >
             <Plus className="w-5 h-5" />
             Add FAQ
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-6 text-gray-500">Loading knowledge data...</div>
+      )}
+      {loadError && (
+        <div className="mb-6 text-red-600">{loadError}</div>
+      )}
+
+      {notice && (
+        <div className="mb-6 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg px-4 py-3">
+          {notice}
+        </div>
+      )}
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -222,7 +256,7 @@ export default function Knowledge() {
               <AlertCircle className="w-6 h-6 text-orange-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{mockKnowledgeGaps.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{knowledgeGaps.length}</p>
               <p className="text-sm text-gray-600">Knowledge Gaps</p>
             </div>
           </div>
@@ -453,35 +487,18 @@ export default function Knowledge() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Areas</label>
-                <input
-                  type="text"
-                  value={businessInfo.deliveryAreas.join(', ')}
-                  onChange={(e) => setBusinessInfo({ 
-                    ...businessInfo, 
-                    deliveryAreas: e.target.value.split(',').map(s => s.trim()) 
-                  })}
-                  placeholder="Dhanmondi, Lalmatia, Mohammadpur"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Methods</label>
-                <input
-                  type="text"
-                  value={businessInfo.paymentMethods.join(', ')}
-                  onChange={(e) => setBusinessInfo({ 
-                    ...businessInfo, 
-                    paymentMethods: e.target.value.split(',').map(s => s.trim()) 
-                  })}
-                  placeholder="Cash, bKash, Card"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button
+                onClick={async () => {
+                  try {
+                    const updated = await apiClient.updateKnowledgeBusinessInfo(businessInfo);
+                    setBusinessInfo(updated.businessInfo || businessInfo);
+                    setNotice('Business info updated and indexed.');
+                  } catch (error: any) {
+                    setNotice(error.response?.data?.error?.message || 'Failed to update business info.');
+                  }
+                }}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
                 Save Changes
               </button>
             </div>
@@ -543,7 +560,7 @@ export default function Knowledge() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Forbidden Phrases (comma separated)</label>
                 <input
                   type="text"
-                  value={brandingRules.forbiddenPhrases.join(', ')}
+                  value={(brandingRules.forbiddenPhrases ?? []).join(', ')}
                   onChange={(e) => setBrandingRules({ 
                     ...brandingRules, 
                     forbiddenPhrases: e.target.value.split(',').map(s => s.trim()) 
@@ -564,7 +581,18 @@ export default function Knowledge() {
                 </div>
               </div>
 
-              <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button
+                onClick={async () => {
+                  try {
+                    const updated = await apiClient.updateKnowledgeBrandingRules(brandingRules);
+                    setBrandingRules(updated.brandingRules || brandingRules);
+                    setNotice('Branding rules updated and indexed.');
+                  } catch (error: any) {
+                    setNotice(error.response?.data?.error?.message || 'Failed to update branding rules.');
+                  }
+                }}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
                 Save Changes
               </button>
             </div>
@@ -581,7 +609,7 @@ export default function Knowledge() {
               </div>
 
               <div className="space-y-4">
-                {mockKnowledgeGaps.map((gap) => (
+                {knowledgeGaps.map((gap) => (
                   <div key={gap.id} className="border-2 border-orange-200 rounded-lg p-4 bg-orange-50">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
@@ -611,16 +639,11 @@ export default function Knowledge() {
                         onClick={() => {
                           if (gap.suggestedAnswer) {
                             setEditingFAQ({
-                              id: Date.now().toString(),
+                              ...createTemporaryFaq(),
                               question: gap.question,
                               answer: gap.suggestedAnswer,
-                              category: 'General',
                               confidence: gap.confidence,
                               source: 'ai-suggestion',
-                              active: true,
-                              usageCount: 0,
-                              createdAt: new Date().toISOString(),
-                              updatedAt: new Date().toISOString(),
                             });
                             setShowFAQModal(true);
                           }
@@ -645,7 +668,7 @@ export default function Knowledge() {
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-8 max-w-lg w-full mx-4">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Knowledge Document</h2>
             <p className="text-gray-600 mb-6">
@@ -659,7 +682,7 @@ export default function Knowledge() {
                 <input
                   type="file"
                   onChange={handleFileUpload}
-                  accept=".pdf,.doc,.docx,.txt,.md"
+                  accept=".txt,.doc,.docx"
                   className="hidden"
                   id="knowledge-upload"
                 />
@@ -670,7 +693,7 @@ export default function Knowledge() {
                   Choose File
                 </label>
                 <p className="text-sm text-gray-500 mt-4">
-                  Supported: PDF, DOC, DOCX, TXT, MD
+                  Supported: DOC, DOCX, TXT
                 </p>
               </div>
             ) : (
@@ -709,7 +732,7 @@ export default function Knowledge() {
 
       {/* Review Extracted Knowledge Modal */}
       {showReviewModal && extractedKnowledge && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-xl p-8 max-w-4xl w-full mx-4 my-8">
             <div className="flex items-center gap-3 mb-6">
               <Bot className="w-8 h-8 text-purple-600" />
@@ -820,7 +843,7 @@ export default function Knowledge() {
 
       {/* FAQ Edit/Create Modal */}
       {showFAQModal && editingFAQ && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-8 max-w-2xl w-full mx-4">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">
               {editingFAQ.source === 'manual' && !faqs.find(f => f.id === editingFAQ.id) ? 'Add New FAQ' : 'Edit FAQ'}
@@ -872,14 +895,39 @@ export default function Knowledge() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  if (faqs.find(f => f.id === editingFAQ.id)) {
-                    setFaqs(faqs.map(f => f.id === editingFAQ.id ? editingFAQ : f));
-                  } else {
-                    setFaqs([...faqs, editingFAQ]);
+                onClick={async () => {
+                  if (!editingFAQ) return;
+
+                  try {
+                    const existing = faqs.find(f => f.id === editingFAQ.id);
+                    if (existing) {
+                      const updated = await apiClient.updateKnowledgeFaq(editingFAQ.id, {
+                        question: editingFAQ.question,
+                        answer: editingFAQ.answer,
+                        category: editingFAQ.category,
+                        confidence: editingFAQ.confidence,
+                        source: editingFAQ.source,
+                        active: editingFAQ.active
+                      });
+                      setFaqs(faqs.map(f => f.id === editingFAQ.id ? updated : f));
+                    } else {
+                      const created = await apiClient.createKnowledgeFaq({
+                        question: editingFAQ.question,
+                        answer: editingFAQ.answer,
+                        category: editingFAQ.category,
+                        confidence: editingFAQ.confidence,
+                        source: editingFAQ.source,
+                        active: editingFAQ.active,
+                        usageCount: editingFAQ.usageCount
+                      });
+                      setFaqs([...faqs, created]);
+                    }
+
+                    setShowFAQModal(false);
+                    setEditingFAQ(null);
+                  } catch (error: any) {
+                    setNotice(error.response?.data?.error?.message || 'Failed to save FAQ.');
                   }
-                  setShowFAQModal(false);
-                  setEditingFAQ(null);
                 }}
                 className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >

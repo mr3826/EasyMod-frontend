@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { CreditCard, Wallet, DollarSign, Upload, ChevronDown, ChevronUp } from "lucide-react";
+import { CreditCard, Wallet, DollarSign, Upload, ChevronDown, ChevronUp, TestTube, X } from "lucide-react";
 import { apiClient } from "@/app/lib/api";
+import { authService } from "@/app/lib/auth";
 
 interface PaymentGateway {
   id: string;
@@ -31,12 +32,15 @@ export default function PaymentSettings() {
   ]);
 
   const [expandedGateway, setExpandedGateway] = useState<string | null>(null);
-  const [advancePaymentRule, setAdvancePaymentRule] = useState<'full' | 'delivery' | 'percentage' | 'fixed'>('full');
+  const [advancePaymentRule, setAdvancePaymentRule] = useState<'none' | 'full' | 'delivery' | 'percentage' | 'fixed'>('none');
   const [advancePercentage, setAdvancePercentage] = useState(50);
   const [advanceFixed, setAdvanceFixed] = useState(100);
   const [paymentMessage, setPaymentMessage] = useState('Payment instructions will be sent after order confirmation.');
   const [loading, setLoading] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [savingGateway, setSavingGateway] = useState<string | null>(null);
+  const [testingGateway, setTestingGateway] = useState<string | null>(null);
+  const [disconnectingGateway, setDisconnectingGateway] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [savedGateways, setSavedGateways] = useState<Set<string>>(new Set());
@@ -49,6 +53,8 @@ export default function PaymentSettings() {
   const loadPaymentConfigs = async () => {
     try {
       setLoading(true);
+      
+      // Load payment gateway configs
       const response = await apiClient.getPaymentConfig();
       
       if (response.success && response.data) {
@@ -70,6 +76,21 @@ export default function PaymentSettings() {
         }));
         
         setSavedGateways(savedSet);
+      }
+
+      // Load shop payment settings
+      try {
+        const shopResponse = await apiClient.getShop();
+        if (shopResponse.success && shopResponse.data?.payment_methods) {
+          const settings = JSON.parse(shopResponse.data.payment_methods);
+          if (settings.advancePaymentRule) setAdvancePaymentRule(settings.advancePaymentRule);
+          if (settings.advancePercentage !== undefined) setAdvancePercentage(settings.advancePercentage);
+          if (settings.advanceFixed !== undefined) setAdvanceFixed(settings.advanceFixed);
+          if (settings.paymentMessage) setPaymentMessage(settings.paymentMessage);
+        }
+      } catch (shopError) {
+        // Shop settings are optional, so don't fail if they don't exist
+        console.log('No existing payment settings found');
       }
     } catch (error: any) {
       console.error('Failed to load payment configs:', error);
@@ -111,21 +132,35 @@ export default function PaymentSettings() {
         };
       }
 
+      // First, test the connection
+      const testPayload = {
+        gateway: gatewayId,
+        credentials
+      };
+
+      const testResponse = await apiClient.testPaymentConnection(testPayload);
+
+      if (!testResponse.success) {
+        setError('Connection test failed. Please check your credentials.');
+        return;
+      }
+
+      // If test successful, save the configuration
       const payload = {
         gateway: gatewayId,
-        is_enabled: gateway.enabled,
         credentials,
         config: gatewayId === 'aamarpay' 
           ? { environment: gateway.config?.environment }
           : gatewayId === 'sslcommerz' 
           ? { environment: gateway.config?.environment }
           : {}
+        // is_enabled not needed here - defaults to false on backend
       };
 
       const response = await apiClient.updatePaymentConfig(payload);
 
       if (response.success) {
-        setSuccess(`✓ ${gateway.name} configuration saved successfully! Now use the toggle to activate this payment method.`);
+        setSuccess(`✓ ${gateway.name} credentials verified and saved! Now use the toggle to activate this payment method.`);
         
         // Mark gateway as saved
         setSavedGateways(prev => new Set(prev).add(gatewayId));
@@ -144,9 +179,45 @@ export default function PaymentSettings() {
       }
     } catch (error: any) {
       console.error('Failed to save gateway config:', error);
-      setError(error.response?.data?.message || 'Failed to save configuration');
+      setError(error.response?.data?.message || 'Failed to save configuration. Please check your credentials.');
     } finally {
       setSavingGateway(null);
+    }
+  };
+
+  const disconnectGateway = async (gatewayId: string) => {
+    try {
+      setDisconnectingGateway(gatewayId);
+      setError(null);
+      setSuccess(null);
+
+      const gateway = gateways.find(gw => gw.id === gatewayId);
+      if (!gateway) return;
+
+      const response = await apiClient.deletePaymentConfig(gatewayId);
+
+      if (response.success) {
+        setSuccess(`✓ ${gateway.name} disconnected successfully!`);
+        
+        // Remove from saved gateways
+        setSavedGateways(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(gatewayId);
+          return newSet;
+        });
+
+        // Update gateway state to disabled
+        setGateways(prev => prev.map(gw =>
+          gw.id === gatewayId ? { ...gw, enabled: false } : gw
+        ));
+
+        setTimeout(() => setSuccess(null), 2500);
+      }
+    } catch (error: any) {
+      console.error('Failed to disconnect gateway:', error);
+      setError(error.response?.data?.message || 'Failed to disconnect payment method');
+    } finally {
+      setDisconnectingGateway(null);
     }
   };
 
@@ -154,15 +225,21 @@ export default function PaymentSettings() {
     const gateway = gateways.find(gw => gw.id === id);
     if (!gateway) return;
 
+    // For COD, allow toggle without saved credentials
+    // For others, require saved credentials first
+    if (id !== 'cod' && !savedGateways.has(id)) {
+      setError('Please save your credentials first before activating this payment method');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
     try {
       setError(null);
       setSavingGateway(id);
 
       const payload = {
         gateway: id,
-        is_enabled: !gateway.enabled,
-        credentials: null, // Credentials already saved, just toggle active status
-        config: id === 'aamarpay' ? { environment: gateway.config?.environment } : {}
+        is_enabled: !gateway.enabled
       };
 
       const response = await apiClient.updatePaymentConfig(payload);
@@ -179,7 +256,7 @@ export default function PaymentSettings() {
       }
     } catch (error: any) {
       console.error('Failed to toggle gateway:', error);
-      setError(error.response?.data?.message || 'Failed to activate payment method');
+      setError(error.response?.data?.message || 'Failed to toggle payment method');
     } finally {
       setSavingGateway(null);
     }
@@ -195,6 +272,41 @@ export default function PaymentSettings() {
         ? { ...gw, config: { ...gw.config, [field]: value } }
         : gw
     ));
+  };
+
+  const savePaymentSettings = async () => {
+    try {
+      setSavingSettings(true);
+      setError(null);
+      setSuccess(null);
+
+      const shopId = authService.getCurrentShopId();
+      if (!shopId) {
+        setError('Shop not found. Please refresh the page.');
+        return;
+      }
+
+      // Prepare payment settings data
+      const paymentSettings = {
+        advancePaymentRule,
+        advancePercentage,
+        advanceFixed,
+        paymentMessage
+      };
+
+      // Save to shop's payment_methods field as JSON
+      await apiClient.updateShop(shopId, {
+        payment_methods: JSON.stringify(paymentSettings)
+      });
+
+      setSuccess('✓ Payment settings saved successfully!');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error: any) {
+      console.error('Failed to save payment settings:', error);
+      setError(error.response?.data?.message || 'Failed to save payment settings');
+    } finally {
+      setSavingSettings(false);
+    }
   };
 
   return (
@@ -238,11 +350,11 @@ export default function PaymentSettings() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => toggleGateway(gateway.id)}
-                      disabled={!savedGateways.has(gateway.id) || savingGateway === gateway.id}
-                      title={!savedGateways.has(gateway.id) ? 'Save configuration first' : 'Click to activate/deactivate'}
+                      disabled={(gateway.id !== 'cod' && !savedGateways.has(gateway.id)) || savingGateway === gateway.id}
+                      title={gateway.id !== 'cod' && !savedGateways.has(gateway.id) ? 'Save configuration first' : 'Click to activate/deactivate'}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
                         gateway.enabled ? 'bg-blue-600' : 'bg-gray-300'
-                      } ${!savedGateways.has(gateway.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      } ${(gateway.id !== 'cod' && !savedGateways.has(gateway.id)) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -314,13 +426,38 @@ export default function PaymentSettings() {
                             Don't have an account? <a href="https://aamarpay.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Apply Now</a>
                           </p>
                         </div>
-                        <button 
-                          onClick={() => saveGatewayConfig('aamarpay')}
-                          disabled={savingGateway === 'aamarpay'}
-                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                          {savingGateway === 'aamarpay' ? 'Saving...' : 'Save Configuration'}
-                        </button>
+                        <div className="flex gap-3">
+                          <button 
+                            onClick={() => saveGatewayConfig('aamarpay')}
+                            disabled={savingGateway === 'aamarpay'}
+                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                          >
+                            {savingGateway === 'aamarpay' ? (
+                              <>Saving...</>
+                            ) : (
+                              <>
+                                <TestTube className="w-4 h-4" />
+                                Test & Save Configuration
+                              </>
+                            )}
+                          </button>
+                          {savedGateways.has('aamarpay') && (
+                            <button
+                              onClick={() => disconnectGateway('aamarpay')}
+                              disabled={disconnectingGateway === 'aamarpay'}
+                              className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 disabled:bg-gray-100 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                              {disconnectingGateway === 'aamarpay' ? (
+                                <>Disconnecting...</>
+                              ) : (
+                                <>
+                                  <X className="w-4 h-4" />
+                                  Disconnect
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
 
@@ -484,6 +621,21 @@ export default function PaymentSettings() {
               <input
                 type="radio"
                 name="advance-payment"
+                value="none"
+                checked={advancePaymentRule === 'none'}
+                onChange={(e) => setAdvancePaymentRule(e.target.value as any)}
+                className="w-4 h-4 text-blue-600"
+              />
+              <div className="flex-1">
+                <div className="font-medium text-gray-900">No Payment</div>
+                <div className="text-sm text-gray-600">No advance payment required</div>
+              </div>
+            </label>
+
+            <label className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-gray-300 transition-colors">
+              <input
+                type="radio"
+                name="advance-payment"
                 value="full"
                 checked={advancePaymentRule === 'full'}
                 onChange={(e) => setAdvancePaymentRule(e.target.value as any)}
@@ -580,8 +732,12 @@ export default function PaymentSettings() {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
           />
 
-          <button className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            Update Payment Info
+          <button 
+            onClick={savePaymentSettings}
+            disabled={savingSettings}
+            className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          >
+            {savingSettings ? 'Saving...' : 'Update Payment Info'}
           </button>
         </div>
       </div>

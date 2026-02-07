@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router';
+import { Navigate } from 'react-router-dom';
 import { isAuthenticated } from '@/app/lib/auth';
 
 interface ProtectedRouteProps {

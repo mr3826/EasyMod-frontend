@@ -1,20 +1,23 @@
-import { Link, Outlet, useLocation } from "react-router";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { LayoutDashboard, MessageSquare, Radio, Package, ShoppingCart, BarChart3, Brain, Target, FolderTree, Store, User, Check, Plus, LogOut, ChevronUp, X, AlertCircle, CreditCard } from "lucide-react";
-import { useState } from "react";
-import { useNavigate } from "react-router";
-import { logout } from "@/app/lib/auth";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { authService, logout } from "@/app/lib/auth";
+import type { Shop as BackendShop } from "@/app/lib/api";
+
+const appBasePath = '/app';
 
 const navigation = [
-  { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { name: 'Inbox', path: '/inbox', icon: MessageSquare },
-  { name: 'Products', path: '/products', icon: Package },
-  { name: 'Categories', path: '/categories', icon: FolderTree },
-  { name: 'Orders', path: '/orders', icon: ShoppingCart },
-  { name: 'Customer', path: '/customers', icon: Target },
-  { name: 'Manage Shop', path: '/manage-shop', icon: Store },
-  { name: 'AI Knowledge', path: '/knowledge', icon: Brain },
-  { name: 'Reports', path: '/reports', icon: BarChart3 },
-  { name: 'Subscription', path: '/subscription', icon: CreditCard },
+  { name: 'Dashboard', path: appBasePath, icon: LayoutDashboard },
+  { name: 'Inbox', path: `${appBasePath}/inbox`, icon: MessageSquare },
+  { name: 'Products', path: `${appBasePath}/products`, icon: Package },
+  { name: 'Categories', path: `${appBasePath}/categories`, icon: FolderTree },
+  { name: 'Orders', path: `${appBasePath}/orders`, icon: ShoppingCart },
+  { name: 'Customer', path: `${appBasePath}/customers`, icon: Target },
+  { name: 'Manage Shop', path: `${appBasePath}/manage-shop`, icon: Store },
+  { name: 'AI Knowledge', path: `${appBasePath}/knowledge`, icon: Brain },
+  { name: 'Reports', path: `${appBasePath}/reports`, icon: BarChart3 },
+  { name: 'Subscription', path: `${appBasePath}/subscription`, icon: CreditCard },
 ];
 
 interface Shop {
@@ -29,47 +32,72 @@ export default function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [showShopPanel, setShowShopPanel] = useState(false);
-  const [showUpgradePopup, setShowUpgradePopup] = useState(false);
+  const [showCreateShopPopup, setShowCreateShopPopup] = useState(false);
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+  const [createShopName, setCreateShopName] = useState('');
+  const [createShopError, setCreateShopError] = useState<string | null>(null);
+  const [createShopLoading, setCreateShopLoading] = useState(false);
 
-  // Mock data - replace with actual data from your state management
-  const userPlan = 'free'; // 'free' or 'premium'
-  const maxShopsAllowed = userPlan === 'free' ? 1 : 10;
+  const [authState, setAuthState] = useState(authService.getState());
 
-  const [shops] = useState<Shop[]>([
-    {
-      id: '1',
-      name: 'My Fashion Store',
-      logo: '🛍️',
-      isActive: true,
-      isDisabled: false,
-    },
-    {
-      id: '2',
-      name: 'Electronics Shop',
-      logo: '⚡',
-      isActive: false,
-      isDisabled: true,
-    },
-  ]);
+  useEffect(() => {
+    const unsubscribe = authService.subscribe(setAuthState);
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!authState.isAuthenticated) return;
+    authService.refreshShops().catch((error) => {
+      console.error('Failed to refresh shops:', error);
+    });
+  }, [authState.isAuthenticated]);
+
+  const shops: Shop[] = authState.allShops.map((shop: BackendShop) => ({
+    id: shop.id,
+    name: shop.shop_name || shop.unique_code || shop.id,
+    logo: '🏪',
+    isActive: authState.currentShop?.id === shop.id,
+    isDisabled: false,
+  }));
 
   const activeShop = shops.find(shop => shop.isActive);
 
   const handleCreateShop = () => {
-    const activeShopsCount = shops.filter(s => !s.isDisabled).length;
-    if (activeShopsCount >= maxShopsAllowed) {
-      setShowUpgradePopup(true);
-    } else {
-      // Open create shop modal
-      console.log('Open create shop modal');
-      setShowShopPanel(false);
+    setCreateShopName('');
+    setCreateShopError(null);
+    setShowCreateShopPopup(true);
+    setShowShopPanel(false);
+  };
+
+  const handleSubmitCreateShop = async () => {
+    if (createShopLoading) return;
+
+    const trimmedName = createShopName.trim();
+    if (trimmedName && trimmedName.length < 2) {
+      setCreateShopError('Shop name must be at least 2 characters.');
+      return;
+    }
+
+    try {
+      setCreateShopLoading(true);
+      setCreateShopError(null);
+      await authService.createShop({ shop_name: trimmedName || undefined });
+      setShowCreateShopPopup(false);
+    } catch (error) {
+      setCreateShopError(error instanceof Error ? error.message : 'Failed to create shop.');
+    } finally {
+      setCreateShopLoading(false);
     }
   };
 
-  const handleSwitchShop = (shopId: string) => {
+  const handleSwitchShop = async (shopId: string) => {
     const shop = shops.find(s => s.id === shopId);
     if (shop && !shop.isDisabled) {
-      console.log('Switch to shop:', shopId);
+      try {
+        await authService.switchShop(shopId);
+      } catch (error) {
+        console.error('Failed to switch shop:', error);
+      }
       setShowShopPanel(false);
     }
   };
@@ -88,7 +116,7 @@ export default function DashboardLayout() {
         <div className="h-16 flex items-center px-6 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg"></div>
-            <span className="text-xl font-bold">CommerceAI</span>
+            <span className="text-xl font-bold">Easy Moderator</span>
           </div>
         </div>
         
@@ -212,44 +240,55 @@ export default function DashboardLayout() {
         </>
       )}
 
-      {/* Upgrade Plan Popup */}
-      {showUpgradePopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {/* Create Shop Popup */}
+      {showCreateShopPopup && (
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <div className="flex items-start gap-4 mb-6">
               <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                 <AlertCircle className="w-6 h-6 text-blue-600" />
               </div>
               <div className="flex-1">
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Upgrade Required</h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Create New Shop</h2>
                 <p className="text-gray-600">
-                  Your current plan allows only 1 shop. Upgrade your plan to create and manage multiple shops.
+                  Add a name for your new shop. You can update details later.
                 </p>
               </div>
               <button
-                onClick={() => setShowUpgradePopup(false)}
+                onClick={() => setShowCreateShopPopup(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
+            <div className="space-y-3 mb-6">
+              <label className="text-sm font-medium text-gray-700">Shop name</label>
+              <input
+                type="text"
+                value={createShopName}
+                onChange={(event) => setCreateShopName(event.target.value)}
+                placeholder="e.g. Downtown Store"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {createShopError && (
+                <p className="text-sm text-red-600">{createShopError}</p>
+              )}
+            </div>
+
             <div className="flex gap-3">
               <button
-                onClick={() => setShowUpgradePopup(false)}
+                onClick={() => setShowCreateShopPopup(false)}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setShowUpgradePopup(false);
-                  // Redirect to billing page
-                  console.log('Redirect to billing');
-                }}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={handleSubmitCreateShop}
+                disabled={createShopLoading}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
               >
-                Upgrade Plan
+                {createShopLoading ? 'Creating...' : 'Create Shop'}
               </button>
             </div>
           </div>
@@ -258,7 +297,7 @@ export default function DashboardLayout() {
 
       {/* Logout Confirmation Popup */}
       {showLogoutPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <div className="flex items-start gap-4 mb-6">
               <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">

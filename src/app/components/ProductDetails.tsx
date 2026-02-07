@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Edit2, Trash2, Share2, Heart } from "lucide-react";
 import { Product } from "../lib/api";
 import { authService } from "../lib/auth";

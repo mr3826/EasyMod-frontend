@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { Send, Bot, User, CheckCircle2, Edit3, Lightbulb, Loader2 } from "lucide-react";
+import { Send, Bot, User, CheckCircle2, Edit3, Loader2 } from "lucide-react";
 import { apiClient, Conversation, Message } from "../lib/api";
-import { mockFAQs } from "../lib/knowledgeTypes";
 
 const channelIcons: Record<string, string> = {
   whatsapp: '💬',
@@ -19,7 +18,6 @@ export default function UnifiedInbox() {
   const [error, setError] = useState<string | null>(null);
   const [aiSuggestionAccepted, setAiSuggestionAccepted] = useState(false);
   const [editingMessage, setEditingMessage] = useState('');
-  const [showKnowledgeMatch, setShowKnowledgeMatch] = useState(true);
 
   // Load conversations on mount
   useEffect(() => {
@@ -65,8 +63,6 @@ export default function UnifiedInbox() {
   const aiSuggestion = messages.length > 0 ? messages[messages.length - 1]?.ai_suggestion : '';
   const aiConfidence = messages.length > 0 ? messages[messages.length - 1]?.ai_confidence : 0;
 
-  // Simulate knowledge-based matching
-  const matchedFAQ = mockFAQs[0]; // In real system, this would be semantic search
 
   return (
     <div className="h-screen flex flex-col">
@@ -206,105 +202,19 @@ export default function UnifiedInbox() {
                 )}
               </div>
 
-              {/* Knowledge-Based Match */}
-              {showKnowledgeMatch && matchedFAQ && (
-                <div className="bg-green-50 border-t border-green-200 p-4">
-                  <div className="max-w-4xl mx-auto">
-                    <div className="flex items-start gap-3">
-                      <Lightbulb className="w-6 h-6 text-green-600 mt-1" />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-semibold text-green-900">Knowledge Base Match Found</h3>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-green-700 bg-green-200 px-2 py-1 rounded">
-                              {Math.round(matchedFAQ.confidence * 100)}% match
-                            </span>
-                            <span className="text-xs text-green-700">Used {matchedFAQ.usageCount} times</span>
-                          </div>
-                        </div>
-                        <div className="bg-white rounded-lg p-3 border border-green-200 mb-2">
-                          <p className="text-sm font-semibold text-gray-900 mb-1">Q: {matchedFAQ.question}</p>
-                          <p className="text-sm text-gray-700">A: {matchedFAQ.answer}</p>
-                          <p className="text-xs text-gray-500 mt-1">Source: {matchedFAQ.source}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              setEditingMessage(matchedFAQ.answer);
-                              setShowKnowledgeMatch(false);
-                            }}
-                            className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
-                          >
-                            <CheckCircle2 className="w-3 h-3" />
-                            Use This Answer
-                          </button>
-                          <button
-                            onClick={() => setShowKnowledgeMatch(false)}
-                            className="px-3 py-1 bg-white border border-green-300 text-green-700 rounded-lg hover:bg-green-50 text-sm"
-                          >
-                            Dismiss
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* AI Suggestion Panel */}
-              {aiSuggestion && !aiSuggestionAccepted && !showKnowledgeMatch && (
-                <div className="bg-purple-50 border-t border-purple-200 p-4">
-                  <div className="max-w-4xl mx-auto">
-                    <div className="flex items-start gap-3">
-                      <Bot className="w-6 h-6 text-purple-600 mt-1" />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-semibold text-purple-900">AI Reply Suggestion</h3>
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm text-purple-700">
-                              Confidence: <span className="font-semibold">{Math.round((aiConfidence || 0) * 100)}%</span>
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => {
-                                  setEditingMessage(aiSuggestion);
-                                  setAiSuggestionAccepted(true);
-                                }}
-                                className="flex items-center gap-1 px-3 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
-                              >
-                                <Edit3 className="w-3 h-3" />
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => setAiSuggestionAccepted(true)}
-                                className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
-                              >
-                                <CheckCircle2 className="w-3 h-3" />
-                                Use
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                        <p className="text-purple-800 bg-white rounded-lg p-3 border border-purple-200">
-                          {aiSuggestion}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Message Input */}
               <div className="bg-white border-t border-gray-200 p-4">
-                <div className="max-w-4xl mx-auto flex gap-3">
+                <div className="flex items-center gap-3">
                   <input
                     type="text"
                     value={editingMessage}
                     onChange={(e) => setEditingMessage(e.target.value)}
-                    placeholder="Type your message..."
+                    placeholder="Type a message..."
                     className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                  <button
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                  >
                     <Send className="w-5 h-5" />
                     Send
                   </button>
