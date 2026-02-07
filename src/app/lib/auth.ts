@@ -1,4 +1,4 @@
-import { apiClient, User, Shop, AuthResponse, SigninRequest, SignupRequest } from './api';
+import { apiClient, User, Shop, AuthResponse, SigninRequest, SignupRequest, CreateShopRequest } from './api';
 
 // Auth state interface
 export interface AuthState {
@@ -143,9 +143,36 @@ export class AuthService {
       throw new Error('Shop not found');
     }
 
-    // TODO: Call API to switch shop context if needed
-    // For now, just update local state
-    this.setAuthState({ currentShop: shop });
+    const result = await apiClient.switchShop(shopId);
+    this.setAuthState({ currentShop: result.currentShop });
+    window.location.reload();
+  }
+
+  async refreshShops(): Promise<void> {
+    if (!this.authState.isAuthenticated) return;
+
+    const shops = await apiClient.getShops();
+    const currentShop = this.authState.currentShop && shops.find(s => s.id === this.authState.currentShop?.id);
+
+    this.setAuthState({
+      allShops: shops,
+      currentShop: currentShop || this.authState.currentShop || shops[0] || null,
+    });
+  }
+
+  async createShop(payload: CreateShopRequest): Promise<Shop> {
+    const newShop = await apiClient.createShop(payload);
+    const switchResult = await apiClient.switchShop(newShop.id);
+    const shops = await apiClient.getShops();
+
+    this.setAuthState({
+      allShops: shops,
+      currentShop: switchResult.currentShop,
+    });
+
+    window.location.reload();
+
+    return newShop;
   }
 
   logout(): void {

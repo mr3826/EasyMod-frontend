@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, Upload, Plus, Eye, Edit2, Trash2, X } from "lucide-react";
+import { apiClient } from "../lib/api";
 
 interface SubSubcategory {
   id: string;
@@ -9,40 +10,58 @@ interface SubSubcategory {
   description?: string;
 }
 
-const mockSubSubcategories: SubSubcategory[] = [
-  {
-    id: "ss1",
-    name: "iPhone Accessories",
-    image: "https://images.unsplash.com/photo-1484704849700-f032a568e944?w=200&h=200&fit=crop",
-    description: "Cases, chargers, and more",
-  },
-  {
-    id: "ss2",
-    name: "Android Accessories",
-    image: "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=200&h=200&fit=crop",
-    description: "Accessories for Android devices",
-  },
-  {
-    id: "ss3",
-    name: "Universal Accessories",
-    image: "https://images.unsplash.com/photo-1583394838336-acd977736f90?w=200&h=200&fit=crop",
-    description: "Works with all phones",
-  },
-];
-
 export default function SubcategoryDetails() {
   const navigate = useNavigate();
   const { categoryId, subcategoryId } = useParams();
   
-  const [subcategoryName, setSubcategoryName] = useState("Mobile Phones");
-  const [description, setDescription] = useState("Smartphones and accessories");
-  const [categoryImage, setCategoryImage] = useState("https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&h=400&fit=crop");
-  const [bannerImage, setBannerImage] = useState("https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=1300&h=380&fit=crop");
-  const [subSubcategories, setSubSubcategories] = useState(mockSubSubcategories);
+  const [subcategoryName, setSubcategoryName] = useState("");
+  const [description, setDescription] = useState("");
+  const [categoryImage, setCategoryImage] = useState("");
+  const [bannerImage, setBannerImage] = useState("");
+  const [subSubcategories, setSubSubcategories] = useState<SubSubcategory[]>([]);
+  const [parentCategoryName, setParentCategoryName] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<SubSubcategory | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<SubSubcategory | null>(null);
+
+  useEffect(() => {
+    const loadDetails = async () => {
+      if (!categoryId || !subcategoryId) return;
+      try {
+        setIsLoading(true);
+        setLoadError(null);
+
+        const [parentCategory, subcategory] = await Promise.all([
+          apiClient.getCategory(categoryId),
+          apiClient.getSubcategoryDetails(categoryId, subcategoryId)
+        ]);
+
+        setParentCategoryName(parentCategory?.name || null);
+        setSubcategoryName(subcategory?.name || '');
+        setDescription(subcategory?.description || '');
+        setCategoryImage(subcategory?.image || '');
+        setBannerImage(subcategory?.cover_image || '');
+
+        const children = (subcategory?.subcategories || []).map((child: any) => ({
+          id: child.id,
+          name: child.name,
+          image: child.image || child.cover_image || '',
+          description: child.description || ''
+        }));
+
+        setSubSubcategories(children);
+      } catch (error: any) {
+        setLoadError(error.response?.data?.error?.message || 'Failed to load subcategory details');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDetails();
+  }, [categoryId, subcategoryId]);
 
   const handleCategoryImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -90,16 +109,23 @@ export default function SubcategoryDetails() {
     <div className="p-4 md:p-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-600 mb-6 flex-wrap">
-        <button onClick={() => navigate("/categories")} className="hover:text-gray-900">
+        <button onClick={() => navigate("/app/categories")} className="hover:text-gray-900">
           Categories
         </button>
         <ChevronRight className="w-4 h-4" />
         <button onClick={() => navigate(`/categories/${categoryId}`)} className="hover:text-gray-900">
-          Electronics
+          {parentCategoryName || 'Category'}
         </button>
         <ChevronRight className="w-4 h-4" />
         <span className="text-gray-900">{subcategoryName}</span>
       </div>
+
+      {isLoading && (
+        <div className="mb-6 text-gray-500">Loading subcategory details...</div>
+      )}
+      {loadError && (
+        <div className="mb-6 text-red-600">{loadError}</div>
+      )}
 
       {/* Page Header */}
       <div className="mb-6">
@@ -336,7 +362,7 @@ export default function SubcategoryDetails() {
 
       {/* Delete Modal */}
       {showDeleteModal && itemToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Subcategory</h3>
             <p className="text-gray-600 mb-6">
@@ -397,7 +423,7 @@ function NestedModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-gray-900">

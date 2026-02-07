@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MessageSquare, Instagram, CheckCircle, Clock, X, Copy, Check, AlertCircle, Info, ChevronDown, ChevronUp, Loader2, Shield } from "lucide-react";
+import { apiClient } from "../lib/api";
+import type { Channel as BackendChannel } from "../lib/api";
 
 interface Channel {
   id: string;
   name: string;
-  type: 'facebook' | 'whatsapp' | 'instagram';
+  type: 'facebook' | 'whatsapp' | 'instagram' | 'telegram' | 'webchat';
   logo: React.ReactNode;
   description: string;
   status: 'connected' | 'not_connected' | 'connecting';
@@ -20,36 +22,9 @@ interface ChannelCredentials {
 }
 
 export default function ChatSettings() {
-  // Mock channels data
-  const [channels, setChannels] = useState<Channel[]>([
-    {
-      id: 'whatsapp',
-      name: 'WhatsApp Business',
-      type: 'whatsapp',
-      logo: <MessageSquare className="w-8 h-8 text-green-600" />,
-      description: 'Direct messaging through WhatsApp for customer support',
-      status: 'connected',
-      connectedAccount: 'My Shop (+1234567890)',
-      lastSync: '2024-01-20T10:30:00Z',
-      token: 'whatsapp_token_abc123def456',
-    },
-    {
-      id: 'facebook',
-      name: 'Facebook Messenger',
-      type: 'facebook',
-      logo: <MessageSquare className="w-8 h-8 text-blue-600" />,
-      description: 'Connect with customers via Facebook Messenger',
-      status: 'not_connected',
-    },
-    {
-      id: 'instagram',
-      name: 'Instagram DM',
-      type: 'instagram',
-      logo: <Instagram className="w-8 h-8 text-pink-600" />,
-      description: 'Manage customer inquiries through Instagram Direct Messages',
-      status: 'connecting',
-    },
-  ]);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
 
   // UI State
@@ -59,10 +34,12 @@ export default function ChatSettings() {
   const [copiedToken, setCopiedToken] = useState(false);
   const [showToast, setShowToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const [credentials, setCredentials] = useState<Record<string, ChannelCredentials>>({
+  const [credentials, setCredentials] = useState<Record<Channel['type'], ChannelCredentials>>({
     whatsapp: { appId: '', appSecret: '', assetId: '' },
     facebook: { appId: '', appSecret: '', assetId: '' },
     instagram: { appId: '', appSecret: '', assetId: '' },
+    telegram: { appId: '', appSecret: '', assetId: '' },
+    webchat: { appId: '', appSecret: '', assetId: '' },
   });
 
   // Channel settings
@@ -89,78 +66,160 @@ export default function ChatSettings() {
     return 'Instagram Business Account ID';
   };
 
-  const handleCredentialChange = (channelId: string, field: keyof ChannelCredentials, value: string) => {
+  const handleCredentialChange = (channelType: Channel['type'], field: keyof ChannelCredentials, value: string) => {
     setCredentials(prev => ({
       ...prev,
-      [channelId]: {
-        ...prev[channelId],
+      [channelType]: {
+        ...prev[channelType],
         [field]: value,
       }
     }));
   };
 
-  // Mock handlers
-  const handleConnect = (channelId: string) => {
-    const channelCreds = credentials[channelId];
+  const loadChannels = async () => {
+    try {
+      setIsLoading(true);
+      setLoadError(null);
+      const backendChannels = await apiClient.getChannels();
+      const mapped = backendChannels.map((channel: BackendChannel): Channel => {
+        const descriptionMap: Record<string, string> = {
+          whatsapp: 'Direct messaging through WhatsApp for customer support',
+          facebook: 'Connect with customers via Facebook Messenger',
+          instagram: 'Manage customer inquiries through Instagram Direct Messages',
+          telegram: 'Engage customers through Telegram',
+          webchat: 'Website live chat support',
+        };
+
+        const status = channel.connected || channel.status === 'active'
+          ? 'connected'
+          : channel.status === 'error'
+            ? 'not_connected'
+            : 'not_connected';
+
+        const type = (channel.type || 'webchat') as Channel['type'];
+        const logo = type === 'instagram'
+          ? <Instagram className="w-8 h-8 text-pink-600" />
+          : <MessageSquare className={`w-8 h-8 ${type === 'whatsapp' ? 'text-green-600' : 'text-blue-600'}`} />;
+
+        return {
+          id: channel.id,
+          name: channel.name || channel.type,
+          type,
+          logo,
+          description: descriptionMap[type] || 'Customer messaging channel',
+          status,
+          connectedAccount: channel.name || undefined,
+          lastSync: channel.lastSync || channel.last_sync,
+        };
+      });
+
+      const defaults: Channel[] = [
+        {
+          id: 'whatsapp',
+          name: 'WhatsApp Business',
+          type: 'whatsapp',
+          logo: <MessageSquare className="w-8 h-8 text-green-600" />,
+          description: 'Direct messaging through WhatsApp for customer support',
+          status: 'not_connected'
+        },
+        {
+          id: 'facebook',
+          name: 'Messenger',
+          type: 'facebook',
+          logo: <MessageSquare className="w-8 h-8 text-blue-600" />,
+          description: 'Connect with customers via Facebook Messenger',
+          status: 'not_connected'
+        },
+        {
+          id: 'instagram',
+          name: 'Instagram DM',
+          type: 'instagram',
+          logo: <Instagram className="w-8 h-8 text-pink-600" />,
+          description: 'Manage customer inquiries through Instagram Direct Messages',
+          status: 'not_connected'
+        }
+      ];
+
+      const merged = [...mapped];
+      defaults.forEach((channel) => {
+        if (!merged.find(existing => existing.type === channel.type)) {
+          merged.push(channel);
+        }
+      });
+
+      setChannels(merged);
+    } catch (err) {
+      console.error('Failed to load channels:', err);
+      setLoadError('Failed to load channels from backend');
+      setChannels([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadChannels();
+  }, []);
+
+  const handleConnect = async (channel: Channel) => {
+    const channelCreds = credentials[channel.type];
     if (!channelCreds?.appId || !channelCreds?.appSecret || !channelCreds?.assetId) {
       setShowToast({
         type: 'error',
-        message: 'Please provide App ID, App Secret, and the channel Asset ID before connecting.'
+        message: 'Please provide App ID, App Secret, and the Asset/Page ID before connecting.'
       });
       return;
     }
 
-    setChannels(channels.map(ch =>
-      ch.id === channelId
-        ? { ...ch, status: 'connecting' }
-        : ch
+    setChannels(prev => prev.map(ch =>
+      ch.type === channel.type ? { ...ch, status: 'connecting' } : ch
     ));
 
-    // Simulate connection delay
-    setTimeout(() => {
-      // 90% success rate for demo
-      const success = Math.random() > 0.1;
-      setChannels(prev =>
-        prev.map(ch =>
-          ch.id === channelId
-            ? {
-              ...ch,
-              status: success ? 'connected' : 'not_connected',
-              connectedAccount: success ? `Account-${channelId.toUpperCase()}` : undefined,
-              lastSync: success ? new Date().toISOString() : undefined,
-              token: success ? `token_${channelId}_${Date.now()}` : undefined,
-            }
-            : ch
-        )
-      );
-
-      setShowToast({
-        type: success ? 'success' : 'error',
-        message: success
-          ? `${channels.find(c => c.id === channelId)?.name} connected successfully!`
-          : 'Connection failed. Please try again.',
+    try {
+      await apiClient.connectChannel({
+        type: channel.type,
+        name: channel.name,
+        appId: channelCreds.appId,
+        appSecret: channelCreds.appSecret,
+        assetId: channelCreds.assetId
       });
-    }, 2000);
-  };
 
-  const handleDisconnect = (channelId: string) => {
-    const channel = channels.find(c => c.id === channelId);
-    if (confirm(`Are you sure you want to disconnect ${channel?.name}?`)) {
-      setChannels(channels.map(ch =>
-        ch.id === channelId
-          ? {
-            ...ch,
-            status: 'not_connected',
-            connectedAccount: undefined,
-            lastSync: undefined,
-            token: undefined,
-          }
-          : ch
-      ));
-
+      await loadChannels();
       setShowToast({
         type: 'success',
-        message: `${channel?.name} disconnected successfully.`,
+        message: `${channel.name} connected successfully!`
+      });
+    } catch (error: any) {
+      setShowToast({
+        type: 'error',
+        message: error.response?.data?.error?.message || 'Connection failed. Please try again.'
+      });
+      setChannels(prev => prev.map(ch =>
+        ch.type === channel.type ? { ...ch, status: 'not_connected' } : ch
+      ));
+    }
+  };
+
+  const handleDisconnect = async (channel: Channel) => {
+    if (channel.id === channel.type) {
+      setShowToast({
+        type: 'error',
+        message: 'This channel is not connected yet.'
+      });
+      return;
+    }
+
+    try {
+      await apiClient.disconnectChannel(channel.id);
+      await loadChannels();
+      setShowToast({
+        type: 'success',
+        message: `${channel.name} disconnected successfully.`
+      });
+    } catch (error: any) {
+      setShowToast({
+        type: 'error',
+        message: error.response?.data?.error?.message || 'Disconnect failed.'
       });
     }
   };
@@ -216,7 +275,16 @@ export default function ChatSettings() {
 
       {/* Channels Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {channels.map((channel) => {
+        {isLoading && (
+          <div className="col-span-full text-center text-gray-500 py-8">Loading channels from backend...</div>
+        )}
+        {loadError && (
+          <div className="col-span-full text-center text-red-600 py-8">{loadError}</div>
+        )}
+        {!isLoading && !loadError && channels.length === 0 && (
+          <div className="col-span-full text-center text-gray-500 py-8">No channels found.</div>
+        )}
+        {!isLoading && !loadError && channels.map((channel) => {
           const status = statusConfig[channel.status];
           const StatusIcon = status.icon;
 
@@ -260,8 +328,8 @@ export default function ChatSettings() {
                     <label className="block text-xs font-medium text-gray-600 mb-1">App ID</label>
                     <input
                       type="text"
-                      value={credentials[channel.id]?.appId || ''}
-                      onChange={(e) => handleCredentialChange(channel.id, 'appId', e.target.value)}
+                      value={credentials[channel.type]?.appId || ''}
+                      onChange={(e) => handleCredentialChange(channel.type, 'appId', e.target.value)}
                       placeholder="Enter Meta App ID"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -270,8 +338,8 @@ export default function ChatSettings() {
                     <label className="block text-xs font-medium text-gray-600 mb-1">App Secret</label>
                     <input
                       type="password"
-                      value={credentials[channel.id]?.appSecret || ''}
-                      onChange={(e) => handleCredentialChange(channel.id, 'appSecret', e.target.value)}
+                      value={credentials[channel.type]?.appSecret || ''}
+                      onChange={(e) => handleCredentialChange(channel.type, 'appSecret', e.target.value)}
                       placeholder="Enter Meta App Secret"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -280,14 +348,14 @@ export default function ChatSettings() {
                     <label className="block text-xs font-medium text-gray-600 mb-1">{getAssetLabel(channel.type)}</label>
                     <input
                       type="text"
-                      value={credentials[channel.id]?.assetId || ''}
-                      onChange={(e) => handleCredentialChange(channel.id, 'assetId', e.target.value)}
+                      value={credentials[channel.type]?.assetId || ''}
+                      onChange={(e) => handleCredentialChange(channel.type, 'assetId', e.target.value)}
                       placeholder={`Enter ${getAssetLabel(channel.type)}`}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div className="text-xs text-gray-500">
-                    User provides IDs/secrets and grants permissions on their Meta side. This is a UI-only mock.
+                    User provides IDs/secrets and grants permissions on their Meta side. Backend integration required.
                   </div>
                 </div>
               )}
@@ -360,7 +428,7 @@ export default function ChatSettings() {
               <div className="flex gap-2">
                 {channel.status === 'not_connected' && (
                   <button
-                    onClick={() => handleConnect(channel.id)}
+                    onClick={() => handleConnect(channel)}
                     className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                   >
                     Connect
@@ -383,7 +451,7 @@ export default function ChatSettings() {
                       Manage
                     </button>
                     <button
-                      onClick={() => handleDisconnect(channel.id)}
+                      onClick={() => handleDisconnect(channel)}
                       className="flex-1 bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
                     >
                       Disconnect
@@ -412,7 +480,7 @@ export default function ChatSettings() {
 
       {/* Manage Channel Modal */}
       {showManageModal && managedChannel && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b">

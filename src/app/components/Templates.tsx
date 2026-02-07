@@ -1,5 +1,5 @@
 import { Mail, MessageSquare, PartyPopper, Package, Megaphone, Bell } from "lucide-react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 
 export default function Templates() {
   const navigate = useNavigate();

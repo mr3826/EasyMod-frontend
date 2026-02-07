@@ -3,7 +3,7 @@ import { Plus, Upload, Bot, CheckCircle, Edit2, Trash2, AlertCircle, Search, Fil
 import { Product } from "../lib/api";
 import { authService } from "../lib/auth";
 import { apiClient } from "../lib/api";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 import AddProduct from "./AddProduct";
 
 export default function Products() {
@@ -509,7 +509,7 @@ export default function Products() {
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-8 max-w-lg w-full mx-4">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Product File</h2>
             <p className="text-gray-600 mb-6">Upload CSV, Excel, PDF, or text files for AI processing</p>
@@ -570,7 +570,7 @@ export default function Products() {
 
       {/* Review AI Products Modal */}
       {showReviewModal && aiGeneratedProducts.length > 0 && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-xl p-8 max-w-4xl w-full mx-4 my-8">
             <div className="flex items-center gap-3 mb-6">
               <Bot className="w-8 h-8 text-purple-600" />
@@ -674,7 +674,7 @@ export default function Products() {
 
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && productToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">Delete Product</h2>
             <p className="text-gray-600 mb-6">

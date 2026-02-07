@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router-dom";
 import { Upload, X, Plus, ChevronDown, ChevronUp, Save, Calendar, Package, Tag, FolderTree } from "lucide-react";
 import { apiClient, Product } from "../lib/api";
 
@@ -272,13 +272,13 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
         if (onClose) {
           onClose();
         } else {
-          navigate("/products");
+          navigate("/app/products");
         }
       } else {
         // Create new product
         await apiClient.createProduct(productData);
         console.log("Creating product as:", action);
-        navigate("/products");
+        navigate("/app/products");
       }
     } catch (error: any) {
       // Log the full error for debugging
@@ -323,7 +323,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
   // Render modal version
   if (isModal && onClose) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+      <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 overflow-y-auto">
         <div className="bg-white rounded-xl max-w-4xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto">
           <div className="p-8">
             {/* Modal Header */}
@@ -427,7 +427,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
       {/* Page Header */}
       <div className="mb-8">
         <button
-          onClick={() => navigate("/products")}
+          onClick={() => navigate("/app/products")}
           className="text-gray-600 hover:text-gray-900 flex items-center gap-2 mb-4"
         >
           ← Back to Products
@@ -1322,7 +1322,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
 
       {/* Category Selection Modal */}
       {showCategoryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900">Select Categories</h3>
@@ -1403,7 +1403,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                 <button
                   onClick={() => {
                     setShowCategoryModal(false);
-                    navigate("/categories/create");
+                    navigate("/app/categories/create");
                   }}
                   className="w-full px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >

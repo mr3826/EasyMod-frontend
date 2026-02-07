@@ -3,50 +3,6 @@ import { ArrowUp, ArrowDown, MessageSquare, Package, ShoppingCart, TrendingUp } 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiClient } from "../lib/api";
 
-const metrics = [
-  {
-    name: 'Total Messages',
-    value: '459',
-    change: '+12.5%',
-    trend: 'up',
-    icon: MessageSquare,
-    color: 'blue',
-  },
-  {
-    name: 'Active Products',
-    value: '23',
-    change: '+3',
-    trend: 'up',
-    icon: Package,
-    color: 'purple',
-  },
-  {
-    name: 'Orders Today',
-    value: '18',
-    change: '+8.2%',
-    trend: 'up',
-    icon: ShoppingCart,
-    color: 'green',
-  },
-  {
-    name: 'Conversion Rate',
-    value: '24.8%',
-    change: '-2.1%',
-    trend: 'down',
-    icon: TrendingUp,
-    color: 'orange',
-  },
-];
-
-const chartData = [
-  { name: 'Mon', value: 12 },
-  { name: 'Tue', value: 19 },
-  { name: 'Wed', value: 15 },
-  { name: 'Thu', value: 23 },
-  { name: 'Fri', value: 28 },
-  { name: 'Sat', value: 21 },
-  { name: 'Sun', value: 18 },
-];
 
 export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -118,21 +74,20 @@ export default function Dashboard() {
     );
   }
 
-  // Use real data if available, fallback to mock data
   const metrics = dashboardData ? [
     {
       name: 'Total Messages',
       value: dashboardData.metrics.totalMessages.toString(),
-      change: '+12.5%', // This would need to be calculated from historical data
-      trend: 'up',
+      change: null as string | null,
+      trend: null as 'up' | 'down' | null,
       icon: MessageSquare,
       color: 'blue',
     },
     {
       name: 'Active Products',
       value: dashboardData.metrics.activeProducts.toString(),
-      change: '+3',
-      trend: 'up',
+      change: null as string | null,
+      trend: null as 'up' | 'down' | null,
       icon: Package,
       color: 'purple',
     },
@@ -147,76 +102,35 @@ export default function Dashboard() {
     {
       name: 'Conversion Rate',
       value: `${dashboardData.metrics.conversionRate}%`,
-      change: '-2.1%',
-      trend: 'down',
+      change: null as string | null,
+      trend: null as 'up' | 'down' | null,
       icon: TrendingUp,
       color: 'orange',
     },
-  ] : [
-    {
-      name: 'Total Messages',
-      value: '459',
-      change: '+12.5%',
-      trend: 'up',
-      icon: MessageSquare,
-      color: 'blue',
-    },
-    {
-      name: 'Active Products',
-      value: '23',
-      change: '+3',
-      trend: 'up',
-      icon: Package,
-      color: 'purple',
-    },
-    {
-      name: 'Orders Today',
-      value: '18',
-      change: '+8.2%',
-      trend: 'up',
-      icon: ShoppingCart,
-      color: 'green',
-    },
-    {
-      name: 'Conversion Rate',
-      value: '24.8%',
-      change: '-2.1%',
-      trend: 'down',
-      icon: TrendingUp,
-      color: 'orange',
-    },
-  ];
+  ] : [];
 
-  // Placeholder AI insights - TODO: Connect to real AI insights API
-  const insights = [
+  const insights = dashboardData ? [
     {
       id: '1',
       title: 'Performance Overview',
-      description: dashboardData
-        ? `You have ${dashboardData.metrics.activeProducts} active products and ${dashboardData.metrics.ordersToday} orders today.`
-        : 'Loading insights...',
+      description: `You have ${dashboardData.metrics.activeProducts} active products and ${dashboardData.metrics.ordersToday} orders today.`,
       type: 'info' as const,
     },
     {
       id: '2',
       title: 'Channel Activity',
-      description: dashboardData
-        ? `${dashboardData.channels.active} of ${dashboardData.channels.total} channels are active.`
-        : 'Analyzing channel performance...',
+      description: `${dashboardData.channels.active} of ${dashboardData.channels.total} channels are active.`,
       type: 'success' as const,
     },
     {
       id: '3',
       title: 'Weekly Trend',
-      description: dashboardData
-        ? `Orders ${dashboardData.metrics.weeklyChange >= 0 ? 'increased' : 'decreased'} by ${Math.abs(dashboardData.metrics.weeklyChange)}% this week.`
-        : 'Calculating trends...',
+      description: `Orders ${dashboardData.metrics.weeklyChange >= 0 ? 'increased' : 'decreased'} by ${Math.abs(dashboardData.metrics.weeklyChange)}% this week.`,
       type: 'warning' as const,
     },
-  ];
+  ] : [];
 
-  // Use real chart data if available, fallback to mock data
-  const realChartData = dashboardData?.chartData?.length > 0 ? dashboardData.chartData : chartData;
+  const realChartData = dashboardData?.chartData ?? [];
 
   return (
     <div className="p-8">
@@ -227,50 +141,64 @@ export default function Dashboard() {
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {metrics.map((metric) => {
-          const Icon = metric.icon;
-          const bgColor = `bg-${metric.color}-100`;
-          const textColor = `text-${metric.color}-600`;
-          
-          return (
-            <div key={metric.name} className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-shadow">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`w-12 h-12 rounded-lg ${bgColor} flex items-center justify-center`}>
-                  <Icon className={`w-6 h-6 ${textColor}`} />
+        {metrics.length === 0 ? (
+          <div className="col-span-full bg-white rounded-xl p-6 border border-gray-200 text-center text-gray-500">
+            No dashboard metrics available from the backend.
+          </div>
+        ) : (
+          metrics.map((metric) => {
+            const Icon = metric.icon;
+            const bgColor = `bg-${metric.color}-100`;
+            const textColor = `text-${metric.color}-600`;
+            
+            return (
+              <div key={metric.name} className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-shadow">
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`w-12 h-12 rounded-lg ${bgColor} flex items-center justify-center`}>
+                    <Icon className={`w-6 h-6 ${textColor}`} />
+                  </div>
+                  {metric.change && metric.trend && (
+                    <div className={`flex items-center gap-1 text-sm ${
+                      metric.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {metric.trend === 'up' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+                      <span>{metric.change}</span>
+                    </div>
+                  )}
                 </div>
-                <div className={`flex items-center gap-1 text-sm ${
-                  metric.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {metric.trend === 'up' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                  <span>{metric.change}</span>
-                </div>
+                <h3 className="text-2xl font-bold text-gray-900">{metric.value}</h3>
+                <p className="text-gray-600 text-sm mt-1">{metric.name}</p>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900">{metric.value}</h3>
-              <p className="text-gray-600 text-sm mt-1">{metric.name}</p>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Orders Chart */}
         <div className="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Orders This Week</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={realChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" stroke="#9ca3af" />
-              <YAxis stroke="#9ca3af" />
-              <Tooltip />
-              <Line 
-                type="monotone" 
-                dataKey="value" 
-                stroke="#3b82f6" 
-                strokeWidth={3}
-                dot={{ fill: '#3b82f6', r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {realChartData.length === 0 ? (
+            <div className="h-[300px] flex items-center justify-center text-gray-500">
+              No chart data available from the backend.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={realChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="name" stroke="#9ca3af" />
+                <YAxis stroke="#9ca3af" />
+                <Tooltip />
+                <Line 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="#3b82f6" 
+                  strokeWidth={3}
+                  dot={{ fill: '#3b82f6', r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* Channel Status */}
@@ -301,20 +229,26 @@ export default function Dashboard() {
           <span className="text-sm text-gray-500">Updated 5 mins ago</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {insights.map((insight) => {
-            const colors = {
-              success: 'bg-green-50 border-green-200 text-green-700',
-              info: 'bg-blue-50 border-blue-200 text-blue-700',
-              warning: 'bg-yellow-50 border-yellow-200 text-yellow-700',
-            };
-            
-            return (
-              <div key={insight.id} className={`p-4 rounded-lg border ${colors[insight.type]}`}>
-                <h3 className="font-semibold mb-1">{insight.title}</h3>
-                <p className="text-sm opacity-80">{insight.description}</p>
-              </div>
-            );
-          })}
+          {insights.length === 0 ? (
+            <div className="col-span-full text-center text-gray-500">
+              No insights available from the backend.
+            </div>
+          ) : (
+            insights.map((insight) => {
+              const colors = {
+                success: 'bg-green-50 border-green-200 text-green-700',
+                info: 'bg-blue-50 border-blue-200 text-blue-700',
+                warning: 'bg-yellow-50 border-yellow-200 text-yellow-700',
+              };
+              
+              return (
+                <div key={insight.id} className={`p-4 rounded-lg border ${colors[insight.type]}`}>
+                  <h3 className="font-semibold mb-1">{insight.title}</h3>
+                  <p className="text-sm opacity-80">{insight.description}</p>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Search, Filter, Plus, Mail, MessageSquare, Copy, Eye, MoreVertical } from "lucide-react";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 
 interface Campaign {
   id: string;

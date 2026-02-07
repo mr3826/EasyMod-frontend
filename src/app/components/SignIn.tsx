@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { Checkbox } from '@/app/components/ui/checkbox';
@@ -34,9 +33,13 @@ export default function SignIn() {
 
     try {
       await authService.signin({ email, password });
-      navigate('/');
+      navigate('/app');
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Invalid email or password');
+      setError(
+        error.response?.data?.error?.message ||
+          error.response?.data?.message ||
+          'Invalid email or password'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -49,10 +52,10 @@ export default function SignIn() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
             <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl"></div>
-            <span className="text-3xl font-bold text-gray-900">CommerceAI</span>
+            <span className="text-3xl font-bold text-gray-900">Easy Moderator</span>
           </div>
           <p className="text-gray-600">
-            Sign in to your AI Commerce Platform
+            Sign in to Easy Moderator
           </p>
         </div>
 

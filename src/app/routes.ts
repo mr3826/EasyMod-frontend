@@ -1,4 +1,4 @@
-import { createBrowserRouter, redirect } from "react-router";
+import { createBrowserRouter, redirect } from "react-router-dom";
 import DashboardLayout from "./components/DashboardLayout";
 import Dashboard from "./components/Dashboard";
 import UnifiedInbox from "./components/UnifiedInbox";
@@ -16,6 +16,7 @@ import SubcategoryDetails from "./components/SubcategoryDetails";
 import ManageShop from "./components/ManageShop";
 import ChatSettings from "./components/ChatSettings";
 import SignIn from "./components/SignIn";
+import Signup from "./components/Signup";
 
 import Subscription from "./components/Subscription";
 import { authService } from "./lib/auth";
@@ -23,14 +24,14 @@ import { authService } from "./lib/auth";
 // Loader function to check authentication
 function protectedLoader() {
   if (!authService.isAuthenticated()) {
-    return redirect("/signin");
+    return redirect("/");
   }
   return null;
 }
 
 function publicLoader() {
   if (authService.isAuthenticated()) {
-    return redirect("/");
+    return redirect("/app");
   }
   return null;
 }
@@ -41,9 +42,28 @@ export const router = createBrowserRouter([
     Component: SignIn,
     loader: publicLoader,
   },
-
+  {
+    path: "/products/add",
+    loader: () => {
+      if (!authService.isAuthenticated()) {
+        return redirect("/");
+      }
+      return redirect("/app/products/add");
+    },
+  },
   {
     path: "/",
+    Component: Signup,
+    loader: publicLoader,
+  },
+  {
+    path: "/signup",
+    Component: Signup,
+    loader: publicLoader,
+  },
+
+  {
+    path: "/app",
     Component: DashboardLayout,
     loader: protectedLoader,
     children: [

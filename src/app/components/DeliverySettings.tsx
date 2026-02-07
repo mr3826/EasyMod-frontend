@@ -447,21 +447,6 @@ export default function DeliverySettings() {
         })}
       </div>
 
-      {/* Info Box */}
-      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <div className="flex gap-3">
-          <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-blue-900">
-            <p className="font-medium mb-1">Important Information</p>
-            <ul className="list-disc list-inside space-y-1 text-blue-800">
-              <li>Only one delivery provider can be active at a time</li>
-              <li>Activating a provider will automatically deactivate others</li>
-              <li>Credentials are encrypted and stored securely</li>
-              <li>Test your connection before activating a provider</li>
-            </ul>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
