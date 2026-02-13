@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { Plus, Check, AlertCircle, RefreshCw, Settings } from "lucide-react";
+import { Plus, Check, AlertCircle, RefreshCw, Settings, Loader2 } from "lucide-react";
 import { Channel } from "../lib/api";
 import { apiClient } from "../lib/api";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 interface ChannelType {
   id: string;
@@ -14,66 +16,103 @@ const availableChannels: ChannelType[] = [
   {
     id: 'facebook',
     name: 'Facebook Messenger',
-    icon: '👥',
+    icon: '\uD83D\uDC65',
     description: 'Connect your Facebook Page to receive messages',
   },
   {
     id: 'whatsapp',
     name: 'WhatsApp Cloud API',
-    icon: '💬',
+    icon: '\uD83D\uDCAC',
     description: 'Integrate WhatsApp Business for customer support',
   },
   {
     id: 'telegram',
     name: 'Telegram Bot',
-    icon: '✈️',
+    icon: '\u2708\uFE0F',
     description: 'Create a Telegram bot for your business',
   },
   {
     id: 'webchat',
     name: 'Web Chat Widget',
-    icon: '🌐',
+    icon: '\uD83C\uDF10',
     description: 'Add chat widget to your website',
   },
 ];
 
 export default function Channels() {
+  const navigate = useNavigate();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<ChannelType | null>(null);
   const [connectionStep, setConnectionStep] = useState<'select' | 'authorize' | 'test' | 'complete'>('select');
+  const [accessToken, setAccessToken] = useState('');
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch channels on mount
+  const fetchChannels = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const fetchedChannels = await apiClient.getChannels();
+      setChannels(fetchedChannels);
+    } catch (error: any) {
+      setError(error.response?.data?.error?.message || 'Failed to load channels');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchChannels = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const fetchedChannels = await apiClient.getChannels();
-        setChannels(fetchedChannels);
-      } catch (error: any) {
-        setError(error.response?.data?.error?.message || 'Failed to load channels');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchChannels();
   }, []);
 
   const handleConnect = (channel: ChannelType) => {
     setSelectedChannel(channel);
+    setAccessToken('');
     setConnectionStep('authorize');
     setShowConnectModal(true);
   };
 
-  const handleTestConnection = () => {
+  const handleTestConnection = async () => {
+    if (!accessToken.trim()) {
+      toast.error('Please enter an access token');
+      return;
+    }
+    if (!selectedChannel) return;
+
     setConnectionStep('test');
-    setTimeout(() => {
+    setIsConnecting(true);
+
+    try {
+      await apiClient.connectChannel({
+        type: selectedChannel.id as Channel['type'],
+        name: selectedChannel.name,
+        systemUserToken: accessToken,
+      });
       setConnectionStep('complete');
-    }, 2000);
+      toast.success(`${selectedChannel.name} connected successfully!`);
+      fetchChannels();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Connection failed. Check your token.');
+      setConnectionStep('authorize');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const fetchedChannels = await apiClient.getChannels();
+      setChannels(fetchedChannels);
+      toast.success('Channels refreshed');
+    } catch {
+      toast.error('Failed to refresh channels');
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   return (
@@ -126,7 +165,7 @@ export default function Channels() {
             </div>
           </div>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => fetchChannels()}
             className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
             Retry
@@ -134,7 +173,7 @@ export default function Channels() {
         </div>
       ) : channels.length === 0 ? (
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-12 text-center">
-          <div className="text-6xl mb-4">📡</div>
+          <div className="text-6xl mb-4">{'\uD83D\uDCE1'}</div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">No Channels Connected</h3>
           <p className="text-gray-600 mb-6">Connect your first channel to start receiving messages from customers.</p>
           <button
@@ -193,13 +232,20 @@ export default function Channels() {
               )}
 
               <div className="flex gap-2">
-                <button className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2">
+                <button
+                  onClick={() => navigate('/app/manage-shop/chat-settings')}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
+                >
                   <Settings className="w-4 h-4" />
                   Configure
                 </button>
                 {channel.connected && (
-                  <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-                    <RefreshCw className="w-4 h-4" />
+                  <button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                   </button>
                 )}
               </div>
@@ -221,7 +267,7 @@ export default function Channels() {
                 const steps = ['select', 'authorize', 'test', 'complete'];
                 const currentIndex = steps.indexOf(connectionStep);
                 const isActive = index <= currentIndex;
-                
+
                 return (
                   <div key={step} className="flex items-center">
                     <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
@@ -266,7 +312,7 @@ export default function Channels() {
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">{selectedChannel.name}</h3>
                   <p className="text-gray-600">{selectedChannel.description}</p>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -274,11 +320,13 @@ export default function Channels() {
                     </label>
                     <input
                       type="text"
+                      value={accessToken}
+                      onChange={(e) => setAccessToken(e.target.value)}
                       placeholder="Paste your token here..."
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  
+
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <h4 className="font-semibold text-blue-900 mb-2">How to get your token:</h4>
                     <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
@@ -289,12 +337,13 @@ export default function Channels() {
                     </ol>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-3 mt-6">
                   <button
                     onClick={() => {
                       setShowConnectModal(false);
                       setConnectionStep('select');
+                      setAccessToken('');
                     }}
                     className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                   >
@@ -302,9 +351,10 @@ export default function Channels() {
                   </button>
                   <button
                     onClick={handleTestConnection}
-                    className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    disabled={!accessToken.trim() || isConnecting}
+                    className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Continue
+                    {isConnecting ? 'Connecting...' : 'Connect'}
                   </button>
                 </div>
               </div>
@@ -313,8 +363,8 @@ export default function Channels() {
             {/* Test Connection */}
             {connectionStep === 'test' && (
               <div className="text-center py-12">
-                <RefreshCw className="w-16 h-16 text-blue-600 mx-auto mb-4 animate-spin" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Testing Connection...</h3>
+                <Loader2 className="w-16 h-16 text-blue-600 mx-auto mb-4 animate-spin" />
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Connecting...</h3>
                 <p className="text-gray-600">Please wait while we verify your credentials</p>
               </div>
             )}
@@ -331,6 +381,7 @@ export default function Channels() {
                   onClick={() => {
                     setShowConnectModal(false);
                     setConnectionStep('select');
+                    setAccessToken('');
                   }}
                   className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >

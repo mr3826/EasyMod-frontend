@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Send, Bot, User, CheckCircle2, Edit3, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { apiClient, Conversation, Message } from "../lib/api";
 
 const channelIcons: Record<string, string> = {
@@ -18,6 +19,8 @@ export default function UnifiedInbox() {
   const [error, setError] = useState<string | null>(null);
   const [aiSuggestionAccepted, setAiSuggestionAccepted] = useState(false);
   const [editingMessage, setEditingMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   // Load conversations on mount
   useEffect(() => {
@@ -42,6 +45,7 @@ export default function UnifiedInbox() {
       }
     } catch (err) {
       setError('Failed to load conversations');
+      toast.error('Failed to load conversations');
       console.error('Error loading conversations:', err);
     } finally {
       setLoadingConversations(false);
@@ -54,7 +58,7 @@ export default function UnifiedInbox() {
       const result = await apiClient.getMessages(conversationId, { limit: 100 });
       setMessages(result.messages);
     } catch (err) {
-      console.error('Error loading messages:', err);
+      toast.error('Failed to load messages');
     } finally {
       setLoadingMessages(false);
     }
@@ -62,6 +66,36 @@ export default function UnifiedInbox() {
 
   const aiSuggestion = messages.length > 0 ? messages[messages.length - 1]?.ai_suggestion : '';
   const aiConfidence = messages.length > 0 ? messages[messages.length - 1]?.ai_confidence : 0;
+
+  const handleSendMessage = async () => {
+    const trimmed = editingMessage.trim();
+    if (!selectedConversation || !trimmed || isSending) return;
+
+    try {
+      setIsSending(true);
+      setSendError(null);
+      const message = await apiClient.createMessage(selectedConversation.id, {
+        content: trimmed,
+        sender: 'agent',
+        message_type: 'text'
+      });
+      setMessages((prev) => [...prev, message]);
+      setEditingMessage('');
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === selectedConversation.id
+            ? { ...conv, updated_at: message.created_at || conv.updated_at, lastMessage: message.content }
+            : conv
+        )
+      );
+    } catch (err: any) {
+      const message = err.response?.data?.error?.message || 'Failed to send message.';
+      setSendError(message);
+      toast.error(message);
+    } finally {
+      setIsSending(false);
+    }
+  };
 
 
   return (
@@ -204,19 +238,36 @@ export default function UnifiedInbox() {
 
               {/* Message Input */}
               <div className="bg-white border-t border-gray-200 p-4">
+                {sendError && (
+                  <div className="mb-3 text-sm text-red-600">
+                    {sendError}
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   <input
                     type="text"
                     value={editingMessage}
                     onChange={(e) => setEditingMessage(e.target.value)}
                     placeholder="Type a message..."
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
                     className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                    onClick={handleSendMessage}
+                    disabled={isSending || !editingMessage.trim()}
+                    className={`px-6 py-3 bg-blue-600 text-white rounded-lg flex items-center gap-2 ${
+                      isSending || !editingMessage.trim()
+                        ? 'opacity-60 cursor-not-allowed'
+                        : 'hover:bg-blue-700'
+                    }`}
                   >
-                    <Send className="w-5 h-5" />
-                    Send
+                    {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                    {isSending ? 'Sending...' : 'Send'}
                   </button>
                 </div>
               </div>

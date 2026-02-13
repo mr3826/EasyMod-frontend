@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService, logout } from "@/app/lib/auth";
 import type { Shop as BackendShop } from "@/app/lib/api";
+import { toast } from "sonner";
 
 const appBasePath = '/app';
 
@@ -49,6 +50,7 @@ export default function DashboardLayout() {
     if (!authState.isAuthenticated) return;
     authService.refreshShops().catch((error) => {
       console.error('Failed to refresh shops:', error);
+      toast.error('Failed to refresh shops');
     });
   }, [authState.isAuthenticated]);
 
@@ -97,6 +99,7 @@ export default function DashboardLayout() {
         await authService.switchShop(shopId);
       } catch (error) {
         console.error('Failed to switch shop:', error);
+        toast.error('Failed to switch shop');
       }
       setShowShopPanel(false);
     }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { TrendingUp, Users, ShoppingCart, Bot, Brain, AlertCircle, MessageSquare, Package } from "lucide-react";
+import { toast } from "sonner";
 import { apiClient } from '../lib/api';
 import type { Channel, DashboardMetrics } from '../lib/api';
 
@@ -50,6 +51,7 @@ export default function Reports() {
       } catch (err) {
         console.error('Failed to load channels:', err);
         setError('Failed to load channel data');
+        toast.error('Failed to load report data');
         
         // Fallback to empty state (user can see channel table is not connected)
         setChannelPerformance([]);

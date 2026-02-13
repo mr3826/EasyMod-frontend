@@ -12,13 +12,13 @@ interface Channel {
   status: 'connected' | 'not_connected' | 'connecting';
   connectedAccount?: string;
   lastSync?: string;
-  token?: string;
+  systemUserToken?: string;
+  businessManagerId?: string;
 }
 
 interface ChannelCredentials {
-  appId: string;
-  appSecret: string;
-  assetId: string;
+  systemUserToken: string;
+  businessManagerId: string;
 }
 
 export default function ChatSettings() {
@@ -35,11 +35,11 @@ export default function ChatSettings() {
   const [showToast, setShowToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const [credentials, setCredentials] = useState<Record<Channel['type'], ChannelCredentials>>({
-    whatsapp: { appId: '', appSecret: '', assetId: '' },
-    facebook: { appId: '', appSecret: '', assetId: '' },
-    instagram: { appId: '', appSecret: '', assetId: '' },
-    telegram: { appId: '', appSecret: '', assetId: '' },
-    webchat: { appId: '', appSecret: '', assetId: '' },
+    whatsapp: { systemUserToken: '', businessManagerId: '' },
+    facebook: { systemUserToken: '', businessManagerId: '' },
+    instagram: { systemUserToken: '', businessManagerId: '' },
+    telegram: { systemUserToken: '', businessManagerId: '' },
+    webchat: { systemUserToken: '', businessManagerId: '' },
   });
 
   // Channel settings
@@ -58,12 +58,6 @@ export default function ChatSettings() {
     connected: { icon: CheckCircle, label: 'Connected', color: 'bg-green-100 text-green-800' },
     not_connected: { icon: Clock, label: 'Not Connected', color: 'bg-gray-100 text-gray-800' },
     connecting: { icon: Loader2, label: 'Connecting...', color: 'bg-blue-100 text-blue-800' },
-  };
-
-  const getAssetLabel = (type: Channel['type']) => {
-    if (type === 'whatsapp') return 'WhatsApp Business Account ID';
-    if (type === 'facebook') return 'Facebook Page ID';
-    return 'Instagram Business Account ID';
   };
 
   const handleCredentialChange = (channelType: Channel['type'], field: keyof ChannelCredentials, value: string) => {
@@ -96,32 +90,26 @@ export default function ChatSettings() {
             ? 'not_connected'
             : 'not_connected';
 
-        const type = (channel.type || 'webchat') as Channel['type'];
+        const type = (channel.type || (channel as any).channel_type || 'webchat') as Channel['type'];
         const logo = type === 'instagram'
           ? <Instagram className="w-8 h-8 text-pink-600" />
           : <MessageSquare className={`w-8 h-8 ${type === 'whatsapp' ? 'text-green-600' : 'text-blue-600'}`} />;
 
         return {
           id: channel.id,
-          name: channel.name || channel.type,
+          name: channel.name || type,
           type,
           logo,
           description: descriptionMap[type] || 'Customer messaging channel',
           status,
           connectedAccount: channel.name || undefined,
           lastSync: channel.lastSync || channel.last_sync,
+          systemUserToken: channel.config?.systemUserToken,
+          businessManagerId: channel.config?.businessManagerId,
         };
       });
 
       const defaults: Channel[] = [
-        {
-          id: 'whatsapp',
-          name: 'WhatsApp Business',
-          type: 'whatsapp',
-          logo: <MessageSquare className="w-8 h-8 text-green-600" />,
-          description: 'Direct messaging through WhatsApp for customer support',
-          status: 'not_connected'
-        },
         {
           id: 'facebook',
           name: 'Messenger',
@@ -131,8 +119,16 @@ export default function ChatSettings() {
           status: 'not_connected'
         },
         {
+          id: 'whatsapp',
+          name: 'WhatsApp',
+          type: 'whatsapp',
+          logo: <MessageSquare className="w-8 h-8 text-green-600" />,
+          description: 'Direct messaging through WhatsApp for customer support',
+          status: 'not_connected'
+        },
+        {
           id: 'instagram',
-          name: 'Instagram DM',
+          name: 'Instagram',
           type: 'instagram',
           logo: <Instagram className="w-8 h-8 text-pink-600" />,
           description: 'Manage customer inquiries through Instagram Direct Messages',
@@ -140,7 +136,7 @@ export default function ChatSettings() {
         }
       ];
 
-      const merged = [...mapped];
+      const merged = mapped.filter(channel => ['facebook', 'whatsapp', 'instagram'].includes(channel.type));
       defaults.forEach((channel) => {
         if (!merged.find(existing => existing.type === channel.type)) {
           merged.push(channel);
@@ -151,6 +147,10 @@ export default function ChatSettings() {
     } catch (err) {
       console.error('Failed to load channels:', err);
       setLoadError('Failed to load channels from backend');
+      setShowToast({
+        type: 'error',
+        message: 'Failed to load channels from backend'
+      });
       setChannels([]);
     } finally {
       setIsLoading(false);
@@ -163,10 +163,10 @@ export default function ChatSettings() {
 
   const handleConnect = async (channel: Channel) => {
     const channelCreds = credentials[channel.type];
-    if (!channelCreds?.appId || !channelCreds?.appSecret || !channelCreds?.assetId) {
+    if (!channelCreds?.systemUserToken) {
       setShowToast({
         type: 'error',
-        message: 'Please provide App ID, App Secret, and the Asset/Page ID before connecting.'
+        message: 'Please provide a System User Token before connecting.'
       });
       return;
     }
@@ -179,9 +179,8 @@ export default function ChatSettings() {
       await apiClient.connectChannel({
         type: channel.type,
         name: channel.name,
-        appId: channelCreds.appId,
-        appSecret: channelCreds.appSecret,
-        assetId: channelCreds.assetId
+        systemUserToken: channelCreds.systemUserToken,
+        businessManagerId: channelCreds.businessManagerId || undefined
       });
 
       await loadChannels();
@@ -225,13 +224,19 @@ export default function ChatSettings() {
   };
 
   const handleManageChannel = (channel: Channel) => {
-    setManagedChannel(channel);
+    setManagedChannel({
+      ...channel,
+      connectedAccount: channel.connectedAccount || '',
+      lastSync: channel.lastSync || '',
+      systemUserToken: channel.systemUserToken || '',
+      businessManagerId: channel.businessManagerId || '',
+    });
     setShowManageModal(true);
   };
 
   const handleCopyToken = () => {
-    if (managedChannel?.token) {
-      navigator.clipboard.writeText(managedChannel.token);
+    if (managedChannel?.systemUserToken) {
+      navigator.clipboard.writeText(managedChannel.systemUserToken);
       setCopiedToken(true);
       setTimeout(() => setCopiedToken(false), 2000);
     }
@@ -269,7 +274,7 @@ export default function ChatSettings() {
         </div>
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Chat Channel Settings</h2>
-          <p className="text-gray-600 text-sm">Manage your Meta integrations (WhatsApp, Facebook, Instagram)</p>
+          <p className="text-gray-600 text-sm">Manage your Messenger, WhatsApp, and Instagram integrations</p>
         </div>
       </div>
 
@@ -321,41 +326,31 @@ export default function ChatSettings() {
                 </div>
               )}
 
-              {/* Manual Credential Inputs */}
+              {/* System User Token Input */}
               {channel.status === 'not_connected' && (
                 <div className="space-y-3 mb-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">App ID</label>
-                    <input
-                      type="text"
-                      value={credentials[channel.type]?.appId || ''}
-                      onChange={(e) => handleCredentialChange(channel.type, 'appId', e.target.value)}
-                      placeholder="Enter Meta App ID"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">App Secret</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">System User Token</label>
                     <input
                       type="password"
-                      value={credentials[channel.type]?.appSecret || ''}
-                      onChange={(e) => handleCredentialChange(channel.type, 'appSecret', e.target.value)}
-                      placeholder="Enter Meta App Secret"
+                      value={credentials[channel.type]?.systemUserToken || ''}
+                      onChange={(e) => handleCredentialChange(channel.type, 'systemUserToken', e.target.value)}
+                      placeholder="Paste System User token"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">{getAssetLabel(channel.type)}</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Business Manager ID (optional)</label>
                     <input
                       type="text"
-                      value={credentials[channel.type]?.assetId || ''}
-                      onChange={(e) => handleCredentialChange(channel.type, 'assetId', e.target.value)}
-                      placeholder={`Enter ${getAssetLabel(channel.type)}`}
+                      value={credentials[channel.type]?.businessManagerId || ''}
+                      onChange={(e) => handleCredentialChange(channel.type, 'businessManagerId', e.target.value)}
+                      placeholder="Enter your Business Manager ID"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div className="text-xs text-gray-500">
-                    User provides IDs/secrets and grants permissions on their Meta side. Backend integration required.
+                    The System User token is sensitive. Treat it like a password and revoke it if you suspect exposure.
                   </div>
                 </div>
               )}
@@ -366,31 +361,21 @@ export default function ChatSettings() {
                   <ChevronDown className="w-4 h-4 mr-2" />
                   Setup Instructions
                 </summary>
-                <div className="mt-3 text-xs text-gray-600 space-y-1 ml-6">
-                  {channel.type === 'whatsapp' && (
-                    <>
-                      <p>1. Create a Meta Business Account</p>
-                      <p>2. Set up WhatsApp Business Account</p>
-                      <p>3. Generate API credentials</p>
-                      <p>4. Add your phone number</p>
-                      <p>5. Verify business identity</p>
-                      <p>6. Connect webhook</p>
-                    </>
-                  )}
+                <div className="mt-3 text-xs text-gray-600 space-y-2 ml-6">
                   {channel.type === 'facebook' && (
                     <>
-                      <p>1. Create a Meta App</p>
-                      <p>2. Add Messenger product</p>
-                      <p>3. Generate page token</p>
-                      <p>4. Connect your Facebook Page</p>
-                    </>
-                  )}
-                  {channel.type === 'instagram' && (
-                    <>
-                      <p>1. Convert to Business Account</p>
-                      <p>2. Enable Instagram Direct Messages</p>
-                      <p>3. Configure webhook</p>
-                      <p>4. Set up AI responses</p>
+                      <p>1. Go to Meta Business Suite: https://business.facebook.com</p>
+                      <p>2. Business Settings → Users → System Users</p>
+                      <p>3. Click “Add”, name it “Webhook Manager”, role: Admin</p>
+                      <p>4. Open the System User → Generate New Token</p>
+                      <p>5. Select your app and permissions:</p>
+                      <ul className="list-disc list-inside ml-4 space-y-1">
+                        <li>whatsapp_business_messaging</li>
+                        <li>whatsapp_business_management</li>
+                        <li>pages_messaging</li>
+                        <li>instagram_manage_messages</li>
+                      </ul>
+                      <p>6. Paste the token above and connect</p>
                     </>
                   )}
                 </div>
@@ -468,13 +453,16 @@ export default function ChatSettings() {
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start space-x-3">
         <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
         <div className="text-sm text-blue-800">
-          <div className="font-semibold mb-2">How to connect your channels:</div>
+          <div className="font-semibold mb-2">How this integration works:</div>
           <ul className="space-y-1 text-blue-700">
-            <li>• Click "Connect" to initiate OAuth authorization</li>
-            <li>• Select your business account or page</li>
-            <li>• Grant necessary permissions</li>
-            <li>• Messages will be automatically forwarded to your AI assistant</li>
+            <li>• Client grants admin access to their Page/WhatsApp/Instagram</li>
+            <li>• You add their assets to your Business Manager</li>
+            <li>• You generate a System User token with the required permissions</li>
+            <li>• Paste the token here to activate webhooks</li>
           </ul>
+          <p className="mt-2 text-xs text-blue-700">
+            Tokens are sensitive. Store them securely and rotate if compromised.
+          </p>
         </div>
       </div>
 
@@ -507,13 +495,13 @@ export default function ChatSettings() {
                     <span className="text-gray-600">Last Sync:</span>
                     <p className="font-medium text-gray-900">{formatDate(managedChannel.lastSync)}</p>
                   </div>
-                  {managedChannel.token && (
+                  {managedChannel.systemUserToken && (
                     <div>
-                      <span className="text-gray-600">API Token:</span>
+                      <span className="text-gray-600">System User Token:</span>
                       <div className="flex items-center mt-1">
                         <input
                           type="password"
-                          value={managedChannel.token}
+                          value={managedChannel.systemUserToken || ''}
                           readOnly
                           className="flex-1 bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs"
                         />
@@ -529,6 +517,13 @@ export default function ChatSettings() {
                           )}
                         </button>
                       </div>
+                      <p className="mt-1 text-xs text-gray-500">Keep this token private. Revoke it in Meta Business Suite if exposed.</p>
+                    </div>
+                  )}
+                  {managedChannel.businessManagerId && (
+                    <div>
+                      <span className="text-gray-600">Business Manager ID:</span>
+                      <p className="font-medium text-gray-900 mt-1">{managedChannel.businessManagerId}</p>
                     </div>
                   )}
                 </div>
@@ -628,9 +623,24 @@ export default function ChatSettings() {
                 Close
               </button>
               <button
-                onClick={() => {
-                  setShowManageModal(false);
-                  setShowToast({ type: 'success', message: 'Settings saved successfully!' });
+                onClick={async () => {
+                  if (!managedChannel) return;
+                  try {
+                    await apiClient.updateChannel(managedChannel.id, {
+                      config: {
+                        ...managedChannel,
+                        settings: channelSettings,
+                      }
+                    });
+                    setShowManageModal(false);
+                    setShowToast({ type: 'success', message: 'Settings saved successfully!' });
+                    loadChannels();
+                  } catch (error: any) {
+                    setShowToast({
+                      type: 'error',
+                      message: error.response?.data?.error?.message || 'Failed to save settings'
+                    });
+                  }
                 }}
                 className="px-4 py-2 text-white bg-blue-600 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
               >

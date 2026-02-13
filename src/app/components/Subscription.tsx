@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Progress } from "@/app/components/ui/progress";
 import { Badge } from "@/app/components/ui/badge";
 import { Switch } from "@/app/components/ui/switch";
+import { toast } from "sonner";
 import { apiClient } from "@/app/lib/api";
 import { subscriptionPlans, getPlanPrice, findPlanByName, type BillingCycle } from "@/app/lib/subscriptionPlans";
 
@@ -161,6 +162,7 @@ export default function Subscription() {
       }
     } catch (error: any) {
       console.error('Failed to load invoices:', error);
+      toast.error('Failed to load invoices');
       setInvoices([]);
     }
   };

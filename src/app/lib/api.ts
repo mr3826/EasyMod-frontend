@@ -41,8 +41,6 @@ export interface AuthResponse {
   user: User;
   currentShop: Shop;
   allShops: Shop[];
-  accessToken: string;
-  refreshToken: string;
 }
 
 export interface SigninRequest {
@@ -97,18 +95,19 @@ export interface Product {
 // Channel types (aligned with backend entity)
 export interface Channel {
   id: string;
-  shop_id: string;
-  name: string;
-  type: 'facebook' | 'whatsapp' | 'telegram' | 'webchat' | 'instagram';
-  status: 'active' | 'inactive' | 'error';
-  connected: boolean;
+  shop_id?: string;
+  name?: string;
+  type?: 'facebook' | 'whatsapp' | 'telegram' | 'webchat' | 'instagram';
+  status?: 'active' | 'inactive' | 'error';
+  connected?: boolean;
   config?: any; // JSONB field for channel-specific configuration
-  last_sync?: string;
-  message_count: number;
-  created_at: string;
-  updated_at: string;
+  last_sync?: string | null;
+  message_count?: number;
+  created_at?: string;
+  updated_at?: string;
   lastSync?: string;
   messageCount?: number;
+  channel_type?: string;
 }
 
 // Customer types (aligned with backend entity)
@@ -282,8 +281,30 @@ export interface DeliveryProviderStatus {
   connected_at: string | null;
 }
 
+export interface DeliveryAreaPricing {
+  zone: 'inside_dhaka' | 'sub_dhaka' | 'outside_dhaka';
+  charge: number;
+  cod_enabled: boolean;
+}
+
+export interface DeliveryWeightTier {
+  from_kg: number;
+  to_kg: number;
+  extra_charge: number;
+}
+
+export interface DeliveryShopSettings {
+  default_delivery_charge: number;
+  cod_enabled: boolean;
+  cod_charge: number;
+  non_refundable: boolean;
+  area_pricing: DeliveryAreaPricing[];
+  weight_tiers: DeliveryWeightTier[];
+}
+
 export interface DeliverySettings {
   providers: DeliveryProviderStatus[];
+  settings: DeliveryShopSettings;
 }
 
 export interface PathaoCredentials {
@@ -316,23 +337,43 @@ export interface ToggleDeliveryProviderRequest {
   is_active: boolean;
 }
 
+const mapFaqFromBackend = (faq: any): FAQ => ({
+  id: String(faq.id),
+  question: faq.question ?? faq.category ?? '',
+  answer: faq.answer ?? faq.template_en ?? '',
+  category: faq.category ?? faq.question ?? 'General',
+  confidence: Number.isFinite(faq.confidence) ? faq.confidence : 0.9,
+  source: faq.source ?? 'manual',
+  active: faq.active ?? faq.is_active ?? true,
+  usageCount: Number.isFinite(faq.usageCount) ? faq.usageCount : 0,
+  createdAt: faq.createdAt ?? faq.created_at ?? new Date().toISOString(),
+  updatedAt: faq.updatedAt ?? faq.updated_at ?? faq.created_at ?? new Date().toISOString()
+});
+
 // API Client class
 class ApiClient {
   private client: AxiosInstance;
   private accessToken: string | null = null;
+  private csrfToken: string | null = null;
 
   constructor() {
     this.client = axios.create({
       baseURL: config.apiBaseUrl,
       timeout: 10000,
+      withCredentials: true, // send httpOnly cookies automatically
       headers: {
         'Content-Type': 'application/json',
       },
     });
 
-    // Request interceptor to add auth token
+    // Request interceptor — cookies are sent automatically,
+    // but keep Bearer header as fallback for backward compat
     this.client.interceptors.request.use(
       (config) => {
+        const method = (config.method || 'get').toUpperCase();
+        if (this.csrfToken && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+          config.headers['X-CSRF-Token'] = this.csrfToken;
+        }
         if (this.accessToken) {
           config.headers.Authorization = `Bearer ${this.accessToken}`;
         }
@@ -346,10 +387,12 @@ class ApiClient {
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
-          // Token expired or invalid
           this.clearTokens();
-          // TODO: Trigger logout or token refresh
-          window.location.href = '/signin';
+          const pathname = window.location.pathname;
+          const publicPaths = ['/signin', '/signup', '/forgot-password', '/reset-password', '/'];
+          if (!publicPaths.includes(pathname)) {
+            window.location.href = '/signin';
+          }
         }
         return Promise.reject(error);
       }
@@ -358,25 +401,33 @@ class ApiClient {
 
   setAccessToken(token: string | null) {
     this.accessToken = token;
-    if (token) {
-      localStorage.setItem('accessToken', token);
-    } else {
-      localStorage.removeItem('accessToken');
-    }
+    // No longer persist tokens in localStorage — httpOnly cookies handle this
   }
 
   private clearTokens() {
     this.accessToken = null;
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    this.csrfToken = null;
+  }
+
+  async initCsrfToken(): Promise<void> {
+    if (this.csrfToken) {
+      return;
+    }
+
+    try {
+      const response = await this.client.get('/csrf');
+      this.csrfToken = response.data?.csrfToken || null;
+    } catch {
+      // Best-effort; CSRF token will be retried on next call.
+    }
   }
 
   // Auth endpoints
   async signin(credentials: SigninRequest): Promise<AuthResponse> {
     const response: AxiosResponse<ApiResponse<AuthResponse>> = await this.client.post('/auth/signin', credentials);
     const { data } = response.data;
-    this.setAccessToken(data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
+    // Tokens are now set as httpOnly cookies by the backend.
+    this.setAccessToken(null);
     return data;
   }
 
@@ -386,13 +437,34 @@ class ApiClient {
     const normalizedData: AuthResponse = {
       user: data.user,
       currentShop: data.currentShop ?? data.shop,
-      allShops: data.allShops ?? (data.shop ? [data.shop] : []),
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
+      allShops: data.allShops ?? (data.shop ? [data.shop] : [])
     };
-    this.setAccessToken(normalizedData.accessToken);
-    localStorage.setItem('refreshToken', normalizedData.refreshToken);
+    this.setAccessToken(null);
     return normalizedData;
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.post('/auth/forgot-password', { email });
+    return response.data.data || { message: response.data.message || 'If an account exists, a reset link has been sent.' };
+  }
+
+  async resetPassword(token: string, password: string): Promise<{ message: string }> {
+    const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.post('/auth/reset-password', { token, password });
+    return response.data.data || { message: response.data.message || 'Password reset successfully.' };
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await this.client.post('/auth/logout');
+    } catch {
+      // Best-effort — even if the server call fails, clear local state
+    }
+    this.clearTokens();
+  }
+
+  async getAuthContext(): Promise<{ user: User; currentShop: Shop; allShops: Shop[] }> {
+    const response: AxiosResponse<ApiResponse<{ user: User; currentShop: Shop; allShops: Shop[] }>> = await this.client.get('/auth/me');
+    return response.data.data;
   }
 
   // Shop endpoints
@@ -406,22 +478,19 @@ class ApiClient {
     return response.data.data;
   }
 
-  async switchShop(shopId: string): Promise<{ accessToken: string; currentShop: Shop }> {
-    const response: AxiosResponse<ApiResponse<{ accessToken: string; currentShop: Shop }>> = await this.client.post('/shop/switch', { shopId });
+  async switchShop(shopId: string): Promise<{ currentShop: Shop }> {
+    const response: AxiosResponse<ApiResponse<{ currentShop: Shop }>> = await this.client.post('/shop/switch', { shopId });
     const { data } = response.data;
-    this.setAccessToken(data.accessToken);
+    this.setAccessToken(null);
     return data;
   }
 
-  async refreshToken(): Promise<{ accessToken: string }> {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) throw new Error('No refresh token available');
-
-    const response: AxiosResponse<ApiResponse<{ accessToken: string }>> = await this.client.post('/auth/refresh', {
-      refreshToken,
-    });
+  async refreshToken(): Promise<{ refreshed: boolean }> {
+    // Refresh token is sent automatically via httpOnly cookie.
+    // No need to read from localStorage.
+    const response: AxiosResponse<ApiResponse<{ refreshed: boolean }>> = await this.client.post('/auth/refresh', {});
     const { data } = response.data;
-    this.setAccessToken(data.accessToken);
+    this.setAccessToken(null);
     return data;
   }
 
@@ -434,6 +503,11 @@ class ApiClient {
   // Product endpoints
   async getProducts(params?: any): Promise<Product[]> {
     const response: AxiosResponse<ApiResponse<Product[]>> = await this.client.get('/product', { params });
+    return response.data.data;
+  }
+
+  async extractProductsFromUpload(payload: { filename?: string; content_type?: string; content: string }): Promise<{ products: Product[]; stats: { total: number; parsed: number; skipped: number } }> {
+    const response: AxiosResponse<ApiResponse<{ products: Product[]; stats: { total: number; parsed: number; skipped: number } }>> = await this.client.post('/product/ai-extract', payload);
     return response.data.data;
   }
 
@@ -489,7 +563,11 @@ class ApiClient {
   // Knowledge endpoints
   async getKnowledgeSummary(): Promise<KnowledgeSummary> {
     const response: AxiosResponse<ApiResponse<KnowledgeSummary>> = await this.client.get('/knowledge');
-    return response.data.data;
+    const data = response.data.data;
+    return {
+      ...data,
+      faqs: (data?.faqs || []).map(mapFaqFromBackend)
+    } as KnowledgeSummary;
   }
 
   async updateKnowledgeBusinessInfo(businessInfo: BusinessInfo): Promise<KnowledgeSummary> {
@@ -504,17 +582,17 @@ class ApiClient {
 
   async listKnowledgeFaqs(): Promise<FAQ[]> {
     const response: AxiosResponse<ApiResponse<FAQ[]>> = await this.client.get('/knowledge/faqs');
-    return response.data.data;
+    return (response.data.data || []).map(mapFaqFromBackend);
   }
 
   async createKnowledgeFaq(faq: Omit<FAQ, 'id' | 'createdAt' | 'updatedAt'>): Promise<FAQ> {
     const response: AxiosResponse<ApiResponse<FAQ>> = await this.client.post('/knowledge/faqs', faq);
-    return response.data.data;
+    return mapFaqFromBackend(response.data.data);
   }
 
   async updateKnowledgeFaq(faqId: string, updates: Partial<FAQ>): Promise<FAQ> {
     const response: AxiosResponse<ApiResponse<FAQ>> = await this.client.patch(`/knowledge/faqs/${faqId}`, updates);
-    return response.data.data;
+    return mapFaqFromBackend(response.data.data);
   }
 
   async deleteKnowledgeFaq(faqId: string): Promise<{ message: string }> {
@@ -593,7 +671,7 @@ class ApiClient {
     return response.data.data;
   }
 
-  async connectChannel(payload: { type: Channel['type']; name?: string; appId: string; appSecret: string; assetId: string; config?: any }): Promise<Channel> {
+  async connectChannel(payload: { type: Channel['type']; name?: string; systemUserToken: string; businessManagerId?: string; config?: any }): Promise<Channel> {
     const response: AxiosResponse<ApiResponse<Channel>> = await this.client.post('/channel/connect', payload);
     return response.data.data;
   }
@@ -701,6 +779,14 @@ class ApiClient {
     return response.data.data;
   }
 
+  async createMessage(
+    conversationId: string,
+    payload: { content: string; sender: 'customer' | 'agent' | 'ai'; message_type?: 'text' | 'image' | 'file' | 'location'; metadata?: any; ai_suggestion?: string; ai_confidence?: number }
+  ): Promise<Message> {
+    const response: AxiosResponse<ApiResponse<Message>> = await this.client.post(`/conversation/${conversationId}/messages`, payload);
+    return response.data.data as Message;
+  }
+
   // Audit log endpoints
   async getAuditLogs(filters?: AuditLogFilters): Promise<AuditLog[]> {
     const params = new URLSearchParams();
@@ -736,8 +822,7 @@ class ApiClient {
   }
 
   async connectMetaPlatform(platform: MetaPlatform): Promise<void> {
-    // This will redirect to Meta OAuth
-    window.location.href = `${config.apiBaseUrl}/integrations/meta/connect?platform=${platform}`;
+    throw new Error('Meta OAuth flow has been removed. Use system user token manual connect instead.');
   }
 
   async disconnectMetaPlatform(platform: MetaPlatform): Promise<{ message: string }> {
@@ -782,6 +867,11 @@ class ApiClient {
   async updateDeliveryMetadata(provider: DeliveryProvider, metadata: Record<string, any>): Promise<{ message: string }> {
     const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.put(`/shop/delivery/${provider}/metadata`, { metadata });
     return response.data.data || { message: response.data.message || 'Metadata updated successfully' };
+  }
+
+  async updateDeliverySettings(settings: DeliveryShopSettings): Promise<DeliveryShopSettings> {
+    const response: AxiosResponse<ApiResponse<DeliveryShopSettings>> = await this.client.put('/shop/delivery/settings', settings);
+    return response.data.data || settings;
   }
 
   // Subscription endpoints
@@ -835,6 +925,16 @@ class ApiClient {
   }
 
   // Shop endpoints
+  async getShopBusinessInfo(): Promise<KnowledgeSummary> {
+    const response: AxiosResponse<ApiResponse<KnowledgeSummary>> = await this.client.get('/shop/business-info');
+    return response.data.data as KnowledgeSummary;
+  }
+
+  async updateShopBusinessInfo(businessInfo: BusinessInfo): Promise<KnowledgeSummary> {
+    const response: AxiosResponse<ApiResponse<KnowledgeSummary>> = await this.client.put('/shop/business-info', businessInfo);
+    return response.data.data as KnowledgeSummary;
+  }
+
   async updateShop(shopId: string, updates: any): Promise<any> {
     const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/shop/update', {
       shopId,
@@ -856,12 +956,6 @@ export function generateIdempotencyKey(): string {
 
 // Export singleton instance
 export const apiClient = new ApiClient();
-
-// Initialize token from storage
-const storedToken = localStorage.getItem('accessToken');
-if (storedToken) {
-  apiClient.setAccessToken(storedToken);
-}
 
 export interface KnowledgeSummary {
   businessInfo: BusinessInfo;

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { CreditCard, Wallet, DollarSign, Upload, ChevronDown, ChevronUp, TestTube, X } from "lucide-react";
+import { toast } from "sonner";
 import { apiClient } from "@/app/lib/api";
 import { authService } from "@/app/lib/auth";
 
@@ -564,19 +565,38 @@ export default function PaymentSettings() {
                             QR Code (Optional)
                           </label>
                           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                            <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                            <p className="text-sm text-gray-600 mb-2">Upload QR code for easy payments</p>
+                            {gateway.config.qrPreview ? (
+                              <div className="mb-2">
+                                <img src={gateway.config.qrPreview} alt="QR Code" className="w-32 h-32 mx-auto rounded-lg object-contain" />
+                              </div>
+                            ) : (
+                              <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                            )}
+                            <p className="text-sm text-gray-600 mb-2">
+                              {gateway.config.qrPreview ? 'QR code uploaded' : 'Upload QR code for easy payments'}
+                            </p>
                             <input
                               type="file"
                               accept="image/*"
                               className="hidden"
                               id="qr-upload"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (ev) => {
+                                    updateGatewayConfig(gateway.id, 'qrPreview', ev.target?.result as string);
+                                  };
+                                  reader.readAsDataURL(file);
+                                  toast.success('QR code image selected');
+                                }
+                              }}
                             />
                             <label
                               htmlFor="qr-upload"
                               className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer text-sm"
                             >
-                              Choose File
+                              {gateway.config.qrPreview ? 'Change File' : 'Choose File'}
                             </label>
                           </div>
                         </div>
@@ -597,8 +617,18 @@ export default function PaymentSettings() {
                           </p>
                         </div>
 
-                        <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                          Save Self MFS
+                        <button
+                          onClick={() => {
+                            if (!gateway.config.phone) {
+                              toast.error('Please enter your MFS phone number');
+                              return;
+                            }
+                            saveGatewayConfig('self-mfs');
+                          }}
+                          disabled={savingGateway === 'self-mfs'}
+                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {savingGateway === 'self-mfs' ? 'Saving...' : 'Save Self MFS'}
                         </button>
                       </div>
                     )}

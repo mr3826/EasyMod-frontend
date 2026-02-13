@@ -14,6 +14,7 @@ import {
   Hash,
   Filter
 } from "lucide-react";
+import { toast } from "sonner";
 import { apiClient, Customer, CustomerFilters } from "../lib/api";
 
 
@@ -93,9 +94,10 @@ export default function Customers() {
       setShowCreateCustomer(false);
       setNewCustomer({ name: "", number: "", email: "", channel: "" as const });
       setError(null);
+      toast.success('Customer created successfully');
     } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to create customer');
       setError(err.response?.data?.message || 'Failed to create customer');
-      console.error('Error creating customer:', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -110,9 +112,9 @@ export default function Customers() {
       if (selectedCustomer?.id === customerId) {
         setSelectedCustomer(null);
       }
+      toast.success('Customer deleted');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete customer');
-      console.error('Error deleting customer:', err);
+      toast.error(err.response?.data?.message || 'Failed to delete customer');
     } finally {
       setIsSubmitting(false);
     }
@@ -124,9 +126,9 @@ export default function Customers() {
       const updated = await apiClient.updateCustomer(customerId, updates);
       setCustomers(customers.map(c => c.id === customerId ? updated : c));
       setSelectedCustomer(updated);
+      toast.success('Customer updated');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update customer');
-      console.error('Error updating customer:', err);
+      toast.error(err.response?.data?.message || 'Failed to update customer');
     } finally {
       setIsSubmitting(false);
     }

@@ -147,12 +147,12 @@ export default function SignIn() {
 
           {/* Additional Links */}
           <div className="mt-6 text-center">
-            <a
-              href="#"
+            <Link
+              to="/forgot-password"
               className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
             >
               Forgot password?
-            </a>
+            </Link>
           </div>
         </div>
 

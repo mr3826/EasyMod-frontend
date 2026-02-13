@@ -1,10 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import { Plus, Upload, Bot, CheckCircle, Edit2, Trash2, AlertCircle, Search, Filter, Download, ChevronDown, X } from "lucide-react";
 import { Product } from "../lib/api";
+import { toast } from "sonner";
 import { authService } from "../lib/auth";
 import { apiClient } from "../lib/api";
 import { useNavigate } from "react-router-dom";
 import AddProduct from "./AddProduct";
+
+interface Category {
+  id: string;
+  name: string;
+}
 
 export default function Products() {
   const navigate = useNavigate();
@@ -15,6 +21,9 @@ export default function Products() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [aiGeneratedProducts, setAiGeneratedProducts] = useState<Product[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [approvingIds, setApprovingIds] = useState<string[]>([]);
+  const [bulkApproving, setBulkApproving] = useState(false);
+  const [categoryNameMap, setCategoryNameMap] = useState<Record<string, string>>({});
 
   // Search and Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -84,6 +93,25 @@ export default function Products() {
     fetchProducts();
   }, [appliedSearchQuery, appliedFilters]);
 
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const fetched = await apiClient.getCategories();
+        const map: Record<string, string> = {};
+        fetched.forEach((category: Category) => {
+          if (category?.name) {
+            map[category.name.trim().toLowerCase()] = category.id;
+          }
+        });
+        setCategoryNameMap(map);
+      } catch {
+        setCategoryNameMap({});
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
   // Debounce search input - wait 2 seconds after user stops typing
   useEffect(() => {
     // Clear previous timer if exists
@@ -104,62 +132,122 @@ export default function Products() {
     };
   }, [searchQuery]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Simulate upload and AI processing
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setUploadProgress(progress);
-      
-      if (progress >= 100) {
-        clearInterval(interval);
-        // Simulate AI-generated products
-        const generated: Product[] = [
-          {
-            id: Date.now().toString(),
-            name: 'Green Tea Extract 100ml',
-            sku: 'GT-100-' + Date.now(),
-            price: 15.99,
-            variants: ['100ml', '200ml'],
-            aliases: ['green tea', 'tea extract'],
-            category: 'Beverages',
-            status: 'pending',
-            aiGenerated: true,
-            confidence: 0.89,
-            stock: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: (Date.now() + 1).toString(),
-            name: 'Organic Honey 500g',
-            sku: 'HN-ORG-500',
-            price: 18.99,
-            variants: ['250g', '500g', '1kg'],
-            aliases: ['honey', 'organic honey', 'bee honey'],
-            category: 'Food',
-            status: 'pending',
-            aiGenerated: true,
-            confidence: 0.94,
-            stock: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        ];
-        setAiGeneratedProducts(generated);
-        setShowReviewModal(true);
-        setShowUploadModal(false);
-        setUploadProgress(0);
-      }
-    }, 300);
+  const readFileContent = async (file: File) => {
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    if (extension === 'csv' || extension === 'txt' || extension === 'tsv') {
+      return file.text();
+    }
+    throw new Error('Unsupported file type. Please upload CSV, TSV, or TXT files.');
   };
 
-  const handleApproveProduct = (product: Product) => {
-    setProducts([...products, { ...product, status: 'active' }]);
-    setAiGeneratedProducts(aiGeneratedProducts.filter(p => p.id !== product.id));
+  const mapExtractedProduct = (product: any): Product => {
+    return {
+      ...product,
+      price: typeof product.price === 'number' ? product.price : Number(product.price) || 0,
+      aiGenerated: product.aiGenerated ?? product.ai_generated ?? true,
+      confidence: product.confidence ?? product.ai_confidence ?? 0,
+      status: product.status || 'pending',
+      createdAt: product.createdAt || product.created_at || new Date().toISOString(),
+      updatedAt: product.updatedAt || product.updated_at || new Date().toISOString(),
+    } as Product;
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setUploadProgress(10);
+
+    try {
+      const content = await readFileContent(file);
+      setUploadProgress(40);
+      const result = await apiClient.extractProductsFromUpload({
+        filename: file.name,
+        content_type: file.type,
+        content
+      });
+      setUploadProgress(90);
+
+      const extracted = result.products.map(mapExtractedProduct);
+      if (extracted.length === 0) {
+        throw new Error('No products could be extracted from the file.');
+      }
+
+      setAiGeneratedProducts(extracted);
+      setShowReviewModal(true);
+      setShowUploadModal(false);
+    } catch (error: any) {
+      setError(error.response?.data?.error?.message || error.message || 'Failed to process upload.');
+    } finally {
+      setUploadProgress(0);
+      if (e.target) {
+        e.target.value = '';
+      }
+    }
+  };
+
+  const buildCreatePayload = (product: Product) => {
+    const categoryName = product.category?.trim().toLowerCase() || '';
+    const resolvedCategoryId = product.category_id || (categoryName ? categoryNameMap[categoryName] : undefined);
+    const payload: any = {
+      name: product.name,
+      price: product.price,
+      sku: product.sku || undefined,
+      description: product.description || undefined,
+      category: product.category || undefined,
+      category_id: resolvedCategoryId,
+      tags: Array.isArray(product.tags) ? product.tags : undefined,
+      quantity: product.quantity ?? undefined,
+      track_quantity: product.quantity !== undefined && product.quantity !== null,
+      ai_generated: true,
+      confidence: product.confidence ?? undefined,
+      brand: product.brand || undefined,
+      weight: product.weight ?? undefined,
+      weight_unit: product.weight_unit || undefined
+    };
+
+    return payload;
+  };
+
+  const handleApproveProduct = async (product: Product) => {
+    if (!product.price || product.price <= 0) {
+      setError(`Please set a valid price for ${product.name} before approving.`);
+      return;
+    }
+
+    setApprovingIds(prev => [...prev, product.id]);
+    try {
+      const created = await apiClient.createProduct(buildCreatePayload(product));
+      setProducts(prev => [created, ...prev]);
+      setAiGeneratedProducts(prev => prev.filter(p => p.id !== product.id));
+    } catch (error: any) {
+      setError(error.response?.data?.error?.message || error.message || 'Failed to approve product.');
+    } finally {
+      setApprovingIds(prev => prev.filter(id => id !== product.id));
+    }
+  };
+
+  const handleApproveAll = async () => {
+    if (aiGeneratedProducts.length === 0) return;
+    setBulkApproving(true);
+    setError(null);
+
+    for (const product of aiGeneratedProducts) {
+      if (!product.price || product.price <= 0) {
+        setError(`Please set a valid price for ${product.name} before approving.`);
+        continue;
+      }
+      try {
+        const created = await apiClient.createProduct(buildCreatePayload(product));
+        setProducts(prev => [created, ...prev]);
+        setAiGeneratedProducts(prev => prev.filter(p => p.id !== product.id));
+      } catch (error: any) {
+        setError(error.response?.data?.error?.message || error.message || `Failed to approve ${product.name}.`);
+      }
+    }
+
+    setBulkApproving(false);
+    setShowReviewModal(false);
   };
 
   const handleEditProduct = (product: Product) => {
@@ -187,10 +275,10 @@ export default function Products() {
       setProducts(products.filter(p => p.id !== productToDelete.id));
       setShowDeleteConfirm(false);
       setProductToDelete(null);
-      // Refresh product list
+      toast.success('Product deleted');
       fetchProducts();
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Failed to delete product');
+      toast.error(error.response?.data?.message || 'Failed to delete product');
       setShowDeleteConfirm(false);
       setProductToDelete(null);
     }
@@ -202,9 +290,18 @@ export default function Products() {
   };
 
   const handleDownloadTemplate = () => {
-    // Simulate template download
-    console.log('Downloading product upload template...');
-    // In production, this would trigger actual file download
+    const csvContent = [
+      'name,price,sku,category,description,brand,weight,weight_unit,quantity,variants',
+      'Example Product,100,SKU-001,Electronics,A great product,BrandName,0.5,kg,10,"Color: Red|Blue"',
+      'Another Product,250,SKU-002,Clothing,Nice shirt,FashionCo,0.3,kg,25,"Size: S|M|L|XL"',
+    ].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'product-upload-template.csv';
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const applyFilters = () => {
@@ -276,7 +373,7 @@ export default function Products() {
             </button>
           </div>
           <button
-            onClick={() => navigate('/products/add')}
+            onClick={() => navigate('/app/products/add')}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Plus className="w-5 h-5" />
@@ -512,7 +609,7 @@ export default function Products() {
         <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-8 max-w-lg w-full mx-4">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Product File</h2>
-            <p className="text-gray-600 mb-6">Upload CSV, Excel, PDF, or text files for AI processing</p>
+            <p className="text-gray-600 mb-6">Upload CSV, TSV, or text files for AI processing</p>
 
             {uploadProgress === 0 ? (
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
@@ -531,7 +628,7 @@ export default function Products() {
                 >
                   Choose File
                 </label>
-                <p className="text-sm text-gray-500 mt-4">Supported: CSV, Excel, PDF, Text</p>
+                <p className="text-sm text-gray-500 mt-4">Supported: CSV, TSV, TXT</p>
               </div>
             ) : (
               <div>
@@ -634,10 +731,11 @@ export default function Products() {
                     </button>
                     <button
                       onClick={() => handleApproveProduct(product)}
+                      disabled={approvingIds.includes(product.id)}
                       className="flex items-center gap-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
                     >
                       <CheckCircle className="w-4 h-4" />
-                      Approve
+                      {approvingIds.includes(product.id) ? 'Approving...' : 'Approve'}
                     </button>
                     <button
                       onClick={() => handleRejectProduct(product.id)}
@@ -659,13 +757,11 @@ export default function Products() {
                 Close
               </button>
               <button
-                onClick={() => {
-                  aiGeneratedProducts.forEach(p => handleApproveProduct(p));
-                  setShowReviewModal(false);
-                }}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                onClick={handleApproveAll}
+                disabled={bulkApproving}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Approve All
+                {bulkApproving ? 'Approving...' : 'Approve All'}
               </button>
             </div>
           </div>

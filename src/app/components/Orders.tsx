@@ -112,8 +112,60 @@ export default function Orders() {
     }
   };
 
+  const buildCsv = (rows: Record<string, string | number>[]) => {
+    const headers = Object.keys(rows[0] || {});
+    const escapeCsv = (value: string | number) => {
+      const text = String(value ?? '');
+      if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+        return `"${text.replace(/"/g, '""')}"`;
+      }
+      return text;
+    };
+
+    const lines = [headers.join(',')];
+    rows.forEach((row) => {
+      lines.push(headers.map((header) => escapeCsv(row[header] ?? '')).join(','));
+    });
+
+    return lines.join('\n');
+  };
+
+  const downloadFile = (content: string, filename: string, type: string) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const handleExport = (format: 'csv' | 'excel') => {
-    console.log(`Exporting as ${format}...`);
+    if (orders.length === 0) {
+      setError('No orders available to export.');
+      setTimeout(() => setError(null), 2500);
+      setShowExportMenu(false);
+      return;
+    }
+
+    if (format === 'excel') {
+      setError('Excel export is not available yet. Downloaded CSV instead.');
+      setTimeout(() => setError(null), 2500);
+    }
+
+    const rows = orders.map((order) => ({
+      id: order.id,
+      customer: order.customerName,
+      total: order.total,
+      status: order.status,
+      channel: order.channel,
+      createdAt: order.createdAt
+    }));
+
+    const csv = buildCsv(rows);
+    downloadFile(csv, 'orders.csv', 'text/csv');
     setShowExportMenu(false);
   };
 
