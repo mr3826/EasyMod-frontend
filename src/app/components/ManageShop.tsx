@@ -1,15 +1,28 @@
-import { useState } from "react";
-import { MessageSquare, Truck, CreditCard } from "lucide-react";
-import ChatSettings from "./ChatSettings";
-import DeliverySettings from "./DeliverySettings";
-import PaymentSettings from "./PaymentSettings";
+import { useEffect, useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { MessageSquare, Truck, CreditCard, Building2 } from "lucide-react";
 
-type SettingsTab = 'chat' | 'delivery' | 'payment';
+type SettingsTab = 'chat' | 'delivery' | 'payment' | 'business';
 
 export default function ManageShop() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('chat');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<SettingsTab>('business');
+
+  useEffect(() => {
+    if (location.pathname.endsWith('/manage-shop/chat-settings')) {
+      setActiveTab('chat');
+    } else if (location.pathname.endsWith('/manage-shop/delivery-settings')) {
+      setActiveTab('delivery');
+    } else if (location.pathname.endsWith('/manage-shop/payment-settings')) {
+      setActiveTab('payment');
+    } else {
+      setActiveTab('business');
+    }
+  }, [location.pathname]);
 
   const tabs = [
+    { id: 'business' as SettingsTab, name: 'Business Info', icon: Building2 },
     { id: 'chat' as SettingsTab, name: 'Chat Settings', icon: MessageSquare },
     { id: 'delivery' as SettingsTab, name: 'Delivery Settings', icon: Truck },
     { id: 'payment' as SettingsTab, name: 'Payment Settings', icon: CreditCard },
@@ -28,7 +41,18 @@ export default function ManageShop() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    if (tab.id === 'chat') {
+                      navigate('/app/manage-shop/chat-settings');
+                    } else if (tab.id === 'delivery') {
+                      navigate('/app/manage-shop/delivery-settings');
+                    } else if (tab.id === 'payment') {
+                      navigate('/app/manage-shop/payment-settings');
+                    } else {
+                      navigate('/app/manage-shop');
+                    }
+                  }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${
                     isActive
                       ? 'bg-blue-600 text-white'
@@ -46,9 +70,7 @@ export default function ManageShop() {
 
       {/* Content Area */}
       <div>
-        {activeTab === 'chat' && <ChatSettings />}
-        {activeTab === 'delivery' && <DeliverySettings />}
-        {activeTab === 'payment' && <PaymentSettings />}
+        <Outlet />
       </div>
     </div>
   );

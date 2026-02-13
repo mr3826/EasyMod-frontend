@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import config from './config';
+import type { BusinessInfo, BrandingRules, FAQ, KnowledgeGap } from './knowledgeTypes';
 
 // API Response types
 export interface ApiResponse<T = any> {
@@ -40,8 +41,6 @@ export interface AuthResponse {
   user: User;
   currentShop: Shop;
   allShops: Shop[];
-  accessToken: string;
-  refreshToken: string;
 }
 
 export interface SigninRequest {
@@ -56,19 +55,39 @@ export interface SignupRequest {
   phone?: string;
 }
 
+export interface CreateShopRequest {
+  shop_name?: string;
+}
+
 // Product types (based on mockData.ts but aligned with backend)
 export interface Product {
   id: string;
   name: string;
   sku: string;
   price: number;
-  variants?: string[];
+  description?: string;
+  category?: string;
+  category_id?: string;
+  status?: 'active' | 'inactive' | 'pending';
+  variants?: any[];
   aliases?: string[];
-  category: string;
-  status: 'active' | 'inactive' | 'pending';
-  aiGenerated: boolean;
+  aiGenerated?: boolean;
   confidence?: number;
-  stock: boolean;
+  stock?: boolean;
+  images?: string[];
+  brand?: string;
+  weight?: number;
+  weight_unit?: string;
+  tags?: string[];
+  compare_at_price?: number;
+  cost_per_item?: number;
+  quantity?: number;
+  is_active?: boolean;
+  low_stock_threshold?: number;
+  track_quantity?: boolean;
+  allow_discounts?: boolean;
+  charge_tax?: boolean;
+  send_low_stock_alert?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -76,16 +95,19 @@ export interface Product {
 // Channel types (aligned with backend entity)
 export interface Channel {
   id: string;
-  shop_id: string;
-  name: string;
-  type: 'facebook' | 'whatsapp' | 'telegram' | 'webchat';
-  status: 'active' | 'inactive' | 'error';
-  connected: boolean;
+  shop_id?: string;
+  name?: string;
+  type?: 'facebook' | 'whatsapp' | 'telegram' | 'webchat' | 'instagram';
+  status?: 'active' | 'inactive' | 'error';
+  connected?: boolean;
   config?: any; // JSONB field for channel-specific configuration
-  last_sync?: string;
-  message_count: number;
-  created_at: string;
-  updated_at: string;
+  last_sync?: string | null;
+  message_count?: number;
+  created_at?: string;
+  updated_at?: string;
+  lastSync?: string;
+  messageCount?: number;
+  channel_type?: string;
 }
 
 // Customer types (aligned with backend entity)
@@ -259,8 +281,30 @@ export interface DeliveryProviderStatus {
   connected_at: string | null;
 }
 
+export interface DeliveryAreaPricing {
+  zone: 'inside_dhaka' | 'sub_dhaka' | 'outside_dhaka';
+  charge: number;
+  cod_enabled: boolean;
+}
+
+export interface DeliveryWeightTier {
+  from_kg: number;
+  to_kg: number;
+  extra_charge: number;
+}
+
+export interface DeliveryShopSettings {
+  default_delivery_charge: number;
+  cod_enabled: boolean;
+  cod_charge: number;
+  non_refundable: boolean;
+  area_pricing: DeliveryAreaPricing[];
+  weight_tiers: DeliveryWeightTier[];
+}
+
 export interface DeliverySettings {
   providers: DeliveryProviderStatus[];
+  settings: DeliveryShopSettings;
 }
 
 export interface PathaoCredentials {
@@ -293,23 +337,43 @@ export interface ToggleDeliveryProviderRequest {
   is_active: boolean;
 }
 
+const mapFaqFromBackend = (faq: any): FAQ => ({
+  id: String(faq.id),
+  question: faq.question ?? faq.category ?? '',
+  answer: faq.answer ?? faq.template_en ?? '',
+  category: faq.category ?? faq.question ?? 'General',
+  confidence: Number.isFinite(faq.confidence) ? faq.confidence : 0.9,
+  source: faq.source ?? 'manual',
+  active: faq.active ?? faq.is_active ?? true,
+  usageCount: Number.isFinite(faq.usageCount) ? faq.usageCount : 0,
+  createdAt: faq.createdAt ?? faq.created_at ?? new Date().toISOString(),
+  updatedAt: faq.updatedAt ?? faq.updated_at ?? faq.created_at ?? new Date().toISOString()
+});
+
 // API Client class
 class ApiClient {
   private client: AxiosInstance;
   private accessToken: string | null = null;
+  private csrfToken: string | null = null;
 
   constructor() {
     this.client = axios.create({
       baseURL: config.apiBaseUrl,
       timeout: 10000,
+      withCredentials: true, // send httpOnly cookies automatically
       headers: {
         'Content-Type': 'application/json',
       },
     });
 
-    // Request interceptor to add auth token
+    // Request interceptor — cookies are sent automatically,
+    // but keep Bearer header as fallback for backward compat
     this.client.interceptors.request.use(
       (config) => {
+        const method = (config.method || 'get').toUpperCase();
+        if (this.csrfToken && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+          config.headers['X-CSRF-Token'] = this.csrfToken;
+        }
         if (this.accessToken) {
           config.headers.Authorization = `Bearer ${this.accessToken}`;
         }
@@ -323,10 +387,12 @@ class ApiClient {
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
-          // Token expired or invalid
           this.clearTokens();
-          // TODO: Trigger logout or token refresh
-          window.location.href = '/signin';
+          const pathname = window.location.pathname;
+          const publicPaths = ['/signin', '/signup', '/forgot-password', '/reset-password', '/'];
+          if (!publicPaths.includes(pathname)) {
+            window.location.href = '/signin';
+          }
         }
         return Promise.reject(error);
       }
@@ -335,45 +401,96 @@ class ApiClient {
 
   setAccessToken(token: string | null) {
     this.accessToken = token;
-    if (token) {
-      localStorage.setItem('accessToken', token);
-    } else {
-      localStorage.removeItem('accessToken');
-    }
+    // No longer persist tokens in localStorage — httpOnly cookies handle this
   }
 
   private clearTokens() {
     this.accessToken = null;
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    this.csrfToken = null;
+  }
+
+  async initCsrfToken(): Promise<void> {
+    if (this.csrfToken) {
+      return;
+    }
+
+    try {
+      const response = await this.client.get('/csrf');
+      this.csrfToken = response.data?.csrfToken || null;
+    } catch {
+      // Best-effort; CSRF token will be retried on next call.
+    }
   }
 
   // Auth endpoints
   async signin(credentials: SigninRequest): Promise<AuthResponse> {
     const response: AxiosResponse<ApiResponse<AuthResponse>> = await this.client.post('/auth/signin', credentials);
     const { data } = response.data;
-    this.setAccessToken(data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
+    // Tokens are now set as httpOnly cookies by the backend.
+    this.setAccessToken(null);
     return data;
   }
 
   async signup(userData: SignupRequest): Promise<AuthResponse> {
     const response: AxiosResponse<ApiResponse<AuthResponse>> = await this.client.post('/auth/signup', userData);
     const { data } = response.data;
-    this.setAccessToken(data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
+    const normalizedData: AuthResponse = {
+      user: data.user,
+      currentShop: data.currentShop ?? data.shop,
+      allShops: data.allShops ?? (data.shop ? [data.shop] : [])
+    };
+    this.setAccessToken(null);
+    return normalizedData;
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.post('/auth/forgot-password', { email });
+    return response.data.data || { message: response.data.message || 'If an account exists, a reset link has been sent.' };
+  }
+
+  async resetPassword(token: string, password: string): Promise<{ message: string }> {
+    const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.post('/auth/reset-password', { token, password });
+    return response.data.data || { message: response.data.message || 'Password reset successfully.' };
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await this.client.post('/auth/logout');
+    } catch {
+      // Best-effort — even if the server call fails, clear local state
+    }
+    this.clearTokens();
+  }
+
+  async getAuthContext(): Promise<{ user: User; currentShop: Shop; allShops: Shop[] }> {
+    const response: AxiosResponse<ApiResponse<{ user: User; currentShop: Shop; allShops: Shop[] }>> = await this.client.get('/auth/me');
+    return response.data.data;
+  }
+
+  // Shop endpoints
+  async getShops(): Promise<Shop[]> {
+    const response: AxiosResponse<ApiResponse<Shop[]>> = await this.client.get('/shop/list');
+    return response.data.data;
+  }
+
+  async createShop(payload: CreateShopRequest): Promise<Shop> {
+    const response: AxiosResponse<ApiResponse<Shop>> = await this.client.post('/shop/create', payload);
+    return response.data.data;
+  }
+
+  async switchShop(shopId: string): Promise<{ currentShop: Shop }> {
+    const response: AxiosResponse<ApiResponse<{ currentShop: Shop }>> = await this.client.post('/shop/switch', { shopId });
+    const { data } = response.data;
+    this.setAccessToken(null);
     return data;
   }
 
-  async refreshToken(): Promise<{ accessToken: string }> {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) throw new Error('No refresh token available');
-
-    const response: AxiosResponse<ApiResponse<{ accessToken: string }>> = await this.client.post('/auth/refresh', {
-      refreshToken,
-    });
+  async refreshToken(): Promise<{ refreshed: boolean }> {
+    // Refresh token is sent automatically via httpOnly cookie.
+    // No need to read from localStorage.
+    const response: AxiosResponse<ApiResponse<{ refreshed: boolean }>> = await this.client.post('/auth/refresh', {});
     const { data } = response.data;
-    this.setAccessToken(data.accessToken);
+    this.setAccessToken(null);
     return data;
   }
 
@@ -384,8 +501,13 @@ class ApiClient {
   }
 
   // Product endpoints
-  async getProducts(): Promise<Product[]> {
-    const response: AxiosResponse<ApiResponse<Product[]>> = await this.client.get('/product');
+  async getProducts(params?: any): Promise<Product[]> {
+    const response: AxiosResponse<ApiResponse<Product[]>> = await this.client.get('/product', { params });
+    return response.data.data;
+  }
+
+  async extractProductsFromUpload(payload: { filename?: string; content_type?: string; content: string }): Promise<{ products: Product[]; stats: { total: number; parsed: number; skipped: number } }> {
+    const response: AxiosResponse<ApiResponse<{ products: Product[]; stats: { total: number; parsed: number; skipped: number } }>> = await this.client.post('/product/ai-extract', payload);
     return response.data.data;
   }
 
@@ -401,6 +523,114 @@ class ApiClient {
 
   async deleteProduct(productId: string): Promise<void> {
     await this.client.delete(`/product/${productId}`);
+  }
+
+  async getProduct(productId: string): Promise<Product> {
+    const response: AxiosResponse<ApiResponse<Product>> = await this.client.get(`/product/${productId}`);
+    return response.data.data;
+  }
+
+  // Category endpoints
+  async getCategories(): Promise<Category[]> {
+    const response: AxiosResponse<ApiResponse<Category[]>> = await this.client.get('/category');
+    return response.data.data;
+  }
+
+  async getCategory(categoryId: string): Promise<Category> {
+    const response: AxiosResponse<ApiResponse<Category>> = await this.client.get(`/category/${categoryId}`);
+    return response.data.data;
+  }
+
+  async createCategory(category: Omit<Category, 'id' | 'created_at' | 'updated_at'>): Promise<Category> {
+    const response: AxiosResponse<ApiResponse<Category>> = await this.client.post('/category', category);
+    return response.data.data;
+  }
+
+  async updateCategory(categoryId: string, category: Partial<Category>): Promise<Category> {
+    const response: AxiosResponse<ApiResponse<Category>> = await this.client.patch(`/category/${categoryId}`, category);
+    return response.data.data;
+  }
+
+  async deleteCategory(categoryId: string): Promise<void> {
+    await this.client.delete(`/category/${categoryId}`);
+  }
+
+  async getSubcategoryDetails(categoryId: string, subcategoryId: string): Promise<Category> {
+    const response: AxiosResponse<ApiResponse<Category>> = await this.client.get(`/category/${categoryId}/subcategory/${subcategoryId}`);
+    return response.data.data;
+  }
+
+  // Knowledge endpoints
+  async getKnowledgeSummary(): Promise<KnowledgeSummary> {
+    const response: AxiosResponse<ApiResponse<KnowledgeSummary>> = await this.client.get('/knowledge');
+    const data = response.data.data;
+    return {
+      ...data,
+      faqs: (data?.faqs || []).map(mapFaqFromBackend)
+    } as KnowledgeSummary;
+  }
+
+  async updateKnowledgeBusinessInfo(businessInfo: BusinessInfo): Promise<KnowledgeSummary> {
+    const response: AxiosResponse<ApiResponse<KnowledgeSummary>> = await this.client.put('/knowledge/business-info', businessInfo);
+    return response.data.data;
+  }
+
+  async updateKnowledgeBrandingRules(brandingRules: BrandingRules): Promise<KnowledgeSummary> {
+    const response: AxiosResponse<ApiResponse<KnowledgeSummary>> = await this.client.put('/knowledge/branding', brandingRules);
+    return response.data.data;
+  }
+
+  async listKnowledgeFaqs(): Promise<FAQ[]> {
+    const response: AxiosResponse<ApiResponse<FAQ[]>> = await this.client.get('/knowledge/faqs');
+    return (response.data.data || []).map(mapFaqFromBackend);
+  }
+
+  async createKnowledgeFaq(faq: Omit<FAQ, 'id' | 'createdAt' | 'updatedAt'>): Promise<FAQ> {
+    const response: AxiosResponse<ApiResponse<FAQ>> = await this.client.post('/knowledge/faqs', faq);
+    return mapFaqFromBackend(response.data.data);
+  }
+
+  async updateKnowledgeFaq(faqId: string, updates: Partial<FAQ>): Promise<FAQ> {
+    const response: AxiosResponse<ApiResponse<FAQ>> = await this.client.patch(`/knowledge/faqs/${faqId}`, updates);
+    return mapFaqFromBackend(response.data.data);
+  }
+
+  async deleteKnowledgeFaq(faqId: string): Promise<{ message: string }> {
+    const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.delete(`/knowledge/faqs/${faqId}`);
+    return response.data.data;
+  }
+
+  async listKnowledgeGaps(): Promise<KnowledgeGap[]> {
+    const response: AxiosResponse<ApiResponse<KnowledgeGap[]>> = await this.client.get('/knowledge/gaps');
+    return response.data.data;
+  }
+
+  async updateKnowledgeGaps(gaps: KnowledgeGap[]): Promise<KnowledgeGap[]> {
+    const response: AxiosResponse<ApiResponse<KnowledgeGap[]>> = await this.client.put('/knowledge/gaps', gaps);
+    return response.data.data;
+  }
+
+  async listKnowledgeDocuments(): Promise<any[]> {
+    const response: AxiosResponse<ApiResponse<any[]>> = await this.client.get('/knowledge/documents');
+    return response.data.data;
+  }
+
+  async createKnowledgeDocument(document: {
+    name: string;
+    contentType?: string;
+    size?: number;
+    url?: string;
+    text?: string;
+    tags?: string[];
+    source?: string;
+  }): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/knowledge/documents', document);
+    return response.data.data;
+  }
+
+  async deleteKnowledgeDocument(documentId: string): Promise<{ message: string }> {
+    const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.delete(`/knowledge/documents/${documentId}`);
+    return response.data.data;
   }
 
   // Channel endpoints
@@ -438,6 +668,16 @@ class ApiClient {
       config.headers = { 'Idempotency-Key': options.idempotencyKey };
     }
     const response: AxiosResponse<ApiResponse<{ message: string }>> = await this.client.delete(`/channel/${channelId}`, config);
+    return response.data.data;
+  }
+
+  async connectChannel(payload: { type: Channel['type']; name?: string; systemUserToken: string; businessManagerId?: string; config?: any }): Promise<Channel> {
+    const response: AxiosResponse<ApiResponse<Channel>> = await this.client.post('/channel/connect', payload);
+    return response.data.data;
+  }
+
+  async disconnectChannel(channelId: string): Promise<Channel> {
+    const response: AxiosResponse<ApiResponse<Channel>> = await this.client.post(`/channel/${channelId}/disconnect`);
     return response.data.data;
   }
 
@@ -504,7 +744,7 @@ class ApiClient {
     };
     delete backendUpdates.status;
     
-    const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/order/update', { orderId, ...backendUpdates });
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/order/update', { order_id: orderId, ...backendUpdates });
     return transformOrderFromBackend(response.data.data);
   }
 
@@ -537,6 +777,14 @@ class ApiClient {
 
     const response: AxiosResponse<ApiResponse<{ messages: Message[]; pagination: any }>> = await this.client.get(`/conversation/${conversationId}/messages?${params}`);
     return response.data.data;
+  }
+
+  async createMessage(
+    conversationId: string,
+    payload: { content: string; sender: 'customer' | 'agent' | 'ai'; message_type?: 'text' | 'image' | 'file' | 'location'; metadata?: any; ai_suggestion?: string; ai_confidence?: number }
+  ): Promise<Message> {
+    const response: AxiosResponse<ApiResponse<Message>> = await this.client.post(`/conversation/${conversationId}/messages`, payload);
+    return response.data.data as Message;
   }
 
   // Audit log endpoints
@@ -574,8 +822,7 @@ class ApiClient {
   }
 
   async connectMetaPlatform(platform: MetaPlatform): Promise<void> {
-    // This will redirect to Meta OAuth
-    window.location.href = `${config.apiBaseUrl}/integrations/meta/connect?platform=${platform}`;
+    throw new Error('Meta OAuth flow has been removed. Use system user token manual connect instead.');
   }
 
   async disconnectMetaPlatform(platform: MetaPlatform): Promise<{ message: string }> {
@@ -622,6 +869,11 @@ class ApiClient {
     return response.data.data || { message: response.data.message || 'Metadata updated successfully' };
   }
 
+  async updateDeliverySettings(settings: DeliveryShopSettings): Promise<DeliveryShopSettings> {
+    const response: AxiosResponse<ApiResponse<DeliveryShopSettings>> = await this.client.put('/shop/delivery/settings', settings);
+    return response.data.data || settings;
+  }
+
   // Subscription endpoints
   async getSubscription(): Promise<any> {
     const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/subscription');
@@ -638,6 +890,19 @@ class ApiClient {
     return response.data;
   }
 
+  async updateSubscriptionPlan(payload: {
+    plan_name: string;
+    plan_price: number;
+    billing_cycle: 'monthly' | 'yearly';
+    conversations_limit: number;
+    orders_limit: number;
+    products_limit: number;
+    features?: Record<string, boolean>;
+  }): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.put('/subscription/plan', payload);
+    return response.data;
+  }
+
   // Payment endpoints
   async getPaymentConfig(): Promise<any> {
     const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/payment/config');
@@ -646,6 +911,40 @@ class ApiClient {
 
   async updatePaymentConfig(config: any): Promise<any> {
     const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/payment/config', config);
+    return response.data;
+  }
+
+  async testPaymentConnection(config: any): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/payment/config/test', config);
+    return response.data;
+  }
+
+  async deletePaymentConfig(gateway: string): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.delete(`/payment/config/${gateway}`);
+    return response.data;
+  }
+
+  // Shop endpoints
+  async getShopBusinessInfo(): Promise<KnowledgeSummary> {
+    const response: AxiosResponse<ApiResponse<KnowledgeSummary>> = await this.client.get('/shop/business-info');
+    return response.data.data as KnowledgeSummary;
+  }
+
+  async updateShopBusinessInfo(businessInfo: BusinessInfo): Promise<KnowledgeSummary> {
+    const response: AxiosResponse<ApiResponse<KnowledgeSummary>> = await this.client.put('/shop/business-info', businessInfo);
+    return response.data.data as KnowledgeSummary;
+  }
+
+  async updateShop(shopId: string, updates: any): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/shop/update', {
+      shopId,
+      ...updates
+    });
+    return response.data;
+  }
+
+  async getShop(): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/shop/me');
     return response.data;
   }
 }
@@ -658,8 +957,9 @@ export function generateIdempotencyKey(): string {
 // Export singleton instance
 export const apiClient = new ApiClient();
 
-// Initialize token from storage
-const storedToken = localStorage.getItem('accessToken');
-if (storedToken) {
-  apiClient.setAccessToken(storedToken);
+export interface KnowledgeSummary {
+  businessInfo: BusinessInfo;
+  brandingRules: BrandingRules;
+  faqs: FAQ[];
+  gaps: KnowledgeGap[];
 }

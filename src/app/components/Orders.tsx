@@ -22,6 +22,8 @@ interface OrderItem {
 
 interface ManualOrder {
   customerName: string;
+  customerPhone: string;
+  deliveryAddress: string;
   channel: string;
   items: OrderItem[];
   discount: number;
@@ -49,12 +51,14 @@ export default function Orders() {
   // Manual order form state
   const [manualOrder, setManualOrder] = useState<ManualOrder>({
     customerName: '',
+    customerPhone: '',
+    deliveryAddress: '',
     channel: 'manual',
     items: [],
     discount: 0,
     tax: 0,
     delivery: 0,
-    payment: 'pending',
+    payment: 'unpaid',
     notes: '',
     source: 'manual',
     createdBy: 'user',
@@ -108,8 +112,60 @@ export default function Orders() {
     }
   };
 
+  const buildCsv = (rows: Record<string, string | number>[]) => {
+    const headers = Object.keys(rows[0] || {});
+    const escapeCsv = (value: string | number) => {
+      const text = String(value ?? '');
+      if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+        return `"${text.replace(/"/g, '""')}"`;
+      }
+      return text;
+    };
+
+    const lines = [headers.join(',')];
+    rows.forEach((row) => {
+      lines.push(headers.map((header) => escapeCsv(row[header] ?? '')).join(','));
+    });
+
+    return lines.join('\n');
+  };
+
+  const downloadFile = (content: string, filename: string, type: string) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const handleExport = (format: 'csv' | 'excel') => {
-    console.log(`Exporting as ${format}...`);
+    if (orders.length === 0) {
+      setError('No orders available to export.');
+      setTimeout(() => setError(null), 2500);
+      setShowExportMenu(false);
+      return;
+    }
+
+    if (format === 'excel') {
+      setError('Excel export is not available yet. Downloaded CSV instead.');
+      setTimeout(() => setError(null), 2500);
+    }
+
+    const rows = orders.map((order) => ({
+      id: order.id,
+      customer: order.customerName,
+      total: order.total,
+      status: order.status,
+      channel: order.channel,
+      createdAt: order.createdAt
+    }));
+
+    const csv = buildCsv(rows);
+    downloadFile(csv, 'orders.csv', 'text/csv');
     setShowExportMenu(false);
   };
 
@@ -173,9 +229,29 @@ export default function Orders() {
 
   const handleCreateOrder = async () => {
     try {
+      // Validate required fields
+      if (!manualOrder.customerName.trim()) {
+        setError('Customer name is required');
+        return;
+      }
+      if (!manualOrder.customerPhone.trim()) {
+        setError('Phone/Mobile number is required');
+        return;
+      }
+      if (!manualOrder.deliveryAddress.trim()) {
+        setError('Delivery address is required');
+        return;
+      }
+      if (manualOrder.items.length === 0) {
+        setError('At least one item is required');
+        return;
+      }
+
       // Transform frontend order data to backend format
       const orderData = {
         customer_name: manualOrder.customerName,
+        customer_phone: manualOrder.customerPhone,
+        delivery_address: manualOrder.deliveryAddress,
         channel: manualOrder.channel,
         items: manualOrder.items.map(item => ({
           product_id: item.productId,
@@ -196,12 +272,14 @@ export default function Orders() {
       // Reset form
       setManualOrder({
         customerName: '',
+        customerPhone: '',
+        deliveryAddress: '',
         channel: 'manual',
         items: [],
         discount: 0,
         tax: 0,
         delivery: 0,
-        payment: 'pending',
+        payment: 'unpaid',
         notes: '',
         source: 'manual',
         createdBy: 'user',
@@ -394,7 +472,7 @@ export default function Orders() {
 
       {/* Create Order Modal */}
       {showCreateOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
               <h2 className="text-2xl font-bold text-gray-900">Create Manual Order</h2>
@@ -424,6 +502,18 @@ export default function Orders() {
                     />
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Phone/Mobile Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={manualOrder.customerPhone}
+                      onChange={(e) => setManualOrder({ ...manualOrder, customerPhone: e.target.value })}
+                      placeholder="Enter phone number"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Channel</label>
                     <select
                       value={manualOrder.channel}
@@ -437,6 +527,20 @@ export default function Orders() {
                       <option value="telegram">Telegram</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Delivery Address */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Delivery Address <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={manualOrder.deliveryAddress}
+                    onChange={(e) => setManualOrder({ ...manualOrder, deliveryAddress: e.target.value })}
+                    placeholder="Enter complete delivery address"
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               </div>
 
@@ -564,7 +668,9 @@ export default function Orders() {
                   >
                     <option value="pending">Pending</option>
                     <option value="paid">Paid</option>
-                    <option value="cod">Cash on Delivery</option>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="refunded">Refunded</option>
+                    <option value="partially_paid">Partially Paid</option>
                   </select>
                 </div>
                 <div>
@@ -589,7 +695,12 @@ export default function Orders() {
               </button>
               <button
                 onClick={handleCreateOrder}
-                disabled={!manualOrder.customerName || manualOrder.items.length === 0}
+                disabled={
+                  !manualOrder.customerName ||
+                  !manualOrder.customerPhone ||
+                  !manualOrder.deliveryAddress ||
+                  manualOrder.items.length === 0
+                }
                 className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Create Order
@@ -601,7 +712,7 @@ export default function Orders() {
 
       {/* Product Selector Modal */}
       {showProductSelector && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900">Select Product</h3>
@@ -615,7 +726,7 @@ export default function Orders() {
 
             <div className="flex-1 overflow-y-auto p-6">
               <div className="space-y-3">
-                {mockProducts.map((product) => (
+                {products.map((product) => (
                   <button
                     key={product.id}
                     onClick={() => addProductToOrder(product)}
@@ -659,7 +770,7 @@ export default function Orders() {
 
       {/* Order Details Modal */}
       {selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div>
