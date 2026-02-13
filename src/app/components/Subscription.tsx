@@ -2,7 +2,10 @@ import { Receipt, AlertCircle, CheckCircle2, Download, Eye, TrendingUp, Package,
 import { useState, useEffect } from "react";
 import { Progress } from "@/app/components/ui/progress";
 import { Badge } from "@/app/components/ui/badge";
+import { Switch } from "@/app/components/ui/switch";
+import { toast } from "sonner";
 import { apiClient } from "@/app/lib/api";
+import { subscriptionPlans, getPlanPrice, findPlanByName, type BillingCycle } from "@/app/lib/subscriptionPlans";
 
 interface Invoice {
   id: string;
@@ -18,6 +21,10 @@ export default function Subscription() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [hasSubscriptionData, setHasSubscriptionData] = useState(true);
+  const [isUpdatingPlan, setIsUpdatingPlan] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState(subscriptionPlans[1]?.id || "starter");
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
 
   // State for actual data from API
   const [currentPlan, setCurrentPlan] = useState({
@@ -65,8 +72,14 @@ export default function Subscription() {
   const loadSubscriptionData = async () => {
     try {
       setLoading(true);
+      setHasSubscriptionData(true);
       const response = await apiClient.getSubscription();
-      
+
+      if (!response?.success || !response.data) {
+        setHasSubscriptionData(false);
+        return;
+      }
+
       if (response.success && response.data) {
         const { subscription, usage: usageData, extra_usage } = response.data;
         
@@ -85,6 +98,12 @@ export default function Subscription() {
             imageUnderstanding: subscription.features?.image_understanding || false
           }
         });
+
+        const matchedPlan = findPlanByName(subscription.plan_name);
+        if (matchedPlan) {
+          setSelectedPlanId(matchedPlan.id);
+        }
+        setBillingCycle(subscription.billing_cycle === 'yearly' ? 'yearly' : 'monthly');
 
         // Update usage
         setUsage({
@@ -114,6 +133,7 @@ export default function Subscription() {
     } catch (error: any) {
       console.error('Failed to load subscription data:', error);
       setError('Failed to load subscription data');
+      setHasSubscriptionData(false);
     } finally {
       setLoading(false);
     }
@@ -122,8 +142,8 @@ export default function Subscription() {
   const loadInvoices = async () => {
     try {
       const response = await apiClient.getSubscriptionInvoices();
-      
-      if (response.success && response.data) {
+
+      if (response?.success && response.data) {
         const mappedInvoices = response.data.map((inv: any) => ({
           id: inv.invoice_number,
           billingPeriod: inv.billing_period,
@@ -137,9 +157,13 @@ export default function Subscription() {
           })
         }));
         setInvoices(mappedInvoices);
+      } else {
+        setInvoices([]);
       }
     } catch (error: any) {
       console.error('Failed to load invoices:', error);
+      toast.error('Failed to load invoices');
+      setInvoices([]);
     }
   };
 
@@ -194,6 +218,40 @@ export default function Subscription() {
     return total;
   };
 
+  const handlePlanUpdate = async (planId: string) => {
+    const selectedPlan = subscriptionPlans.find((plan) => plan.id === planId);
+    if (!selectedPlan) return;
+
+    try {
+      setIsUpdatingPlan(true);
+      setError(null);
+      setSuccess(null);
+
+      const planPrice = getPlanPrice(selectedPlan, billingCycle);
+
+      const response = await apiClient.updateSubscriptionPlan({
+        plan_name: selectedPlan.name,
+        plan_price: planPrice,
+        billing_cycle: billingCycle,
+        conversations_limit: selectedPlan.limits.conversations,
+        orders_limit: selectedPlan.limits.orders,
+        products_limit: selectedPlan.limits.products,
+        features: selectedPlan.features,
+      });
+
+      if (response?.success) {
+        setSuccess(response.message || 'Subscription plan updated successfully');
+        loadSubscriptionData();
+        setTimeout(() => setSuccess(null), 5000);
+      }
+    } catch (error: any) {
+      setError(error.response?.data?.error?.message || 'Failed to update plan');
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setIsUpdatingPlan(false);
+    }
+  };
+
   const handleRequestInvoice = async () => {
     if (!selectedConversationPack) return;
 
@@ -227,6 +285,25 @@ export default function Subscription() {
       <div className="p-8 max-w-7xl mx-auto">
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-600">Loading subscription details...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasSubscriptionData) {
+    return (
+      <div className="p-8 max-w-7xl mx-auto">
+        <div className="bg-white rounded-xl p-8 border border-gray-200 shadow-sm text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">No subscription data yet</h2>
+          <p className="text-gray-600 mb-6">
+            This shop doesn’t have any subscription details available. Try reloading or check back later.
+          </p>
+          <button
+            onClick={() => loadSubscriptionData()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Reload
+          </button>
         </div>
       </div>
     );
@@ -281,7 +358,97 @@ export default function Subscription() {
         </div>
       </div>
 
-      {/* Section 2: Usage Overview */}
+      {/* Section 2: Available Plans */}
+      <div className="bg-white rounded-xl p-6 border border-gray-200 mb-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Plans</h2>
+            <p className="text-sm text-gray-500">Switch billing cycles or change your package.</p>
+          </div>
+          <div className="flex items-center gap-3 text-sm text-gray-600">
+            <span className={billingCycle === 'monthly' ? 'font-semibold text-gray-900' : ''}>
+              Monthly
+            </span>
+            <Switch
+              checked={billingCycle === 'yearly'}
+              onCheckedChange={(value) => setBillingCycle(value ? 'yearly' : 'monthly')}
+              aria-label="Toggle annual billing"
+            />
+            <span className={billingCycle === 'yearly' ? 'font-semibold text-gray-900' : ''}>
+              Annual
+            </span>
+            <Badge className="bg-emerald-100 text-emerald-700">2 months free</Badge>
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          {subscriptionPlans.map((plan) => {
+            const isActive = plan.name.toLowerCase() === currentPlan.name.toLowerCase();
+            const price = getPlanPrice(plan, billingCycle);
+
+            return (
+              <div
+                key={plan.id}
+                className={`flex h-full flex-col rounded-xl border p-5 ${
+                  plan.id === selectedPlanId
+                    ? 'border-blue-600 bg-blue-50'
+                    : 'border-gray-200 bg-white'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-lg font-semibold text-gray-900">{plan.name}</p>
+                    <p className="text-sm text-gray-500">{plan.description}</p>
+                  </div>
+                  {plan.popular && (
+                    <Badge className="bg-purple-100 text-purple-700">Popular</Badge>
+                  )}
+                </div>
+                <div className="mt-4 flex items-end gap-2">
+                  <span className="text-3xl font-bold text-gray-900">৳{price.toLocaleString()}</span>
+                  <span className="text-sm text-gray-500">/mo</span>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  {billingCycle === 'yearly' ? 'Billed annually' : 'Billed monthly'}
+                </p>
+                <ul className="mt-4 space-y-2 text-sm text-gray-600">
+                  {plan.highlights.map((feature) => (
+                    <li key={feature} className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-600" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-4 space-y-1 text-xs text-gray-500">
+                  <div>Conversations: {plan.limits.conversations.toLocaleString()}</div>
+                  <div>Orders: {plan.limits.orders.toLocaleString()}</div>
+                  <div>Products: {plan.limits.products.toLocaleString()}</div>
+                </div>
+                <div className="mt-auto pt-5">
+                  {isActive ? (
+                    <button className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600" disabled>
+                      Current plan
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setSelectedPlanId(plan.id);
+                        handlePlanUpdate(plan.id);
+                      }}
+                      disabled={isUpdatingPlan}
+                      className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                    >
+                      {isUpdatingPlan && plan.id === selectedPlanId ? 'Updating...' : 'Switch plan'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Section 3: Usage Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         {/* AI Conversations */}
         <div className="bg-white rounded-xl p-6 border border-gray-200">

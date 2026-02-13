@@ -1,4 +1,4 @@
-import { apiClient, User, Shop, AuthResponse, SigninRequest, SignupRequest } from './api';
+import { apiClient, User, Shop, AuthResponse, SigninRequest, SignupRequest, CreateShopRequest } from './api';
 
 // Auth state interface
 export interface AuthState {
@@ -8,9 +8,6 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
 }
-
-// Storage keys
-const AUTH_STATE_KEY = 'commerceai_auth_state';
 
 export class AuthService {
   private authState: AuthState = {
@@ -22,66 +19,39 @@ export class AuthService {
   };
 
   private listeners: ((state: AuthState) => void)[] = [];
+  private initialization: Promise<void>;
 
   constructor() {
-    this.loadStoredState();
-    this.initializeAuth();
-  }
-
-  private loadStoredState() {
-    try {
-      const stored = localStorage.getItem(AUTH_STATE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        this.authState = { ...this.authState, ...parsed, isLoading: true };
-      }
-    } catch (error) {
-      console.error('Failed to load auth state:', error);
-    }
-  }
-
-  private saveState() {
-    try {
-      localStorage.setItem(AUTH_STATE_KEY, JSON.stringify({
-        user: this.authState.user,
-        currentShop: this.authState.currentShop,
-        allShops: this.authState.allShops,
-        isAuthenticated: this.authState.isAuthenticated,
-      }));
-    } catch (error) {
-      console.error('Failed to save auth state:', error);
-    }
+    this.initialization = this.initializeAuth();
   }
 
   private async initializeAuth() {
     try {
-      // Check if we have tokens
-      const accessToken = localStorage.getItem('accessToken');
-      if (!accessToken) {
-        this.setAuthState({
-          user: null,
-          currentShop: null,
-          allShops: [],
-          isAuthenticated: false,
-          isLoading: false,
-        });
-        return;
-      }
-
-      // Try to refresh token or validate current session
-      // For now, assume token is valid if present
-      // TODO: Implement proper token validation
-      this.authState.isLoading = false;
-      this.notifyListeners();
+      const authContext = await apiClient.getAuthContext();
+      this.setAuthState({
+        user: authContext.user,
+        currentShop: authContext.currentShop,
+        allShops: authContext.allShops,
+        isAuthenticated: true,
+        isLoading: false,
+      });
     } catch (error) {
-      console.error('Auth initialization failed:', error);
-      this.logout();
+      this.setAuthState({
+        user: null,
+        currentShop: null,
+        allShops: [],
+        isAuthenticated: false,
+        isLoading: false,
+      });
     }
+  }
+
+  async ensureInitialized(): Promise<void> {
+    return this.initialization;
   }
 
   private setAuthState(state: Partial<AuthState>) {
     this.authState = { ...this.authState, ...state };
-    this.saveState();
     this.notifyListeners();
   }
 
@@ -143,15 +113,41 @@ export class AuthService {
       throw new Error('Shop not found');
     }
 
-    // TODO: Call API to switch shop context if needed
-    // For now, just update local state
-    this.setAuthState({ currentShop: shop });
+    const result = await apiClient.switchShop(shopId);
+    this.setAuthState({ currentShop: result.currentShop });
+    window.location.reload();
   }
 
-  logout(): void {
-    apiClient.setAccessToken(null);
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem(AUTH_STATE_KEY);
+  async refreshShops(): Promise<void> {
+    if (!this.authState.isAuthenticated) return;
+
+    const shops = await apiClient.getShops();
+    const currentShop = this.authState.currentShop && shops.find(s => s.id === this.authState.currentShop?.id);
+
+    this.setAuthState({
+      allShops: shops,
+      currentShop: currentShop || this.authState.currentShop || shops[0] || null,
+    });
+  }
+
+  async createShop(payload: CreateShopRequest): Promise<Shop> {
+    const newShop = await apiClient.createShop(payload);
+    const switchResult = await apiClient.switchShop(newShop.id);
+    const shops = await apiClient.getShops();
+
+    this.setAuthState({
+      allShops: shops,
+      currentShop: switchResult.currentShop,
+    });
+
+    window.location.reload();
+
+    return newShop;
+  }
+
+  async logout(): Promise<void> {
+    // Call backend to blacklist the token and clear httpOnly cookies
+    await apiClient.logout();
 
     this.setAuthState({
       user: null,

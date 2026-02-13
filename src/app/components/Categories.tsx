@@ -1,70 +1,66 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
-import { Plus, Search, Eye, Edit2, Trash2, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Search, Edit2, Trash2, ChevronRight, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { apiClient } from "@/app/lib/api";
 
 interface Category {
   id: string;
   name: string;
-  image: string;
-  subcategoryCount: number;
   description?: string;
+  parent_category_id?: string;
+  image?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  subcategories?: Category[];
+  subcategoryCount?: number;
 }
-
-const mockCategories: Category[] = [
-  {
-    id: "1",
-    name: "Electronics",
-    image: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=200&h=200&fit=crop",
-    subcategoryCount: 5,
-    description: "Electronic devices and accessories",
-  },
-  {
-    id: "2",
-    name: "Beverages",
-    image: "https://images.unsplash.com/photo-1556881286-fc6915169721?w=200&h=200&fit=crop",
-    subcategoryCount: 8,
-    description: "Drinks and beverages",
-  },
-  {
-    id: "3",
-    name: "Food & Snacks",
-    image: "https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=200&h=200&fit=crop",
-    subcategoryCount: 12,
-    description: "Food items and snacks",
-  },
-  {
-    id: "4",
-    name: "Clothing",
-    image: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=200&h=200&fit=crop",
-    subcategoryCount: 6,
-    description: "Fashion and apparel",
-  },
-  {
-    id: "5",
-    name: "Home & Garden",
-    image: "https://images.unsplash.com/photo-1484101403633-562f891dc89a?w=200&h=200&fit=crop",
-    subcategoryCount: 4,
-    description: "Home decor and garden supplies",
-  },
-];
 
 export default function Categories() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const [categories, setCategories] = useState(mockCategories);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+
+  // Load categories on component mount
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiClient.getCategories();
+      setCategories(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load categories');
+      console.error('Error loading categories:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDelete = (category: Category) => {
     setCategoryToDelete(category);
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    if (categoryToDelete) {
+  const confirmDelete = async () => {
+    if (!categoryToDelete) return;
+
+    try {
+      await apiClient.deleteCategory(categoryToDelete.id);
       setCategories(categories.filter(c => c.id !== categoryToDelete.id));
       setShowDeleteModal(false);
       setCategoryToDelete(null);
+      toast.success('Category deleted');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to delete category');
     }
   };
 
@@ -93,7 +89,7 @@ export default function Categories() {
             />
           </div>
           <button
-            onClick={() => navigate("/categories/create")}
+            onClick={() => navigate("/app/categories/create")}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap"
           >
             <Plus className="w-5 h-5" />
@@ -118,11 +114,19 @@ export default function Categories() {
                 <tr key={category.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <img
-                        src={category.image}
-                        alt={category.name}
-                        className="w-12 h-12 rounded-lg object-cover border border-gray-200"
-                      />
+                      {category.image ? (
+                        <img
+                          src={category.image}
+                          alt={category.name}
+                          className="w-12 h-12 rounded-lg object-cover border border-gray-200"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
+                          <span className="text-gray-400 font-semibold text-lg">
+                            {category.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
                       <div>
                         <div className="font-medium text-gray-900">{category.name}</div>
                         {category.description && (
@@ -133,18 +137,11 @@ export default function Categories() {
                   </td>
                   <td className="px-6 py-4">
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700">
-                      {category.subcategoryCount}
+                      {category.subcategories?.length || 0}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => navigate(`/categories/${category.id}`)}
-                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                        title="View Details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
                       <button
                         onClick={() => navigate(`/categories/${category.id}/edit`)}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
@@ -177,7 +174,7 @@ export default function Categories() {
               </p>
               {!searchQuery && (
                 <button
-                  onClick={() => navigate("/categories/create")}
+                  onClick={() => navigate("/app/categories/create")}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   <Plus className="w-5 h-5" />
@@ -191,12 +188,15 @@ export default function Categories() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && categoryToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Category</h3>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to delete "<strong>{categoryToDelete.name}</strong>"? 
-              This will also delete all {categoryToDelete.subcategoryCount} subcategories. This action cannot be undone.
+              Are you sure you want to delete "<strong>{categoryToDelete.name}</strong>"?
+              {categoryToDelete.subcategories && categoryToDelete.subcategories.length > 0 && (
+                <> This will also delete all {categoryToDelete.subcategories.length} subcategories.</>
+              )}
+              {" "}This action cannot be undone.
             </p>
             <div className="flex gap-3">
               <button

@@ -1,28 +1,40 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Upload, X, Plus, ChevronDown, ChevronUp, Save, Calendar, Package, Tag, FolderTree } from "lucide-react";
-import { apiClient } from "@/app/lib/api";
+import { toast } from "sonner";
+import { apiClient, Product } from "../lib/api";
 
-export default function AddProduct() {
+interface AddProductProps {
+  editMode?: boolean;
+  editProduct?: Product | null;
+  onClose?: () => void;
+  onSave?: (product: Product) => void;
+  isModal?: boolean;
+}
+
+export default function AddProduct({ editMode = false, editProduct = null, onClose, onSave, isModal = false }: AddProductProps) {
   const navigate = useNavigate();
+  const { productId } = useParams<{ productId?: string }>();
+  
+  // Determine if this is an edit page based on URL
+  const isEditPage = !!productId && !isModal;
   
   // Form state - Product Info
   const [productName, setProductName] = useState("");
   const [description, setDescription] = useState("");
   const [basePrice, setBasePrice] = useState("");
-  const [comparePrice, setComparePrice] = useState("");
-  const [costPrice, setCostPrice] = useState("");
-  const [discountable, setDiscountable] = useState(true);
-  const [taxable, setTaxable] = useState(true);
+  const [discountable, setDiscountable] = useState(false);
+  const [taxable, setTaxable] = useState(false);
   const [productImages, setProductImages] = useState<File[]>([]);
   
   // Categories
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
   
   // Inventory & Stock
   const [sku, setSku] = useState("");
-  const [barcode, setBarcode] = useState("");
   const [brand, setBrand] = useState("");
   const [stockType, setStockType] = useState<"unlimited" | "limited">("limited");
   const [stockQuantity, setStockQuantity] = useState("");
@@ -38,7 +50,7 @@ export default function AddProduct() {
   const [minOrderQty, setMinOrderQty] = useState("1");
   const [maxOrderQty, setMaxOrderQty] = useState("");
   const [returnable, setReturnable] = useState(true);
-  const [returnWindow, setReturnWindow] = useState("30");
+  const [returnWindow, setReturnWindow] = useState("7");
   const [warranty, setWarranty] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   
@@ -61,6 +73,84 @@ export default function AddProduct() {
   const [showBusinessRules, setShowBusinessRules] = useState(false);
   const [showVariants, setShowVariants] = useState(false);
   const [showShipping, setShowShipping] = useState(false);
+
+  // Error state
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch product data when editing via URL
+  useEffect(() => {
+    if (isEditPage && productId) {
+      const fetchProduct = async () => {
+        try {
+          const product = await apiClient.getProduct(productId);
+          setProductName(product.name || "");
+          setDescription(product.description || "");
+          setBasePrice(product.price?.toString() || "");
+          setSku(product.sku || "");
+          setBrand(product.brand || "");
+          setDiscountable(product.allow_discounts !== false);
+          setTaxable(product.charge_tax !== false);
+          setStockQuantity(product.quantity?.toString() || "");
+          setMinStockThreshold(product.low_stock_threshold?.toString() || "");
+          setLowStockAlert(product.send_low_stock_alert === true);
+          // Set stock tracking based on track_quantity
+          setStockType(product.track_quantity === false ? "unlimited" : "limited");
+          if (product.category_id) {
+            setSelectedCategories([product.category_id]);
+          }
+          if (product.variants) setVariants(product.variants as any);
+          if (product.tags) setTags(product.tags);
+        } catch (err: any) {
+          const message = err.response?.data?.message || 'Failed to load product';
+          setError(message);
+          toast.error(message);
+        }
+      };
+      fetchProduct();
+    }
+  }, [isEditPage, productId]);
+
+  // Load product data when in edit mode (modal)
+  useEffect(() => {
+    if (editMode && editProduct && isModal) {
+      setProductName(editProduct.name || "");
+      setDescription(editProduct.description || "");
+      setBasePrice(editProduct.price?.toString() || "");
+      setSku(editProduct.sku || "");
+      setBrand(editProduct.brand || "");
+      setDiscountable(editProduct.allow_discounts !== false);
+      setTaxable(editProduct.charge_tax !== false);
+      setStockQuantity(editProduct.quantity?.toString() || "");
+      setMinStockThreshold(editProduct.low_stock_threshold?.toString() || "");
+      setLowStockAlert(editProduct.send_low_stock_alert === true);
+      // Set stock tracking based on track_quantity
+      setStockType(editProduct.track_quantity === false ? "unlimited" : "limited");
+      // Handle category - use category_id which is the foreign key
+      if (editProduct.category_id) {
+        setSelectedCategories([editProduct.category_id]);
+      }
+      if (editProduct.variants) setVariants(editProduct.variants as any);
+      if (editProduct.tags) setTags(editProduct.tags);
+    }
+  }, [editMode, editProduct, isModal]);
+
+  // Fetch categories from server
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setCategoriesLoading(true);
+        const fetchedCategories = await apiClient.getCategories();
+        setCategories(fetchedCategories);
+      } catch (error) {
+        toast.error('Failed to load categories');
+        setCategories([]);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -112,16 +202,18 @@ export default function AddProduct() {
     setVariants(updated);
   };
 
-  const handleSave = async (action: "draft" | "schedule" | "publish") => {
+  const handleSave = async (action: "draft" | "publish") => {
     try {
+      setError(null);
+      
       if (!productName.trim()) {
-        alert('Product name is required');
+        setError('Product name is required');
         return;
       }
 
       const price = parseFloat(basePrice);
       if (isNaN(price) || price <= 0) {
-        alert('Valid selling price is required');
+        setError('Valid selling price is required');
         return;
       }
 
@@ -131,50 +223,229 @@ export default function AddProduct() {
         price,
       };
 
-      if (comparePrice && !isNaN(parseFloat(comparePrice)) && parseFloat(comparePrice) > 0) {
-        productData.compare_at_price = parseFloat(comparePrice);
-      }
-
-      if (costPrice && !isNaN(parseFloat(costPrice)) && parseFloat(costPrice) > 0) {
-        productData.cost_per_item = parseFloat(costPrice);
-      }
-
       if (selectedCategories.length > 0) {
         productData.category_id = selectedCategories[0];
       }
 
+      if (sku) {
+        productData.sku = sku;
+      }
+
+      if (brand) {
+        productData.brand = brand;
+      }
+
+      if (tags.length > 0) {
+        productData.tags = tags;
+      }
+
+      if (variants.length > 0) {
+        productData.variants = variants;
+      }
+
+      // Add inventory and tax settings
+      productData.allow_discounts = discountable;
+      productData.charge_tax = taxable;
+      productData.send_low_stock_alert = lowStockAlert;
+      
+      // Set track_quantity based on stockType
+      productData.track_quantity = stockType === "limited";
+      
+      // If not tracking quantity, don't send quantity value
+      if (stockType === "limited" && stockQuantity) {
+        productData.quantity = parseInt(stockQuantity);
+      } else {
+        productData.quantity = 0;
+      }
+      
+      if (minStockThreshold) {
+        productData.low_stock_threshold = parseInt(minStockThreshold);
+      }
+
       // Add other fields as needed
 
-      await apiClient.createProduct(productData);
-      console.log("Saving product as:", action);
-      navigate("/products");
-    } catch (error) {
+      if ((editMode && editProduct) || isEditPage) {
+        // Update existing product
+        const updateId = isEditPage ? productId : editProduct?.id;
+        await apiClient.updateProduct(updateId!, productData);
+        console.log("Updating product as:", action);
+        if (onSave) {
+          onSave({ ...editProduct, ...productData });
+        }
+        if (onClose) {
+          onClose();
+        } else {
+          navigate("/app/products");
+        }
+      } else {
+        // Create new product
+        await apiClient.createProduct(productData);
+        console.log("Creating product as:", action);
+        navigate("/app/products");
+      }
+    } catch (error: any) {
+      // Log the full error for debugging
+      console.error("Error details:", {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        message: error?.message
+      });
+      console.error("Product data sent:", {
+        name: productName,
+        description,
+        price: basePrice,
+        category_id: selectedCategories[0],
+        sku
+      });
+
+      // Extract error message from various possible response structures
+      let errorMessage = 'An error occurred while saving the product';
+      
+      // Check for validation errors with details
+      if (error?.response?.data?.error?.details && Array.isArray(error.response.data.error.details)) {
+        const details = error.response.data.error.details as any[];
+        const messages = details.map(d => `${d.field}: ${d.message}`).join('; ');
+        errorMessage = `Validation Error: ${messages}`;
+      } else if (error?.response?.data?.error?.message) {
+        errorMessage = error.response.data.error.message;
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.error) {
+        errorMessage = JSON.stringify(error.response.data.error);
+      } else if (error?.response?.data?.details) {
+        errorMessage = error.response.data.details;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
       console.error("Error saving product:", error);
     }
   };
 
-  // Mock categories for demonstration
-  const mockCategories = [
-    { id: "cat1", name: "Electronics" },
-    { id: "cat2", name: "Books" },
-    { id: "cat3", name: "Clothing" },
-    { id: "cat4", name: "Home & Kitchen" },
-    { id: "cat5", name: "Toys & Games" },
-  ];
+  // Render modal version
+  if (isModal && onClose) {
+    return (
+      <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 overflow-y-auto">
+        <div className="bg-white rounded-xl max-w-4xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto">
+          <div className="p-8">
+            {/* Modal Header */}
+            <div className="flex justify-between items-start mb-8">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">{editMode ? 'Edit Product' : 'Add New Product'}</h1>
+                <p className="text-gray-600 mt-1">{editMode ? 'Update product details' : 'Add a new product to your store'}</p>
+              </div>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700 p-2"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
 
+            {/* Error Alert */}
+            {error && (
+              <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                {error}
+              </div>
+            )}
+
+            {/* Form Content Grid - Simplified for modal */}
+            <div className="grid grid-cols-1 gap-6 max-w-full">
+              {/* Product Info Section */}
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Product Info</h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
+                    <input
+                      type="text"
+                      value={productName}
+                      onChange={(e) => setProductName(e.target.value)}
+                      placeholder="Enter product name"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Describe your product..."
+                      rows={4}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Price</label>
+                      <input
+                        type="number"
+                        value={basePrice}
+                        onChange={(e) => setBasePrice(e.target.value)}
+                        placeholder="0.00"
+                        step="0.01"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">SKU</label>
+                      <input
+                        type="text"
+                        value={sku}
+                        onChange={(e) => setSku(e.target.value)}
+                        placeholder="SKU-001"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex gap-3 mt-8 pt-8 border-t border-gray-200">
+              <button
+                onClick={onClose}
+                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSave("publish")}
+                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              >
+                {editMode ? 'Update Product' : 'Add Product'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Full page view for standalone AddProduct route
   return (
     <div className="p-8 pb-24">
       {/* Page Header */}
       <div className="mb-8">
         <button
-          onClick={() => navigate("/products")}
+          onClick={() => navigate("/app/products")}
           className="text-gray-600 hover:text-gray-900 flex items-center gap-2 mb-4"
         >
           ← Back to Products
         </button>
-        <h1 className="text-3xl font-bold text-gray-900">Add New Product</h1>
-        <p className="text-gray-600 mt-1">Add a new product to your store</p>
+        <h1 className="text-3xl font-bold text-gray-900">{isEditPage ? 'Edit Product' : 'Add New Product'}</h1>
+        <p className="text-gray-600 mt-1">{isEditPage ? 'Update product details' : 'Add a new product to your store'}</p>
       </div>
+
+      {/* Error Alert */}
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
 
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-7xl">
@@ -239,48 +510,6 @@ export default function AddProduct() {
                         />
                       </div>
                     </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Compare at Price
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                        <input
-                          type="number"
-                          value={comparePrice}
-                          onChange={(e) => setComparePrice(e.target.value)}
-                          placeholder="0.00"
-                          step="0.01"
-                          min="0"
-                          className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Cost per Item
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                      <input
-                        type="number"
-                        value={costPrice}
-                        onChange={(e) => setCostPrice(e.target.value)}
-                        placeholder="0.00"
-                        step="0.01"
-                        min="0"
-                        className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    {basePrice && costPrice && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Profit: ${(parseFloat(basePrice) - parseFloat(costPrice)).toFixed(2)} 
-                        ({((parseFloat(basePrice) - parseFloat(costPrice)) / parseFloat(basePrice) * 100).toFixed(1)}% margin)
-                      </p>
-                    )}
                   </div>
 
                   <div className="flex items-center gap-4 pt-2">
@@ -420,19 +649,6 @@ export default function AddProduct() {
                       Auto
                     </button>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Barcode (ISBN, UPC, etc.)
-                  </label>
-                  <input
-                    type="text"
-                    value={barcode}
-                    onChange={(e) => setBarcode(e.target.value)}
-                    placeholder="Enter barcode"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
                 </div>
               </div>
 
@@ -634,7 +850,7 @@ export default function AddProduct() {
                 {selectedCategories.length > 0 && (
                   <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg">
                     {selectedCategories.map((catId) => {
-                      const category = mockCategories.find(c => c.id === catId);
+                      const category = categories.find(c => c.id === catId);
                       return category ? (
                         <span
                           key={catId}
@@ -709,15 +925,62 @@ export default function AddProduct() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Options (comma-separated)
+                        Options
                       </label>
-                      <input
-                        type="text"
-                        value={variant.options.join(", ")}
-                        onChange={(e) => updateVariant(index, "options", e.target.value.split(",").map(s => s.trim()).filter(s => s))}
-                        placeholder="Small, Medium, Large"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                      <div className="space-y-2 mb-3">
+                        {Array.isArray(variant.options) && variant.options.length > 0 ? (
+                          variant.options.map((option, optionIndex) => (
+                            <div key={optionIndex} className="flex gap-2">
+                              <input
+                                type="text"
+                                value={option}
+                                onChange={(e) => {
+                                  const newOptions = [...variant.options];
+                                  newOptions[optionIndex] = e.target.value;
+                                  const updated = variants.map((v, i) => 
+                                    i === index 
+                                      ? { ...v, options: newOptions }
+                                      : v
+                                  );
+                                  setVariants(updated);
+                                }}
+                                placeholder="e.g., Small"
+                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <button
+                                onClick={() => {
+                                  const newOptions = variant.options.filter((_, i) => i !== optionIndex);
+                                  const updated = variants.map((v, i) => 
+                                    i === index 
+                                      ? { ...v, options: newOptions }
+                                      : v
+                                  );
+                                  setVariants(updated);
+                                }}
+                                className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-300"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500 italic">No options added yet</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => {
+                          const updated = variants.map((v, i) => 
+                            i === index 
+                              ? { ...v, options: [...(Array.isArray(v.options) ? v.options : []), ""] }
+                              : v
+                          );
+                          setVariants(updated);
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-200"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Option
+                      </button>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -1047,31 +1310,23 @@ export default function AddProduct() {
       {/* FOOTER ACTIONS - Sticky */}
       <div className="fixed bottom-0 left-64 right-0 bg-white border-t border-gray-200 px-8 py-4 flex justify-end gap-3 z-10">
         <button
-          onClick={() => handleSave("draft")}
-          className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+          onClick={() => navigate('/app/products')}
+          className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
         >
-          <Save className="w-5 h-5" />
-          Save as Draft
-        </button>
-        <button
-          onClick={() => handleSave("schedule")}
-          className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-        >
-          <Calendar className="w-5 h-5" />
-          Schedule
+          Cancel
         </button>
         <button
           onClick={() => handleSave("publish")}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
         >
           <Package className="w-5 h-5" />
-          Add Product
+          {isEditPage ? 'Update Product' : 'Add Product'}
         </button>
       </div>
 
       {/* Category Selection Modal */}
       {showCategoryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900">Select Categories</h3>
@@ -1088,37 +1343,47 @@ export default function AddProduct() {
                 Select one or more categories for this product
               </p>
 
-              <div className="grid grid-cols-2 gap-3">
-                {mockCategories.map((category) => {
-                  const isSelected = selectedCategories.includes(category.id);
-                  return (
-                    <button
-                      key={category.id}
-                      onClick={() => {
-                        if (isSelected) {
-                          setSelectedCategories(selectedCategories.filter(id => id !== category.id));
-                        } else {
-                          setSelectedCategories([...selectedCategories, category.id]);
-                        }
-                      }}
-                      className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left ${ 
-                        isSelected
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200 hover:border-gray-300 bg-white"
-                      }`}
-                    >
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        isSelected ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"
-                      }`}>
-                        <FolderTree className="w-5 h-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className={`font-medium truncate ${
-                          isSelected ? "text-blue-900" : "text-gray-900"
+              {categoriesLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                  <span className="ml-2 text-gray-600">Loading categories...</span>
+                </div>
+              ) : categories.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No categories available
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {categories.map((category) => {
+                    const isSelected = selectedCategories.includes(category.id);
+                    return (
+                      <button
+                        key={category.id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedCategories(selectedCategories.filter(id => id !== category.id));
+                          } else {
+                            setSelectedCategories([...selectedCategories, category.id]);
+                          }
+                        }}
+                        className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left ${ 
+                          isSelected
+                            ? "border-blue-500 bg-blue-50"
+                            : "border-gray-200 hover:border-gray-300 bg-white"
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                          isSelected ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"
                         }`}>
-                          {category.name}
+                          <FolderTree className="w-5 h-5" />
                         </div>
-                      </div>
+                        <div className="flex-1 min-w-0">
+                          <div className={`font-medium truncate ${
+                            isSelected ? "text-blue-900" : "text-gray-900"
+                          }`}>
+                            {category.name}
+                          </div>
+                        </div>
                       {isSelected && (
                         <div className="flex-shrink-0">
                           <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
@@ -1129,9 +1394,10 @@ export default function AddProduct() {
                         </div>
                       )}
                     </button>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
 
               <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <p className="text-sm text-gray-700 mb-3 flex items-center gap-2">
@@ -1141,7 +1407,7 @@ export default function AddProduct() {
                 <button
                   onClick={() => {
                     setShowCategoryModal(false);
-                    navigate("/categories/create");
+                    navigate("/app/categories/create");
                   }}
                   className="w-full px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >

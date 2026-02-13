@@ -1,256 +1,447 @@
-import { useState, useEffect } from "react";
-import { MessageSquare, Instagram, CheckCircle, X, AlertCircle, Info, Loader2, Shield, Phone } from "lucide-react";
-import { apiClient, MetaPlatform, MetaIntegrationStatus } from "../lib/api";
+import { useEffect, useState } from "react";
+import { MessageSquare, Instagram, CheckCircle, Clock, X, Copy, Check, AlertCircle, Info, ChevronDown, ChevronUp, Loader2, Shield } from "lucide-react";
+import { apiClient } from "../lib/api";
+import type { Channel as BackendChannel } from "../lib/api";
 
-interface MetaChannel {
+interface Channel {
   id: string;
   name: string;
-  platform: MetaPlatform;
+  type: 'facebook' | 'whatsapp' | 'instagram' | 'telegram' | 'webchat';
   logo: React.ReactNode;
   description: string;
   status: 'connected' | 'not_connected' | 'connecting';
   connectedAccount?: string;
-  connectedAt?: string;
+  lastSync?: string;
+  systemUserToken?: string;
+  businessManagerId?: string;
 }
 
-const statusConfig = {
-  connected: { color: 'text-green-600 bg-green-100', label: 'Connected', icon: CheckCircle },
-  not_connected: { color: 'text-gray-600 bg-gray-100', label: 'Not Connected', icon: Info },
-  connecting: { color: 'text-blue-600 bg-blue-100', label: 'Connecting...', icon: Loader2 },
-};
-
-const platformConfig = {
-  messenger: {
-    name: 'Facebook Messenger',
-    logo: <MessageSquare className="w-6 h-6 text-blue-600" />,
-    description: 'Connect your Facebook Page to receive and reply to Messenger chats.',
-  },
-  instagram: {
-    name: 'Instagram Direct Messages',
-    logo: <Instagram className="w-6 h-6 text-pink-600" />,
-    description: 'Manage Instagram DMs and comments from your business account.',
-  },
-  whatsapp: {
-    name: 'WhatsApp Business',
-    logo: <Phone className="w-6 h-6 text-green-600" />,
-    description: 'Connect your business WhatsApp number using Meta\'s official authorization.',
-  },
-};
+interface ChannelCredentials {
+  systemUserToken: string;
+  businessManagerId: string;
+}
 
 export default function ChatSettings() {
-  const [channels, setChannels] = useState<MetaChannel[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [connectingPlatform, setConnectingPlatform] = useState<MetaPlatform | null>(null);
-  const [disconnectingPlatform, setDisconnectingPlatform] = useState<MetaPlatform | null>(null);
-  const [showToast, setShowToast] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Load integration status on component mount
-  useEffect(() => {
-    loadIntegrationStatus();
-  }, []);
 
-  // Check for OAuth callback parameters
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const success = urlParams.get('success');
-    const error = urlParams.get('error');
-    const platform = urlParams.get('platform');
+  // UI State
+  const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
+  const [showManageModal, setShowManageModal] = useState(false);
+  const [managedChannel, setManagedChannel] = useState<Channel | null>(null);
+  const [copiedToken, setCopiedToken] = useState(false);
+  const [showToast, setShowToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-    if (success === 'connected' && platform) {
-      setShowToast({ type: 'success', message: `${platformConfig[platform as MetaPlatform]?.name || platform} connected successfully!` });
-      loadIntegrationStatus();
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (error) {
-      let errorMessage = 'Connection failed. Please try again.';
-      if (error === 'oauth_failed') errorMessage = 'Meta authorization failed.';
-      if (error === 'no_assets') errorMessage = `No ${platform} assets found. Please set up your Meta business account first.`;
-      if (error === 'callback_failed') errorMessage = 'Connection setup failed. Please try again.';
+  const [credentials, setCredentials] = useState<Record<Channel['type'], ChannelCredentials>>({
+    whatsapp: { systemUserToken: '', businessManagerId: '' },
+    facebook: { systemUserToken: '', businessManagerId: '' },
+    instagram: { systemUserToken: '', businessManagerId: '' },
+    telegram: { systemUserToken: '', businessManagerId: '' },
+    webchat: { systemUserToken: '', businessManagerId: '' },
+  });
 
-      setShowToast({ type: 'error', message: errorMessage });
-      loadIntegrationStatus();
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, []);
+  // Channel settings
+  const [channelSettings, setChannelSettings] = useState({
+    aiAutoReply: true,
+    requireApproval: false,
+    businessHours: false,
+    allowOrderCreation: true,
+    autoDetectProducts: true,
+    draftOrdersOnly: false,
+    requireManualConfirmation: true,
+  });
 
-  const loadIntegrationStatus = async () => {
+  // Status configuration
+  const statusConfig = {
+    connected: { icon: CheckCircle, label: 'Connected', color: 'bg-green-100 text-green-800' },
+    not_connected: { icon: Clock, label: 'Not Connected', color: 'bg-gray-100 text-gray-800' },
+    connecting: { icon: Loader2, label: 'Connecting...', color: 'bg-blue-100 text-blue-800' },
+  };
+
+  const handleCredentialChange = (channelType: Channel['type'], field: keyof ChannelCredentials, value: string) => {
+    setCredentials(prev => ({
+      ...prev,
+      [channelType]: {
+        ...prev[channelType],
+        [field]: value,
+      }
+    }));
+  };
+
+  const loadChannels = async () => {
     try {
-      setLoading(true);
-      const status = await apiClient.getMetaIntegrationStatus();
+      setIsLoading(true);
+      setLoadError(null);
+      const backendChannels = await apiClient.getChannels();
+      const mapped = backendChannels.map((channel: BackendChannel): Channel => {
+        const descriptionMap: Record<string, string> = {
+          whatsapp: 'Direct messaging through WhatsApp for customer support',
+          facebook: 'Connect with customers via Facebook Messenger',
+          instagram: 'Manage customer inquiries through Instagram Direct Messages',
+          telegram: 'Engage customers through Telegram',
+          webchat: 'Website live chat support',
+        };
 
-      const updatedChannels: MetaChannel[] = status.map((integration) => {
-        const config = platformConfig[integration.platform];
+        const status = channel.connected || channel.status === 'active'
+          ? 'connected'
+          : channel.status === 'error'
+            ? 'not_connected'
+            : 'not_connected';
+
+        const type = (channel.type || (channel as any).channel_type || 'webchat') as Channel['type'];
+        const logo = type === 'instagram'
+          ? <Instagram className="w-8 h-8 text-pink-600" />
+          : <MessageSquare className={`w-8 h-8 ${type === 'whatsapp' ? 'text-green-600' : 'text-blue-600'}`} />;
+
         return {
-          id: integration.platform,
-          name: config.name,
-          platform: integration.platform,
-          logo: config.logo,
-          description: config.description,
-          status: integration.connected ? 'connected' : 'not_connected',
-          connectedAccount: integration.display_name || undefined,
-          connectedAt: integration.connected_at || undefined,
+          id: channel.id,
+          name: channel.name || type,
+          type,
+          logo,
+          description: descriptionMap[type] || 'Customer messaging channel',
+          status,
+          connectedAccount: channel.name || undefined,
+          lastSync: channel.lastSync || channel.last_sync,
+          systemUserToken: channel.config?.systemUserToken,
+          businessManagerId: channel.config?.businessManagerId,
         };
       });
 
-      setChannels(updatedChannels);
-    } catch (error) {
-      console.error('Failed to load integration status:', error);
-      setShowToast({ type: 'error', message: 'Failed to load connection status.' });
+      const defaults: Channel[] = [
+        {
+          id: 'facebook',
+          name: 'Messenger',
+          type: 'facebook',
+          logo: <MessageSquare className="w-8 h-8 text-blue-600" />,
+          description: 'Connect with customers via Facebook Messenger',
+          status: 'not_connected'
+        },
+        {
+          id: 'whatsapp',
+          name: 'WhatsApp',
+          type: 'whatsapp',
+          logo: <MessageSquare className="w-8 h-8 text-green-600" />,
+          description: 'Direct messaging through WhatsApp for customer support',
+          status: 'not_connected'
+        },
+        {
+          id: 'instagram',
+          name: 'Instagram',
+          type: 'instagram',
+          logo: <Instagram className="w-8 h-8 text-pink-600" />,
+          description: 'Manage customer inquiries through Instagram Direct Messages',
+          status: 'not_connected'
+        }
+      ];
+
+      const merged = mapped.filter(channel => ['facebook', 'whatsapp', 'instagram'].includes(channel.type));
+      defaults.forEach((channel) => {
+        if (!merged.find(existing => existing.type === channel.type)) {
+          merged.push(channel);
+        }
+      });
+
+      setChannels(merged);
+    } catch (err) {
+      console.error('Failed to load channels:', err);
+      setLoadError('Failed to load channels from backend');
+      setShowToast({
+        type: 'error',
+        message: 'Failed to load channels from backend'
+      });
+      setChannels([]);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleConnect = async (platform: MetaPlatform) => {
+  useEffect(() => {
+    loadChannels();
+  }, []);
+
+  const handleConnect = async (channel: Channel) => {
+    const channelCreds = credentials[channel.type];
+    if (!channelCreds?.systemUserToken) {
+      setShowToast({
+        type: 'error',
+        message: 'Please provide a System User Token before connecting.'
+      });
+      return;
+    }
+
+    setChannels(prev => prev.map(ch =>
+      ch.type === channel.type ? { ...ch, status: 'connecting' } : ch
+    ));
+
     try {
-      setConnectingPlatform(platform);
+      await apiClient.connectChannel({
+        type: channel.type,
+        name: channel.name,
+        systemUserToken: channelCreds.systemUserToken,
+        businessManagerId: channelCreds.businessManagerId || undefined
+      });
 
-      // Update UI to show connecting state
-      setChannels(channels.map(ch =>
-        ch.platform === platform ? { ...ch, status: 'connecting' as const } : ch
+      await loadChannels();
+      setShowToast({
+        type: 'success',
+        message: `${channel.name} connected successfully!`
+      });
+    } catch (error: any) {
+      setShowToast({
+        type: 'error',
+        message: error.response?.data?.error?.message || 'Connection failed. Please try again.'
+      });
+      setChannels(prev => prev.map(ch =>
+        ch.type === channel.type ? { ...ch, status: 'not_connected' } : ch
       ));
-
-      // Start OAuth flow (this will redirect)
-      await apiClient.connectMetaPlatform(platform);
-
-    } catch (error) {
-      console.error('Failed to start OAuth flow:', error);
-      setShowToast({ type: 'error', message: 'Failed to start connection process.' });
-
-      // Reset connecting state
-      setChannels(channels.map(ch =>
-        ch.platform === platform ? { ...ch, status: 'not_connected' as const } : ch
-      ));
-      setConnectingPlatform(null);
     }
   };
 
-  const handleDisconnect = async (platform: MetaPlatform) => {
-    if (!confirm(`Are you sure you want to disconnect ${platformConfig[platform].name}?`)) {
+  const handleDisconnect = async (channel: Channel) => {
+    if (channel.id === channel.type) {
+      setShowToast({
+        type: 'error',
+        message: 'This channel is not connected yet.'
+      });
       return;
     }
 
     try {
-      setDisconnectingPlatform(platform);
-      await apiClient.disconnectMetaPlatform(platform);
-
-      // Update UI
-      setChannels(channels.map(ch =>
-        ch.platform === platform
-          ? { ...ch, status: 'not_connected' as const, connectedAccount: undefined, connectedAt: undefined }
-          : ch
-      ));
-
-      setShowToast({ type: 'success', message: `${platformConfig[platform].name} disconnected successfully.` });
-    } catch (error) {
-      console.error('Failed to disconnect:', error);
-      setShowToast({ type: 'error', message: 'Failed to disconnect. Please try again.' });
-    } finally {
-      setDisconnectingPlatform(null);
+      await apiClient.disconnectChannel(channel.id);
+      await loadChannels();
+      setShowToast({
+        type: 'success',
+        message: `${channel.name} disconnected successfully.`
+      });
+    } catch (error: any) {
+      setShowToast({
+        type: 'error',
+        message: error.response?.data?.error?.message || 'Disconnect failed.'
+      });
     }
   };
 
-  const formatConnectedAt = (dateString: string) => {
+  const handleManageChannel = (channel: Channel) => {
+    setManagedChannel({
+      ...channel,
+      connectedAccount: channel.connectedAccount || '',
+      lastSync: channel.lastSync || '',
+      systemUserToken: channel.systemUserToken || '',
+      businessManagerId: channel.businessManagerId || '',
+    });
+    setShowManageModal(true);
+  };
+
+  const handleCopyToken = () => {
+    if (managedChannel?.systemUserToken) {
+      navigator.clipboard.writeText(managedChannel.systemUserToken);
+      setCopiedToken(true);
+      setTimeout(() => setCopiedToken(false), 2000);
+    }
+  };
+
+  const handleSettingsChange = (key: keyof typeof channelSettings) => {
+    setChannelSettings(prev => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <span className="ml-2 text-gray-600">Loading connections...</span>
-      </div>
-    );
-  }
+  // Dismiss toast
+  const dismissToast = () => {
+    setShowToast(null);
+  };
+
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center space-x-3">
-        <Shield className="w-6 h-6 text-blue-600" />
+      <div className="flex items-center space-x-3 mb-8">
+        <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
+          <MessageSquare className="w-6 h-6 text-white" />
+        </div>
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Connect Channels via Meta</h2>
-          <p className="text-sm text-gray-600">Unified OAuth integration for Messenger, Instagram, and WhatsApp</p>
+          <h2 className="text-2xl font-bold text-gray-900">Chat Channel Settings</h2>
+          <p className="text-gray-600 text-sm">Manage your Messenger, WhatsApp, and Instagram integrations</p>
         </div>
       </div>
 
       {/* Channels Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {channels.map((channel) => {
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {isLoading && (
+          <div className="col-span-full text-center text-gray-500 py-8">Loading channels from backend...</div>
+        )}
+        {loadError && (
+          <div className="col-span-full text-center text-red-600 py-8">{loadError}</div>
+        )}
+        {!isLoading && !loadError && channels.length === 0 && (
+          <div className="col-span-full text-center text-gray-500 py-8">No channels found.</div>
+        )}
+        {!isLoading && !loadError && channels.map((channel) => {
           const status = statusConfig[channel.status];
-          const isConnecting = connectingPlatform === channel.platform;
-          const isDisconnecting = disconnectingPlatform === channel.platform;
+          const StatusIcon = status.icon;
 
           return (
-            <div key={channel.id} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-4">
+            <div key={channel.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-5">
+              {/* Channel Header */}
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-3">
                   {channel.logo}
-                  <div>
-                    <h3 className="font-medium text-gray-900">{channel.name}</h3>
-                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${status.color}`}>
-                      <status.icon className="w-3 h-3 mr-1" />
-                      {status.label}
-                    </div>
-                  </div>
+                  <h3 className="font-semibold text-gray-900">{channel.name}</h3>
                 </div>
+              </div>
+
+              {/* Status Badge */}
+              <div className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium mb-3 ${status.color}`}>
+                {status.icon === Loader2 ? (
+                  <StatusIcon className="w-3 h-3 animate-spin" />
+                ) : (
+                  <StatusIcon className="w-3 h-3" />
+                )}
+                <span>{status.label}</span>
               </div>
 
               {/* Description */}
               <p className="text-sm text-gray-600 mb-4">{channel.description}</p>
 
-              {/* Connection Details */}
-              {channel.status === 'connected' && channel.connectedAccount && (
-                <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                  <div className="text-sm">
-                    <div className="font-medium text-gray-900">{channel.connectedAccount}</div>
-                    {channel.connectedAt && (
-                      <div className="text-gray-500">Connected {formatConnectedAt(channel.connectedAt)}</div>
-                    )}
+              {/* Connected Info */}
+              {channel.status === 'connected' && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-sm">
+                  <div className="font-medium text-green-900">{channel.connectedAccount}</div>
+                  {channel.lastSync && (
+                    <div className="text-green-700 text-xs">Last sync: {formatDate(channel.lastSync)}</div>
+                  )}
+                </div>
+              )}
+
+              {/* System User Token Input */}
+              {channel.status === 'not_connected' && (
+                <div className="space-y-3 mb-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">System User Token</label>
+                    <input
+                      type="password"
+                      value={credentials[channel.type]?.systemUserToken || ''}
+                      onChange={(e) => handleCredentialChange(channel.type, 'systemUserToken', e.target.value)}
+                      placeholder="Paste System User token"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Business Manager ID (optional)</label>
+                    <input
+                      type="text"
+                      value={credentials[channel.type]?.businessManagerId || ''}
+                      onChange={(e) => handleCredentialChange(channel.type, 'businessManagerId', e.target.value)}
+                      placeholder="Enter your Business Manager ID"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    The System User token is sensitive. Treat it like a password and revoke it if you suspect exposure.
                   </div>
                 </div>
               )}
 
+              {/* Setup Instructions (Collapsible) */}
+              <details className="mb-4">
+                <summary className="text-sm font-medium text-gray-700 cursor-pointer hover:text-gray-900 flex items-center">
+                  <ChevronDown className="w-4 h-4 mr-2" />
+                  Setup Instructions
+                </summary>
+                <div className="mt-3 text-xs text-gray-600 space-y-2 ml-6">
+                  {channel.type === 'facebook' && (
+                    <>
+                      <p>1. Go to Meta Business Suite: https://business.facebook.com</p>
+                      <p>2. Business Settings → Users → System Users</p>
+                      <p>3. Click “Add”, name it “Webhook Manager”, role: Admin</p>
+                      <p>4. Open the System User → Generate New Token</p>
+                      <p>5. Select your app and permissions:</p>
+                      <ul className="list-disc list-inside ml-4 space-y-1">
+                        <li>whatsapp_business_messaging</li>
+                        <li>whatsapp_business_management</li>
+                        <li>pages_messaging</li>
+                        <li>instagram_manage_messages</li>
+                      </ul>
+                      <p>6. Paste the token above and connect</p>
+                    </>
+                  )}
+                </div>
+              </details>
+
+              {/* Automated Features (Collapsible) */}
+              <details className="mb-4">
+                <summary className="text-sm font-medium text-gray-700 cursor-pointer hover:text-gray-900 flex items-center">
+                  <ChevronDown className="w-4 h-4 mr-2" />
+                  Automated Features
+                </summary>
+                <div className="mt-3 text-xs text-gray-600 space-y-2 ml-6">
+                  {channel.status === 'connected' ? (
+                    <>
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle className="w-3 h-3 text-green-600" />
+                        <span>Auto-reply enabled</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle className="w-3 h-3 text-green-600" />
+                        <span>Order creation enabled</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle className="w-3 h-3 text-green-600" />
+                        <span>Payment tracking enabled</span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-gray-500">Connect channel to enable features</p>
+                  )}
+                </div>
+              </details>
+
               {/* Actions */}
-              <div className="flex space-x-2">
+              <div className="flex gap-2">
                 {channel.status === 'not_connected' && (
                   <button
-                    onClick={() => handleConnect(channel.platform)}
-                    disabled={isConnecting}
-                    className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    onClick={() => handleConnect(channel)}
+                    className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                   >
-                    {isConnecting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin mr-2 inline" />
-                        Connecting...
-                      </>
-                    ) : (
-                      'Connect'
-                    )}
+                    Connect
+                  </button>
+                )}
+
+                {channel.status === 'connecting' && (
+                  <button disabled className="flex-1 bg-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium cursor-not-allowed flex items-center justify-center">
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Connecting...
                   </button>
                 )}
 
                 {channel.status === 'connected' && (
-                  <button
-                    onClick={() => handleDisconnect(channel.platform)}
-                    disabled={isDisconnecting}
-                    className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isDisconnecting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin mr-2 inline" />
-                        Disconnecting...
-                      </>
-                    ) : (
-                      'Disconnect'
-                    )}
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleManageChannel(channel)}
+                      className="flex-1 bg-gray-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors"
+                    >
+                      Manage
+                    </button>
+                    <button
+                      onClick={() => handleDisconnect(channel)}
+                      className="flex-1 bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+                    >
+                      Disconnect
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -259,25 +450,213 @@ export default function ChatSettings() {
       </div>
 
       {/* Info Section */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-start space-x-3">
-          <Info className="w-5 h-5 text-blue-600 mt-0.5" />
-          <div className="text-sm text-blue-800">
-            <div className="font-medium mb-1">How it works:</div>
-            <ul className="list-disc list-inside space-y-1 text-blue-700">
-              <li>Click "Connect" to log in with Meta once</li>
-              <li>Select your Facebook Page, Instagram account, or WhatsApp number</li>
-              <li>System automatically configures webhooks and permissions</li>
-              <li>All messages are securely forwarded to your AI assistant</li>
-            </ul>
-          </div>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start space-x-3">
+        <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+        <div className="text-sm text-blue-800">
+          <div className="font-semibold mb-2">How this integration works:</div>
+          <ul className="space-y-1 text-blue-700">
+            <li>• Client grants admin access to their Page/WhatsApp/Instagram</li>
+            <li>• You add their assets to your Business Manager</li>
+            <li>• You generate a System User token with the required permissions</li>
+            <li>• Paste the token here to activate webhooks</li>
+          </ul>
+          <p className="mt-2 text-xs text-blue-700">
+            Tokens are sensitive. Store them securely and rotate if compromised.
+          </p>
         </div>
       </div>
 
-      {/* Toast Notifications */}
+      {/* Manage Channel Modal */}
+      {showManageModal && managedChannel && (
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="font-semibold text-gray-900">Manage {managedChannel.name}</h3>
+              <button
+                onClick={() => setShowManageModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-6">
+              {/* Connection Info */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-3">Connection Info</h4>
+                <div className="bg-gray-50 rounded-lg p-3 space-y-2 text-sm">
+                  <div>
+                    <span className="text-gray-600">Account:</span>
+                    <p className="font-medium text-gray-900">{managedChannel.connectedAccount}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Last Sync:</span>
+                    <p className="font-medium text-gray-900">{formatDate(managedChannel.lastSync)}</p>
+                  </div>
+                  {managedChannel.systemUserToken && (
+                    <div>
+                      <span className="text-gray-600">System User Token:</span>
+                      <div className="flex items-center mt-1">
+                        <input
+                          type="password"
+                          value={managedChannel.systemUserToken || ''}
+                          readOnly
+                          className="flex-1 bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs"
+                        />
+                        <button
+                          onClick={handleCopyToken}
+                          className="ml-2 p-1 hover:bg-gray-200 rounded"
+                          title="Copy token"
+                        >
+                          {copiedToken ? (
+                            <Check className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-gray-600" />
+                          )}
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">Keep this token private. Revoke it in Meta Business Suite if exposed.</p>
+                    </div>
+                  )}
+                  {managedChannel.businessManagerId && (
+                    <div>
+                      <span className="text-gray-600">Business Manager ID:</span>
+                      <p className="font-medium text-gray-900 mt-1">{managedChannel.businessManagerId}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Message Handling */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-3">Message Handling</h4>
+                <div className="space-y-3">
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={channelSettings.aiAutoReply}
+                      onChange={() => handleSettingsChange('aiAutoReply')}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-gray-700">AI Auto-Reply</span>
+                  </label>
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={channelSettings.requireApproval}
+                      onChange={() => handleSettingsChange('requireApproval')}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-gray-700">Require Manual Approval</span>
+                  </label>
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={channelSettings.businessHours}
+                      onChange={() => handleSettingsChange('businessHours')}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-gray-700">Business Hours Only</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Order Control */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-3">Order Control</h4>
+                <div className="space-y-3">
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={channelSettings.allowOrderCreation}
+                      onChange={() => handleSettingsChange('allowOrderCreation')}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-gray-700">Allow Order Creation</span>
+                  </label>
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={channelSettings.autoDetectProducts}
+                      onChange={() => handleSettingsChange('autoDetectProducts')}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-gray-700">Auto-Detect Products</span>
+                  </label>
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={channelSettings.draftOrdersOnly}
+                      onChange={() => handleSettingsChange('draftOrdersOnly')}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-gray-700">Draft Orders Only</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Permissions & Safety */}
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="flex items-start space-x-2">
+                  <Shield className="w-4 h-4 text-blue-600 mt-0.5" />
+                  <div className="text-xs text-gray-600">
+                    <p className="font-medium text-gray-900">Permissions Granted:</p>
+                    <ul className="mt-1 space-y-1 list-disc list-inside">
+                      <li>Read messages</li>
+                      <li>Send messages</li>
+                      <li>Read receipts</li>
+                      <li>Manage labels</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-2 p-6 border-t bg-gray-50">
+              <button
+                onClick={() => setShowManageModal(false)}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={async () => {
+                  if (!managedChannel) return;
+                  try {
+                    await apiClient.updateChannel(managedChannel.id, {
+                      config: {
+                        ...managedChannel,
+                        settings: channelSettings,
+                      }
+                    });
+                    setShowManageModal(false);
+                    setShowToast({ type: 'success', message: 'Settings saved successfully!' });
+                    loadChannels();
+                  } catch (error: any) {
+                    setShowToast({
+                      type: 'error',
+                      message: error.response?.data?.error?.message || 'Failed to save settings'
+                    });
+                  }
+                }}
+                className="px-4 py-2 text-white bg-blue-600 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
       {showToast && (
-        <div className={`fixed bottom-4 right-4 z-50 flex items-center space-x-3 px-4 py-3 rounded-lg shadow-lg ${
-          showToast.type === 'success' ? 'bg-green-100 border border-green-200' : 'bg-red-100 border border-red-200'
+        <div className={`fixed bottom-4 right-4 z-50 flex items-center space-x-3 px-4 py-3 rounded-lg shadow-lg border ${
+          showToast.type === 'success'
+            ? 'bg-green-50 border-green-200'
+            : 'bg-red-50 border-red-200'
         }`}>
           {showToast.type === 'success' ? (
             <CheckCircle className="w-5 h-5 text-green-600" />
@@ -290,8 +669,8 @@ export default function ChatSettings() {
             {showToast.message}
           </span>
           <button
-            onClick={() => setShowToast(null)}
-            className="ml-2 text-gray-400 hover:text-gray-600"
+            onClick={dismissToast}
+            className={`ml-4 ${showToast.type === 'success' ? 'text-green-600 hover:text-green-700' : 'text-red-600 hover:text-red-700'}`}
           >
             <X className="w-4 h-4" />
           </button>
