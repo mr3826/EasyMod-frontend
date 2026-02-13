@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, Edit2, Trash2, ChevronRight, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { apiClient } from "@/app/lib/api";
 
 interface Category {
@@ -57,9 +58,9 @@ export default function Categories() {
       setCategories(categories.filter(c => c.id !== categoryToDelete.id));
       setShowDeleteModal(false);
       setCategoryToDelete(null);
+      toast.success('Category deleted');
     } catch (err: any) {
-      setError(err.message || 'Failed to delete category');
-      console.error('Error deleting category:', err);
+      toast.error(err.response?.data?.message || 'Failed to delete category');
     }
   };
 

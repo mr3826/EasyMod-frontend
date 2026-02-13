@@ -22,6 +22,9 @@ export default function SubcategoryDetails() {
   const [parentCategoryName, setParentCategoryName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<SubSubcategory | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -77,9 +80,27 @@ export default function SubcategoryDetails() {
     }
   };
 
-  const handleUpdate = () => {
-    console.log("Updating subcategory...");
-    navigate(`/categories/${categoryId}`);
+  const handleUpdate = async () => {
+    if (!subcategoryId) return;
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveSuccess(null);
+
+      await apiClient.updateCategory(subcategoryId, {
+        name: subcategoryName,
+        description,
+        image: categoryImage,
+        cover_image: bannerImage,
+      });
+
+      setSaveSuccess('Subcategory updated successfully.');
+      setTimeout(() => setSaveSuccess(null), 2500);
+    } catch (error: any) {
+      setSaveError(error.response?.data?.error?.message || 'Failed to update subcategory');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAdd = () => {
@@ -125,6 +146,12 @@ export default function SubcategoryDetails() {
       )}
       {loadError && (
         <div className="mb-6 text-red-600">{loadError}</div>
+      )}
+      {saveError && (
+        <div className="mb-6 text-red-600">{saveError}</div>
+      )}
+      {saveSuccess && (
+        <div className="mb-6 text-green-600">{saveSuccess}</div>
       )}
 
       {/* Page Header */}
@@ -256,9 +283,10 @@ export default function SubcategoryDetails() {
             {/* Update Button */}
             <button
               onClick={handleUpdate}
-              className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              disabled={isSaving}
+              className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Update Subcategory
+              {isSaving ? 'Saving...' : 'Update Subcategory'}
             </button>
           </div>
         </div>

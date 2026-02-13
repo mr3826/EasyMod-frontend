@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import mammoth from "mammoth";
-import { Upload, Bot, CheckCircle, Edit2, Trash2, AlertCircle, FileText, Building2, MessageCircle, TrendingUp, Plus } from "lucide-react";
+import { Upload, Bot, CheckCircle, Edit2, Trash2, AlertCircle, FileText, MessageCircle, TrendingUp, Plus } from "lucide-react";
 import { BusinessInfo, BrandingRules, FAQ, KnowledgeExtraction, KnowledgeGap } from "../lib/knowledgeTypes";
 import { apiClient } from "../lib/api";
 
 export default function Knowledge() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'faqs' | 'business' | 'branding' | 'gaps'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'faqs' | 'branding' | 'gaps'>('overview');
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [businessInfo, setBusinessInfo] = useState<BusinessInfo>({
     shopName: '',
@@ -81,6 +81,29 @@ export default function Knowledge() {
 
     loadKnowledge();
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'gaps') return;
+
+    let cancelled = false;
+    const loadGaps = async () => {
+      try {
+        const gaps = await apiClient.listKnowledgeGaps();
+        if (!cancelled) {
+          setKnowledgeGaps(gaps || []);
+        }
+      } catch (error: any) {
+        if (!cancelled) {
+          setNotice(error.response?.data?.error?.message || 'Failed to refresh knowledge gaps.');
+        }
+      }
+    };
+
+    loadGaps();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -270,7 +293,6 @@ export default function Knowledge() {
             {[
               { id: 'overview', label: 'Overview', icon: FileText },
               { id: 'faqs', label: 'FAQs', icon: MessageCircle },
-              { id: 'business', label: 'Business Info', icon: Building2 },
               { id: 'branding', label: 'Branding', icon: Bot },
               { id: 'gaps', label: 'Knowledge Gaps', icon: AlertCircle },
             ].map((tab) => {
@@ -440,67 +462,6 @@ export default function Knowledge() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Business Info Tab */}
-          {activeTab === 'business' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Shop Name</label>
-                  <input
-                    type="text"
-                    value={businessInfo.shopName}
-                    onChange={(e) => setBusinessInfo({ ...businessInfo, shopName: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-                  <input
-                    type="text"
-                    value={businessInfo.phone}
-                    onChange={(e) => setBusinessInfo({ ...businessInfo, phone: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-                <input
-                  type="text"
-                  value={businessInfo.address}
-                  onChange={(e) => setBusinessInfo({ ...businessInfo, address: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Opening Hours</label>
-                <input
-                  type="text"
-                  value={businessInfo.openingHours}
-                  onChange={(e) => setBusinessInfo({ ...businessInfo, openingHours: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <button
-                onClick={async () => {
-                  try {
-                    const updated = await apiClient.updateKnowledgeBusinessInfo(businessInfo);
-                    setBusinessInfo(updated.businessInfo || businessInfo);
-                    setNotice('Business info updated and indexed.');
-                  } catch (error: any) {
-                    setNotice(error.response?.data?.error?.message || 'Failed to update business info.');
-                  }
-                }}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Save Changes
-              </button>
             </div>
           )}
 

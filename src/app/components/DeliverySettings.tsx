@@ -4,6 +4,7 @@ import {
   apiClient, 
   DeliveryProvider, 
   DeliveryProviderStatus, 
+  DeliveryShopSettings,
   PathaoCredentials, 
   SteadfastCredentials 
 } from '../lib/api';
@@ -83,8 +84,61 @@ const PROVIDER_CONFIGS: ProviderConfig[] = [
   }
 ];
 
+const AREA_ZONE_OPTIONS = [
+  { value: 'inside_dhaka', label: 'Dhaka' },
+  { value: 'sub_dhaka', label: 'Sub Dhaka' },
+  { value: 'outside_dhaka', label: 'Outside Dhaka' }
+];
+
+const DEFAULT_DELIVERY_SETTINGS: DeliveryShopSettings = {
+  default_delivery_charge: 60,
+  cod_enabled: false,
+  cod_charge: 0,
+  non_refundable: false,
+  area_pricing: [
+    { zone: 'inside_dhaka', charge: 60, cod_enabled: false },
+    { zone: 'sub_dhaka', charge: 80, cod_enabled: false },
+    { zone: 'outside_dhaka', charge: 120, cod_enabled: false }
+  ],
+  weight_tiers: [
+    { from_kg: 0, to_kg: 1, extra_charge: 0 }
+  ]
+};
+
+const applyDefaults = (settings?: Partial<DeliveryShopSettings> | null): DeliveryShopSettings => {
+  const safe = settings || {};
+  const areaPricing = Array.isArray(safe.area_pricing) && safe.area_pricing.length > 0
+    ? safe.area_pricing
+    : DEFAULT_DELIVERY_SETTINGS.area_pricing;
+  const weightTiers = Array.isArray(safe.weight_tiers) && safe.weight_tiers.length > 0
+    ? safe.weight_tiers
+    : DEFAULT_DELIVERY_SETTINGS.weight_tiers;
+
+  return {
+    default_delivery_charge: Number.isFinite(Number(safe.default_delivery_charge))
+      ? Number(safe.default_delivery_charge)
+      : DEFAULT_DELIVERY_SETTINGS.default_delivery_charge,
+    cod_enabled: safe.cod_enabled ?? DEFAULT_DELIVERY_SETTINGS.cod_enabled,
+    cod_charge: Number.isFinite(Number(safe.cod_charge))
+      ? Number(safe.cod_charge)
+      : DEFAULT_DELIVERY_SETTINGS.cod_charge,
+    non_refundable: safe.non_refundable ?? DEFAULT_DELIVERY_SETTINGS.non_refundable,
+    area_pricing: areaPricing.map((entry) => ({
+      zone: entry.zone || 'inside_dhaka',
+      charge: Number.isFinite(Number(entry.charge)) ? Number(entry.charge) : 0,
+      cod_enabled: Boolean(entry.cod_enabled)
+    })),
+    weight_tiers: weightTiers.map((entry) => ({
+      from_kg: Number.isFinite(Number(entry.from_kg)) ? Number(entry.from_kg) : 0,
+      to_kg: Number.isFinite(Number(entry.to_kg)) ? Number(entry.to_kg) : 0,
+      extra_charge: Number.isFinite(Number(entry.extra_charge)) ? Number(entry.extra_charge) : 0
+    }))
+  };
+};
+
 export default function DeliverySettings() {
   const [providers, setProviders] = useState<DeliveryProviderStatus[]>([]);
+  const [deliverySettings, setDeliverySettings] = useState<DeliveryShopSettings>(DEFAULT_DELIVERY_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connectingProvider, setConnectingProvider] = useState<DeliveryProvider | null>(null);
@@ -95,6 +149,7 @@ export default function DeliverySettings() {
   const [credentials, setCredentials] = useState<Record<string, string>>({});
   const [isSandbox, setIsSandbox] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
 
   // Load delivery settings on mount
   useEffect(() => {
@@ -107,12 +162,99 @@ export default function DeliverySettings() {
       setError(null);
       const settings = await apiClient.getDeliverySettings();
       setProviders(settings.providers);
+      setDeliverySettings(applyDefaults(settings.settings));
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load delivery settings');
       console.error('Failed to load delivery settings:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveSettings = async () => {
+    try {
+      setSavingSettings(true);
+      setError(null);
+      setSuccessMessage(null);
+
+      const saved = await apiClient.updateDeliverySettings(deliverySettings);
+      setDeliverySettings(applyDefaults(saved));
+      setSuccessMessage('Delivery settings saved successfully');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to save delivery settings');
+      console.error('Failed to save delivery settings:', err);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const updateSetting = (key: keyof DeliveryShopSettings, value: any) => {
+    setDeliverySettings((prev) => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const updateAreaPricing = (index: number, key: 'zone' | 'charge' | 'cod_enabled', value: any) => {
+    setDeliverySettings((prev) => {
+      const next = [...prev.area_pricing];
+      next[index] = {
+        ...next[index],
+        [key]: value
+      };
+      return {
+        ...prev,
+        area_pricing: next
+      };
+    });
+  };
+
+  const addAreaPricing = () => {
+    setDeliverySettings((prev) => ({
+      ...prev,
+      area_pricing: [
+        ...prev.area_pricing,
+        { zone: 'inside_dhaka', charge: 0, cod_enabled: false }
+      ]
+    }));
+  };
+
+  const removeAreaPricing = (index: number) => {
+    setDeliverySettings((prev) => ({
+      ...prev,
+      area_pricing: prev.area_pricing.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  const updateWeightTier = (index: number, key: 'from_kg' | 'to_kg' | 'extra_charge', value: any) => {
+    setDeliverySettings((prev) => {
+      const next = [...prev.weight_tiers];
+      next[index] = {
+        ...next[index],
+        [key]: value
+      };
+      return {
+        ...prev,
+        weight_tiers: next
+      };
+    });
+  };
+
+  const addWeightTier = () => {
+    setDeliverySettings((prev) => ({
+      ...prev,
+      weight_tiers: [
+        ...prev.weight_tiers,
+        { from_kg: 0, to_kg: 1, extra_charge: 0 }
+      ]
+    }));
+  };
+
+  const removeWeightTier = (index: number) => {
+    setDeliverySettings((prev) => ({
+      ...prev,
+      weight_tiers: prev.weight_tiers.filter((_, idx) => idx !== index)
+    }));
   };
 
   const handleConnect = async (provider: DeliveryProvider) => {
@@ -267,6 +409,205 @@ export default function DeliverySettings() {
           </button>
         </div>
       )}
+
+      {/* Delivery Charges */}
+      <div className="mb-8 space-y-6">
+        <div className="border border-gray-200 rounded-lg bg-white p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">General Delivery Settings</h2>
+            <button
+              onClick={handleSaveSettings}
+              disabled={savingSettings}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {savingSettings && <Loader2 className="w-4 h-4 animate-spin" />}
+              Save Settings
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Default Delivery Charge
+              </label>
+              <input
+                type="number"
+                value={deliverySettings.default_delivery_charge}
+                onChange={(e) => updateSetting('default_delivery_charge', Number(e.target.value) || 0)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Cash on Delivery Charge
+              </label>
+              <input
+                type="number"
+                value={deliverySettings.cod_charge}
+                onChange={(e) => updateSetting('cod_charge', Number(e.target.value) || 0)}
+                disabled={!deliverySettings.cod_enabled}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-6">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={deliverySettings.cod_enabled}
+                onChange={(e) => updateSetting('cod_enabled', e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600"
+              />
+              Enable Cash on Delivery
+            </label>
+
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={deliverySettings.non_refundable}
+                onChange={(e) => updateSetting('non_refundable', e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600"
+              />
+              Non-refundable Delivery Charge
+            </label>
+          </div>
+        </div>
+
+        <div className="border border-gray-200 rounded-lg bg-white p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Area Based Pricing</h2>
+            <button
+              onClick={addAreaPricing}
+              className="text-sm text-blue-600 hover:text-blue-700"
+            >
+              + Add Area
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {deliverySettings.area_pricing.map((area, index) => (
+              <div key={`${area.zone}-${index}`} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                <div className="md:col-span-4">
+                  <select
+                    value={area.zone}
+                    onChange={(e) => updateAreaPricing(index, 'zone', e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  >
+                    {AREA_ZONE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="md:col-span-4">
+                  <input
+                    type="number"
+                    value={area.charge}
+                    onChange={(e) => updateAreaPricing(index, 'charge', Number(e.target.value) || 0)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Charge"
+                  />
+                </div>
+                <div className="md:col-span-3">
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={area.cod_enabled}
+                      onChange={(e) => updateAreaPricing(index, 'cod_enabled', e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                    />
+                    COD Allowed
+                  </label>
+                </div>
+                <div className="md:col-span-1 flex justify-end">
+                  <button
+                    onClick={() => removeAreaPricing(index)}
+                    className="text-gray-400 hover:text-red-500"
+                    aria-label="Remove area"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="border border-gray-200 rounded-lg bg-white p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900">Weight Based Extra Charges</h2>
+              <span
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 text-xs font-semibold text-gray-600"
+                title="Weight tier guide: Add extra charges by weight range. Example: 0-1 kg = 0, 1-3 kg = 20. Extra charge adds to base delivery charge."
+              >
+                ?
+              </span>
+            </div>
+            <button
+              onClick={addWeightTier}
+              className="text-sm text-blue-600 hover:text-blue-700"
+            >
+              + Add Tier
+            </button>
+          </div>
+
+          <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            Add extra charges for weight ranges. Example: 0-1 kg = 0, 1-3 kg = 20, 3-5 kg = 40.
+            The extra charge is added on top of the base delivery charge.
+          </div>
+
+          <div className="space-y-3">
+            {deliverySettings.weight_tiers.map((tier, index) => (
+              <div key={`tier-${index}`} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                <div className="md:col-span-3">
+                  <input
+                    type="number"
+                    value={tier.from_kg}
+                    onChange={(e) => updateWeightTier(index, 'from_kg', Number(e.target.value) || 0)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="From (kg)"
+                  />
+                </div>
+                <div className="md:col-span-3">
+                  <input
+                    type="number"
+                    value={tier.to_kg}
+                    onChange={(e) => updateWeightTier(index, 'to_kg', Number(e.target.value) || 0)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="To (kg)"
+                  />
+                </div>
+                <div className="md:col-span-4">
+                  <input
+                    type="number"
+                    value={tier.extra_charge}
+                    onChange={(e) => updateWeightTier(index, 'extra_charge', Number(e.target.value) || 0)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Extra charge"
+                  />
+                </div>
+                <div className="md:col-span-2 flex justify-end">
+                  <button
+                    onClick={() => removeWeightTier(index)}
+                    className="text-gray-400 hover:text-red-500"
+                    aria-label="Remove tier"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {deliverySettings.weight_tiers.length === 0 && (
+              <p className="text-sm text-gray-500">No weight tiers added yet.</p>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Provider Cards */}
       <div className="space-y-4">

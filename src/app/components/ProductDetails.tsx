@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit2, Trash2, Share2, Heart } from "lucide-react";
+import { ArrowLeft, Edit2, Trash2, Share2, Heart, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Product } from "../lib/api";
 import { authService } from "../lib/auth";
 import { apiClient } from "../lib/api";
@@ -11,6 +12,7 @@ export default function ProductDetails() {
   const { productId } = useParams<{ productId: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -45,10 +47,24 @@ export default function ProductDetails() {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
 
     try {
+      setIsDeleting(true);
       await apiClient.deleteProduct(product.id);
-      navigate('/products');
+      toast.success('Product deleted successfully');
+      navigate('/app/products');
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Failed to delete product');
+      toast.error(error.response?.data?.message || 'Failed to delete product');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Product link copied to clipboard');
+    } catch {
+      toast.error('Failed to copy link');
     }
   };
 
@@ -70,7 +86,7 @@ export default function ProductDetails() {
     return (
       <div className="p-8">
         <button
-          onClick={() => navigate('/products')}
+          onClick={() => navigate('/app/products')}
           className="text-blue-600 hover:text-blue-700 flex items-center gap-2 mb-4"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -88,7 +104,7 @@ export default function ProductDetails() {
       {/* Header */}
       <div className="mb-8">
         <button
-          onClick={() => navigate('/products')}
+          onClick={() => navigate('/app/products')}
           className="text-gray-600 hover:text-gray-900 flex items-center gap-2 mb-4"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -106,12 +122,16 @@ export default function ProductDetails() {
           </button>
           <button
             onClick={handleDeleteProduct}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            disabled={isDeleting}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-60"
           >
-            <Trash2 className="w-4 h-4" />
-            Delete
+            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            {isDeleting ? 'Deleting...' : 'Delete'}
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+          >
             <Share2 className="w-4 h-4" />
             Share
           </button>

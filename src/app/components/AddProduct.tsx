@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Upload, X, Plus, ChevronDown, ChevronUp, Save, Calendar, Package, Tag, FolderTree } from "lucide-react";
+import { toast } from "sonner";
 import { apiClient, Product } from "../lib/api";
 
 interface AddProductProps {
@@ -100,7 +101,9 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
           if (product.variants) setVariants(product.variants as any);
           if (product.tags) setTags(product.tags);
         } catch (err: any) {
-          setError(err.response?.data?.message || 'Failed to load product');
+          const message = err.response?.data?.message || 'Failed to load product';
+          setError(message);
+          toast.error(message);
         }
       };
       fetchProduct();
@@ -139,7 +142,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
         const fetchedCategories = await apiClient.getCategories();
         setCategories(fetchedCategories);
       } catch (error) {
-        console.error("Failed to fetch categories:", error);
+        toast.error('Failed to load categories');
         setCategories([]);
       } finally {
         setCategoriesLoading(false);
@@ -316,6 +319,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
       }
       
       setError(errorMessage);
+      toast.error(errorMessage);
       console.error("Error saving product:", error);
     }
   };
@@ -1306,7 +1310,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
       {/* FOOTER ACTIONS - Sticky */}
       <div className="fixed bottom-0 left-64 right-0 bg-white border-t border-gray-200 px-8 py-4 flex justify-end gap-3 z-10">
         <button
-          onClick={() => navigate('/products')}
+          onClick={() => navigate('/app/products')}
           className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
         >
           Cancel
