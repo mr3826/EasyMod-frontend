@@ -1,9 +1,9 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { LayoutDashboard, MessageSquare, Radio, Package, ShoppingCart, BarChart3, Brain, Target, FolderTree, Store, User, Check, Plus, LogOut, ChevronUp, X, AlertCircle, CreditCard } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Package, ShoppingCart, BarChart3, Brain, Target, FolderTree, Store, Check, Plus, LogOut, ChevronUp, X, AlertCircle, CreditCard } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { authService, logout } from "@/app/lib/auth";
-import type { Shop as BackendShop } from "@/app/lib/api";
+import { useAuth } from "../../features/auth/AuthProvider";
+import { authService } from "../lib/auth";
 import { toast } from "sonner";
 
 const appBasePath = '/app';
@@ -39,26 +39,13 @@ export default function DashboardLayout() {
   const [createShopError, setCreateShopError] = useState<string | null>(null);
   const [createShopLoading, setCreateShopLoading] = useState(false);
 
-  const [authState, setAuthState] = useState(authService.getState());
+  const { user, currentShop, allShops, isAuthenticated, logout, switchShop } = useAuth();
 
-  useEffect(() => {
-    const unsubscribe = authService.subscribe(setAuthState);
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!authState.isAuthenticated) return;
-    authService.refreshShops().catch((error) => {
-      console.error('Failed to refresh shops:', error);
-      toast.error('Failed to refresh shops');
-    });
-  }, [authState.isAuthenticated]);
-
-  const shops: Shop[] = authState.allShops.map((shop: BackendShop) => ({
+  const shops: Shop[] = allShops.map((shop) => ({
     id: shop.id,
     name: shop.shop_name || shop.unique_code || shop.id,
     logo: '🏪',
-    isActive: authState.currentShop?.id === shop.id,
+    isActive: currentShop?.id === shop.id,
     isDisabled: false,
   }));
 
@@ -83,6 +70,11 @@ export default function DashboardLayout() {
     try {
       setCreateShopLoading(true);
       setCreateShopError(null);
+      // For now, keep using authService directly for specific actions like createShop 
+      // if they aren't in useAuth yet, or add them to useAuth.
+      // But let's assume useAuth only has core context for now.
+      // Actually, I'll add createShop to useAuth or just import authService.
+      const { authService } = await import("@/app/lib/auth");
       await authService.createShop({ shop_name: trimmedName || undefined });
       setShowCreateShopPopup(false);
     } catch (error) {
@@ -96,7 +88,7 @@ export default function DashboardLayout() {
     const shop = shops.find(s => s.id === shopId);
     if (shop && !shop.isDisabled) {
       try {
-        await authService.switchShop(shopId);
+        await switchShop(shopId);
       } catch (error) {
         console.error('Failed to switch shop:', error);
         toast.error('Failed to switch shop');
@@ -105,8 +97,8 @@ export default function DashboardLayout() {
     }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     setShowLogoutPopup(false);
     setShowShopPanel(false);
     navigate('/signin');
@@ -122,22 +114,21 @@ export default function DashboardLayout() {
             <span className="text-xl font-bold">Easy Moderator</span>
           </div>
         </div>
-        
+
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navigation.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path || 
+            const isActive = location.pathname === item.path ||
               (item.path !== '/' && location.pathname.startsWith(item.path));
-            
+
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-700 hover:bg-gray-50'
+                  }`}
               >
                 <Icon className="w-5 h-5" />
                 <span>{item.name}</span>
@@ -167,7 +158,7 @@ export default function DashboardLayout() {
       {/* Shop Profile Panel */}
       {showShopPanel && (
         <>
-          <div 
+          <div
             className="fixed inset-0 z-40"
             onClick={() => setShowShopPanel(false)}
           />
@@ -192,21 +183,19 @@ export default function DashboardLayout() {
                   key={shop.id}
                   onClick={() => handleSwitchShop(shop.id)}
                   disabled={shop.isDisabled}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                    shop.isActive
-                      ? 'bg-blue-50 text-blue-600'
-                      : shop.isDisabled
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${shop.isActive
+                    ? 'bg-blue-50 text-blue-600'
+                    : shop.isDisabled
                       ? 'text-gray-400 cursor-not-allowed'
                       : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
-                    shop.isActive
-                      ? 'bg-blue-100'
-                      : shop.isDisabled
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${shop.isActive
+                    ? 'bg-blue-100'
+                    : shop.isDisabled
                       ? 'bg-gray-100'
                       : 'bg-gray-100'
-                  }`}>
+                    }`}>
                     {shop.logo}
                   </div>
                   <span className="flex-1 text-left text-sm truncate">{shop.name}</span>
