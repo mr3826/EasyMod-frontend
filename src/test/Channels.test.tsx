@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import Channels from '@/app/components/Channels'
 
 // Mock the API client
@@ -11,8 +11,9 @@ vi.mock('@/app/lib/api', () => ({
 
 describe('Channels', () => {
   it('renders channels page', async () => {
-    render(<Channels />)
-
+    await act(async () => {
+      render(<Channels />)
+    });
     await waitFor(() => {
       expect(screen.getByText('Channels')).toBeInTheDocument()
     })

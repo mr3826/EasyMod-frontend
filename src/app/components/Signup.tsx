@@ -5,12 +5,13 @@ import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
 import { Switch } from "./ui/switch";
 import { Badge } from "./ui/badge";
-import { authService } from "../lib/auth";
+import { useAuth } from "../../features/auth/AuthProvider";
 import { apiClient } from "../lib/api";
 import { subscriptionPlans, getPlanPrice } from "../lib/subscriptionPlans";
 
 export default function Signup() {
   const navigate = useNavigate();
+  const { signup } = useAuth();
   const [billingAnnual, setBillingAnnual] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState("growth");
   const [fullName, setFullName] = useState("");
@@ -60,7 +61,7 @@ export default function Signup() {
     setIsLoading(true);
 
     try {
-      await authService.signup({
+      await signup({
         email,
         password,
         full_name: fullName,
@@ -92,8 +93,8 @@ export default function Signup() {
     } catch (signupError: any) {
       setError(
         signupError.response?.data?.error?.message ||
-          signupError.response?.data?.message ||
-          "Unable to create account."
+        signupError.response?.data?.message ||
+        "Unable to create account."
       );
     } finally {
       setIsLoading(false);
@@ -146,11 +147,10 @@ export default function Signup() {
                       key={plan.id}
                       type="button"
                       onClick={() => setSelectedPlanId(plan.id)}
-                      className={`flex h-full flex-col rounded-xl border p-5 text-left transition ${
-                        isSelected
-                          ? "border-blue-600 bg-blue-50 shadow-sm"
-                          : "border-gray-200 bg-white hover:border-blue-300"
-                      }`}
+                      className={`flex h-full flex-col rounded-xl border p-5 text-left transition ${isSelected
+                        ? "border-blue-600 bg-blue-50 shadow-sm"
+                        : "border-gray-200 bg-white hover:border-blue-300"
+                        }`}
                     >
                       <div className="flex items-start justify-between">
                         <div>

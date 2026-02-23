@@ -1,4 +1,6 @@
+
 import React, { Component, ReactNode } from 'react';
+// ...existing code...
 
 interface Props {
   children: ReactNode;
@@ -20,8 +22,11 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo);
-    // TODO: Send error to logging service
+    // ...existing code...
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.error('Error caught by boundary:', error, errorInfo);
+    }
   }
 
   render() {
@@ -44,7 +49,7 @@ export class ErrorBoundary extends Component<Props, State> {
             >
               Refresh Page
             </button>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <details className="mt-4 text-left">
                 <summary className="cursor-pointer text-sm text-gray-500">Error details</summary>
                 <pre className="mt-2 text-xs bg-gray-100 p-2 rounded overflow-auto">
