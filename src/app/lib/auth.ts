@@ -115,7 +115,8 @@ export class AuthService {
 
     const result = await apiClient.switchShop(shopId);
     this.setAuthState({ currentShop: result.currentShop });
-    window.location.reload();
+    // TODO: Invalidate TanStack Query cache here instead of reloading the page
+    // queryClient.invalidateQueries();
   }
 
   async refreshShops(): Promise<void> {
@@ -140,7 +141,8 @@ export class AuthService {
       currentShop: switchResult.currentShop,
     });
 
-    window.location.reload();
+    // TODO: Invalidate TanStack Query cache here instead of reloading the page
+    // queryClient.invalidateQueries();
 
     return newShop;
   }
