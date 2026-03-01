@@ -388,11 +388,14 @@ class ApiClient {
       (error) => {
         if (error.response?.status === 401) {
           this.clearTokens();
-          const pathname = window.location.pathname;
-          const publicPaths = ['/signin', '/signup', '/forgot-password', '/reset-password', '/'];
-          if (!publicPaths.includes(pathname)) {
-            window.location.href = '/signin';
+          // Emit an unauthorized event instead of redirecting
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('UNAUTHORIZED'));
           }
+        }
+        if (error.response?.status === 403 && error.response.data?.error?.message === 'invalid csrf token') {
+          // If CSRF fails, clear it so it can be re-initialized
+          this.csrfToken = null;
         }
         return Promise.reject(error);
       }
@@ -428,6 +431,9 @@ class ApiClient {
     const { data } = response.data;
     // Tokens are now set as httpOnly cookies by the backend.
     this.setAccessToken(null);
+    // Refresh CSRF token for the new authenticated session
+    this.csrfToken = null;
+    await this.initCsrfToken();
     return data;
   }
 
@@ -440,6 +446,9 @@ class ApiClient {
       allShops: data.allShops ?? (data.shop ? [data.shop] : [])
     };
     this.setAccessToken(null);
+    // Refresh CSRF token for the new authenticated session
+    this.csrfToken = null;
+    await this.initCsrfToken();
     return normalizedData;
   }
 
@@ -743,7 +752,7 @@ class ApiClient {
       order_status: updates.status
     };
     delete backendUpdates.status;
-    
+
     const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/order/update', { order_id: orderId, ...backendUpdates });
     return transformOrderFromBackend(response.data.data);
   }
@@ -931,6 +940,7 @@ class ApiClient {
   }
 
   async updateShopBusinessInfo(businessInfo: BusinessInfo): Promise<KnowledgeSummary> {
+    await this.initCsrfToken();
     const response: AxiosResponse<ApiResponse<KnowledgeSummary>> = await this.client.put('/shop/business-info', businessInfo);
     return response.data.data as KnowledgeSummary;
   }

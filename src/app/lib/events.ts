@@ -31,32 +31,28 @@ class EventBus {
 
 export const eventBus = new EventBus();
 
-// Event types
-export const EVENTS = {
+export const EventTypes = {
+  // Shop events
+  SHOP_SWITCHED: 'shop.switched',
   // File upload events
   FILE_UPLOADED: 'file.uploaded',
-  
   // Product events
   PRODUCT_CREATED: 'product.created',
   PRODUCT_UPDATED: 'product.updated',
   PRODUCT_DISABLED: 'product.disabled',
   PRODUCT_APPROVED: 'product.approved',
-  
   // Message events
   MESSAGE_RECEIVED: 'message.received',
   INTENT_DETECTED: 'intent.detected',
   KNOWLEDGE_RETRIEVED: 'knowledge.retrieved',
-  
   // Order events
   ORDER_CREATED: 'order.created',
   ORDER_CONFIRMED: 'order.confirmed',
   ORDER_PROCESSING: 'order.processing',
   ORDER_COMPLETED: 'order.completed',
   ORDER_CANCELLED: 'order.cancelled',
-  
   // Payment events
   PAYMENT_SUCCESS: 'payment.success',
-  
   // Channel events
   CHANNEL_CONNECTED: 'channel.connected',
   CHANNEL_DISCONNECTED: 'channel.disconnected',

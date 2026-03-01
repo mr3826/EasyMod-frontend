@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import AddProduct from '@/app/components/AddProduct'
 import { apiClient, Product } from '@/app/lib/api'
@@ -73,14 +73,18 @@ describe('AddProduct', () => {
       const descriptionInput = screen.getByPlaceholderText(/describe your product/i)
       const priceInput = screen.getByLabelText(/selling price/i)
 
-      fireEvent.change(nameInput, { target: { value: 'Test Product' } })
-      fireEvent.change(descriptionInput, { target: { value: 'Test Description' } })
-      fireEvent.change(priceInput, { target: { value: '25.99' } })
+      await act(async () => {
+        fireEvent.change(nameInput, { target: { value: 'Test Product' } })
+        fireEvent.change(descriptionInput, { target: { value: 'Test Description' } })
+        fireEvent.change(priceInput, { target: { value: '25.99' } })
+      });
 
       const publishButton = screen.getAllByRole('button').find(btn => 
         btn.textContent?.includes('Publish')
       )
-      fireEvent.click(publishButton!)
+      await act(async () => {
+        fireEvent.click(publishButton!)
+      });
 
       await waitFor(() => {
         expect(apiClient.createProduct).toHaveBeenCalledWith(
@@ -98,12 +102,16 @@ describe('AddProduct', () => {
       renderWithRouter(<AddProduct />)
 
       const priceInput = screen.getByLabelText(/selling price/i)
-      fireEvent.change(priceInput, { target: { value: '25.99' } })
+      await act(async () => {
+        fireEvent.change(priceInput, { target: { value: '25.99' } })
+      });
 
       const publishButton = screen.getAllByRole('button').find(btn => 
         btn.textContent?.includes('Publish')
       )
-      fireEvent.click(publishButton!)
+      await act(async () => {
+        fireEvent.click(publishButton!)
+      });
 
       await waitFor(() => {
         expect(screen.getByText(/product name is required/i)).toBeInTheDocument()
@@ -156,13 +164,17 @@ describe('AddProduct', () => {
       const nameInput = screen.getByLabelText(/product name/i)
       const priceInput = screen.getByLabelText(/selling price/i)
 
-      fireEvent.change(nameInput, { target: { value: 'Modal Product' } })
-      fireEvent.change(priceInput, { target: { value: '19.99' } })
+      await act(async () => {
+        fireEvent.change(nameInput, { target: { value: 'Modal Product' } })
+        fireEvent.change(priceInput, { target: { value: '19.99' } })
+      });
 
       const publishButton = screen.getAllByRole('button').find(btn => 
         btn.textContent?.includes('Publish')
       )
-      fireEvent.click(publishButton!)
+      await act(async () => {
+        fireEvent.click(publishButton!)
+      });
 
       await waitFor(() => {
         expect(apiClient.createProduct).toHaveBeenCalled()
@@ -217,12 +229,16 @@ describe('AddProduct', () => {
       )
 
       const nameInput = screen.getByDisplayValue(mockProduct.name) as HTMLInputElement
-      fireEvent.change(nameInput, { target: { value: 'Updated Product' } })
+      await act(async () => {
+        fireEvent.change(nameInput, { target: { value: 'Updated Product' } })
+      });
 
       const updateButton = screen.getAllByRole('button').find(btn => 
         btn.textContent?.includes('Update Product')
       )
-      fireEvent.click(updateButton!)
+      await act(async () => {
+        fireEvent.click(updateButton!)
+      });
 
       await waitFor(() => {
         expect(apiClient.updateProduct).toHaveBeenCalledWith(
@@ -258,12 +274,16 @@ describe('AddProduct', () => {
       renderWithRouter(<AddProduct />)
 
       const nameInput = screen.getByLabelText(/product name/i)
-      fireEvent.change(nameInput, { target: { value: 'Test Product' } })
+      await act(async () => {
+        fireEvent.change(nameInput, { target: { value: 'Test Product' } })
+      });
 
       const publishButton = screen.getAllByRole('button').find(btn => 
         btn.textContent?.includes('Publish')
       )
-      fireEvent.click(publishButton!)
+      await act(async () => {
+        fireEvent.click(publishButton!)
+      });
 
       await waitFor(() => {
         expect(screen.getByText(/valid selling price is required/i)).toBeInTheDocument()
@@ -279,14 +299,18 @@ describe('AddProduct', () => {
       const descriptionInput = screen.getByPlaceholderText(/describe your product/i)
       const priceInput = screen.getByLabelText(/selling price/i)
 
-      fireEvent.change(nameInput, { target: { value: 'Product with Options' } })
-      fireEvent.change(descriptionInput, { target: { value: 'Product description' } })
-      fireEvent.change(priceInput, { target: { value: '29.99' } })
+      await act(async () => {
+        fireEvent.change(nameInput, { target: { value: 'Product with Options' } })
+        fireEvent.change(descriptionInput, { target: { value: 'Product description' } })
+        fireEvent.change(priceInput, { target: { value: '29.99' } })
+      });
 
       const publishButton = screen.getAllByRole('button').find(btn => 
         btn.textContent?.includes('Publish')
       )
-      fireEvent.click(publishButton!)
+      await act(async () => {
+        fireEvent.click(publishButton!)
+      });
 
       await waitFor(() => {
         expect(apiClient.createProduct).toHaveBeenCalledWith(
