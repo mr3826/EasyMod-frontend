@@ -5,7 +5,8 @@ import type { BusinessInfo, BrandingRules, FAQ, KnowledgeGap } from './knowledge
 // API Response types
 export interface ApiResponse<T = any> {
   success: boolean;
-  data: T | null;
+  data: T;
+  message?: string;
   error?: {
     code: string;
     message: string;
@@ -41,6 +42,7 @@ export interface AuthResponse {
   user: User;
   currentShop: Shop;
   allShops: Shop[];
+  shop?: Shop;
 }
 
 export interface SigninRequest {
@@ -92,6 +94,16 @@ export interface Product {
   updatedAt: string;
 }
 
+export interface Category {
+  id: string;
+  shop_id?: string;
+  name: string;
+  description?: string;
+  parent_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Channel types (aligned with backend entity)
 export interface Channel {
   id: string;
@@ -120,6 +132,9 @@ export interface Customer {
   channel: 'facebook' | 'whatsapp' | 'telegram' | 'webchat' | 'manual';
   created_at: string;
   updated_at: string;
+  rto_risk?: 'high' | 'medium' | 'low';
+  blacklisted?: boolean;
+  rto_count?: number;
 }
 
 // Customer filters for listing
@@ -168,6 +183,8 @@ export interface Order {
   channel: string;
   createdAt: string;
   updatedAt: string;
+  rto_risk?: 'high' | 'medium' | 'low';
+  payment_status?: string;
 }
 
 // Transform backend order data to frontend format
@@ -185,7 +202,9 @@ function transformOrderFromBackend(backendOrder: any): Order {
     status: backendOrder.order_status || backendOrder.status,
     channel: backendOrder.channel,
     createdAt: backendOrder.created_at || backendOrder.createdAt,
-    updatedAt: backendOrder.updated_at || backendOrder.updatedAt
+    updatedAt: backendOrder.updated_at || backendOrder.updatedAt,
+    rto_risk: backendOrder.rto_risk,
+    payment_status: backendOrder.payment_status
   };
 }
 
@@ -194,7 +213,7 @@ export interface AuditLog {
   id: string;
   user_id: string;
   shop_id: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'CHANNEL_CONNECT' | 'CHANNEL_DISCONNECT' | 'ORDER_CONFIRM' | 'ORDER_CANCEL' | 'PAYMENT_PROCESS' | 'EXPORT_DATA' | 'DASHBOARD_ACCESS';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'CHANNEL_CONNECT' | 'CHANNEL_DISCONNECT' | 'ORDER_CONFIRM' | 'ORDER_CANCEL' | 'PAYMENT_PROCESS' | 'EXPORT_DATA' | 'DASHBOARD_ACCESS' | 'HUMAN_TAKEOVER' | 'AI_SUGGESTION_ACCEPTED' | 'AI_SUGGESTION_REJECTED';
   resource_type: 'USER' | 'SHOP' | 'CHANNEL' | 'CUSTOMER' | 'PRODUCT' | 'ORDER' | 'CATEGORY' | 'CONVERSATION' | 'MESSAGE' | 'PAYMENT' | 'DASHBOARD';
   resource_id: string;
   old_values?: any;
@@ -238,6 +257,7 @@ export interface Conversation {
   channel: 'whatsapp' | 'telegram' | 'messenger' | 'instagram' | 'web';
   title?: string;
   status: 'active' | 'closed' | 'archived';
+  hitl?: boolean;
   lastMessage?: string;
   unreadCount?: number;
   created_at: string;
@@ -386,13 +406,19 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
-        if (error.response?.status === 401) {
+        const status = error.response?.status;
+        if (status === 401) {
           this.clearTokens();
           const pathname = window.location.pathname;
           const publicPaths = ['/signin', '/signup', '/forgot-password', '/reset-password', '/'];
           if (!publicPaths.includes(pathname)) {
             window.location.href = '/signin';
           }
+        } else if (status === 429) {
+          // Surface as structured property so UI can show specific messaging
+          (error as any).isRateLimited = true;
+        } else if (status === 503) {
+          (error as any).isServiceUnavailable = true;
         }
         return Promise.reject(error);
       }
@@ -727,6 +753,16 @@ class ApiClient {
     return response.data.data;
   }
 
+  async blacklistCustomer(customerId: string): Promise<Customer> {
+    const response: AxiosResponse<ApiResponse<Customer>> = await this.client.post(`/customer/${customerId}/blacklist`);
+    return response.data.data;
+  }
+
+  async unblacklistCustomer(customerId: string): Promise<Customer> {
+    const response: AxiosResponse<ApiResponse<Customer>> = await this.client.delete(`/customer/${customerId}/blacklist`);
+    return response.data.data;
+  }
+
   async getOrders(): Promise<Order[]> {
     const response: AxiosResponse<ApiResponse<any[]>> = await this.client.get('/order');
     return response.data.data.map(transformOrderFromBackend);
@@ -759,12 +795,13 @@ class ApiClient {
   }
 
   // Conversation endpoints
-  async getConversations(options?: { page?: number; limit?: number; status?: string; channel?: string }): Promise<{ conversations: Conversation[]; pagination: any }> {
+  async getConversations(options?: { page?: number; limit?: number; status?: string; channel?: string; search?: string }): Promise<{ conversations: Conversation[]; pagination: any }> {
     const params = new URLSearchParams();
     if (options?.page) params.append('page', options.page.toString());
     if (options?.limit) params.append('limit', options.limit.toString());
     if (options?.status) params.append('status', options.status);
     if (options?.channel) params.append('channel', options.channel);
+    if (options?.search) params.append('search', options.search);
 
     const response: AxiosResponse<ApiResponse<{ conversations: Conversation[]; pagination: any }>> = await this.client.get(`/conversation?${params}`);
     return response.data.data;
@@ -781,13 +818,23 @@ class ApiClient {
 
   async createMessage(
     conversationId: string,
-    payload: { content: string; sender: 'customer' | 'agent' | 'ai'; message_type?: 'text' | 'image' | 'file' | 'location'; metadata?: any; ai_suggestion?: string; ai_confidence?: number }
+    payload: { content: string; sender: 'customer' | 'agent' | 'ai'; message_type?: 'text' | 'image' | 'file' | 'location'; metadata?: any; ai_suggestion?: string; ai_confidence?: number; message_tag?: 'CONFIRMED_EVENT_UPDATE' | 'POST_PURCHASE_UPDATE' | 'ACCOUNT_UPDATE' | 'HUMAN_AGENT' }
   ): Promise<Message> {
     const response: AxiosResponse<ApiResponse<Message>> = await this.client.post(`/conversation/${conversationId}/messages`, payload);
     return response.data.data as Message;
   }
 
+  async updateConversation(conversationId: string, data: { hitl?: boolean; status?: 'active' | 'closed' | 'archived' }): Promise<Conversation> {
+    const response: AxiosResponse<ApiResponse<Conversation>> = await this.client.patch(`/conversation/${conversationId}`, data);
+    return response.data.data as Conversation;
+  }
+
   // Audit log endpoints
+  async createAuditLog(entry: Pick<AuditLog, 'action' | 'resource_type' | 'resource_id'> & { old_values?: any; new_values?: any; metadata?: any }): Promise<AuditLog> {
+    const response: AxiosResponse<ApiResponse<AuditLog>> = await this.client.post('/audit/log', entry);
+    return response.data.data;
+  }
+
   async getAuditLogs(filters?: AuditLogFilters): Promise<AuditLog[]> {
     const params = new URLSearchParams();
     if (filters) {
@@ -946,6 +993,16 @@ class ApiClient {
   async getShop(): Promise<any> {
     const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/shop/me');
     return response.data;
+  }
+
+  // LLM model configuration
+  async getLLMConfig(): Promise<{ model: string; temperature?: number }> {
+    const response: AxiosResponse<ApiResponse<{ model: string; temperature?: number }>> = await this.client.get('/shop/llm-config');
+    return response.data.data;
+  }
+
+  async updateLLMConfig(config: { model: string; temperature?: number }): Promise<void> {
+    await this.client.put('/shop/llm-config', config);
   }
 }
 

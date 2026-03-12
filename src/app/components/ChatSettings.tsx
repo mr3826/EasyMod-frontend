@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { MessageSquare, Instagram, CheckCircle, Clock, X, Copy, Check, AlertCircle, Info, ChevronDown, ChevronUp, Loader2, Shield } from "lucide-react";
+import { MessageSquare, Instagram, CheckCircle, Clock, X, Copy, Check, AlertCircle, Info, ChevronDown, ChevronUp, Loader2, Shield, Cpu, Lock } from "lucide-react";
 import { apiClient } from "../lib/api";
 import type { Channel as BackendChannel } from "../lib/api";
+import { useSubscriptionFeatures } from "../lib/useSubscriptionFeatures";
 
 interface Channel {
   id: string;
@@ -14,6 +15,15 @@ interface Channel {
   lastSync?: string;
   systemUserToken?: string;
   businessManagerId?: string;
+  savedSettings?: {
+    aiAutoReply?: boolean;
+    requireApproval?: boolean;
+    businessHours?: boolean;
+    allowOrderCreation?: boolean;
+    autoDetectProducts?: boolean;
+    draftOrdersOnly?: boolean;
+    requireManualConfirmation?: boolean;
+  };
 }
 
 interface ChannelCredentials {
@@ -33,6 +43,17 @@ export default function ChatSettings() {
   const [managedChannel, setManagedChannel] = useState<Channel | null>(null);
   const [copiedToken, setCopiedToken] = useState(false);
   const [showToast, setShowToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // LLM model config state
+  const { features: planFeatures } = useSubscriptionFeatures();
+  const LLM_MODELS = [
+    { id: 'gpt-4o', label: 'GPT-4o', description: 'Best accuracy, slower' },
+    { id: 'gpt-4o-mini', label: 'GPT-4o Mini', description: 'Balanced speed & quality' },
+    { id: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', description: 'Fastest, lower cost' },
+  ];
+  const [llmModel, setLlmModel] = useState('gpt-4o-mini');
+  const [llmLoading, setLlmLoading] = useState(false);
+  const [llmSaving, setLlmSaving] = useState(false);
 
   const [credentials, setCredentials] = useState<Record<Channel['type'], ChannelCredentials>>({
     whatsapp: { systemUserToken: '', businessManagerId: '' },
@@ -103,9 +124,10 @@ export default function ChatSettings() {
           description: descriptionMap[type] || 'Customer messaging channel',
           status,
           connectedAccount: channel.name || undefined,
-          lastSync: channel.lastSync || channel.last_sync,
+          lastSync: channel.lastSync || channel.last_sync || undefined,
           systemUserToken: channel.config?.systemUserToken,
           businessManagerId: channel.config?.businessManagerId,
+          savedSettings: channel.config?.settings || undefined,
         };
       });
 
@@ -224,6 +246,9 @@ export default function ChatSettings() {
   };
 
   const handleManageChannel = (channel: Channel) => {
+    if (channel.savedSettings) {
+      setChannelSettings((prev) => ({ ...prev, ...channel.savedSettings }));
+    }
     setManagedChannel({
       ...channel,
       connectedAccount: channel.connectedAccount || '',
@@ -262,6 +287,28 @@ export default function ChatSettings() {
   // Dismiss toast
   const dismissToast = () => {
     setShowToast(null);
+  };
+
+  // Load LLM config
+  useEffect(() => {
+    if (!planFeatures.advanced_ai) return;
+    setLlmLoading(true);
+    apiClient.getLLMConfig()
+      .then((cfg) => { if (cfg?.model) setLlmModel(cfg.model); })
+      .catch(() => { /* keep default */ })
+      .finally(() => setLlmLoading(false));
+  }, [planFeatures.advanced_ai]);
+
+  const handleSaveLLMConfig = async () => {
+    setLlmSaving(true);
+    try {
+      await apiClient.updateLLMConfig({ model: llmModel });
+      setShowToast({ type: 'success', message: 'AI model updated successfully.' });
+    } catch {
+      setShowToast({ type: 'error', message: 'Failed to update AI model.' });
+    } finally {
+      setLlmSaving(false);
+    }
   };
 
 
@@ -351,6 +398,9 @@ export default function ChatSettings() {
                   </div>
                   <div className="text-xs text-gray-500">
                     The System User token is sensitive. Treat it like a password and revoke it if you suspect exposure.
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-700">
+                    <strong>Privacy notice:</strong> Once connected, customer messages on this channel will be processed by AI to generate automated responses. Data is encrypted and isolated to your shop.
                   </div>
                 </div>
               )}
@@ -650,6 +700,70 @@ export default function ChatSettings() {
           </div>
         </div>
       )}
+
+      {/* AI Model Configuration */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-purple-100 rounded-lg">
+            <Cpu className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">AI Model Configuration</h3>
+            <p className="text-sm text-gray-500">Choose the language model used for AI auto-replies and suggestions</p>
+          </div>
+        </div>
+        {!planFeatures.advanced_ai ? (
+          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <Lock className="w-5 h-5 text-gray-400 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-gray-700">Available on Growth &amp; Scale plans</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                <a href="/subscription" className="text-purple-600 hover:underline">Upgrade your plan</a> to unlock AI model selection and advanced AI features.
+              </p>
+            </div>
+          </div>
+        ) : llmLoading ? (
+          <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading current model...
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {LLM_MODELS.map((m) => (
+              <label
+                key={m.id}
+                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  llmModel === m.id
+                    ? 'border-purple-400 bg-purple-50'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="llm-model"
+                  value={m.id}
+                  checked={llmModel === m.id}
+                  onChange={() => setLlmModel(m.id)}
+                  className="accent-purple-600"
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{m.label}</p>
+                  <p className="text-xs text-gray-500">{m.description}</p>
+                </div>
+              </label>
+            ))}
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={handleSaveLLMConfig}
+                disabled={llmSaving}
+                className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-60 transition-colors"
+              >
+                {llmSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                Save Model
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Toast Notification */}
       {showToast && (

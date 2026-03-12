@@ -12,7 +12,9 @@ import {
   MessageSquare,
   Calendar,
   Hash,
-  Filter
+  Filter,
+  ShieldAlert,
+  ShieldOff
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient, Customer, CustomerFilters } from "../lib/api";
@@ -46,6 +48,7 @@ export default function Customers() {
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [togglingBlacklist, setTogglingBlacklist] = useState(false);
   
   const [newCustomer, setNewCustomer] = useState({
     name: "",
@@ -117,6 +120,22 @@ export default function Customers() {
       toast.error(err.response?.data?.message || 'Failed to delete customer');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleBlacklist = async (customer: Customer) => {
+    try {
+      setTogglingBlacklist(true);
+      const updated = customer.blacklisted
+        ? await apiClient.unblacklistCustomer(customer.id)
+        : await apiClient.blacklistCustomer(customer.id);
+      setCustomers(customers.map(c => c.id === customer.id ? updated : c));
+      setSelectedCustomer(updated);
+      toast.success(updated.blacklisted ? 'Customer blacklisted' : 'Customer removed from blacklist');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to update blacklist status');
+    } finally {
+      setTogglingBlacklist(false);
     }
   };
 
@@ -295,6 +314,7 @@ export default function Customers() {
                           <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer</th>
                           <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Contact</th>
                           <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Channel</th>
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">RTO Risk</th>
                           <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
                           <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                         </tr>
@@ -336,6 +356,27 @@ export default function Customers() {
                                     {channelIcons[customer.channel]?.label || customer.channel}
                                   </span>
                                 </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                {customer.blacklisted ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-gray-900 text-white">
+                                    <ShieldOff className="w-3 h-3" /> Blacklisted
+                                  </span>
+                                ) : customer.rto_risk === 'high' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                                    <ShieldAlert className="w-3 h-3" /> High
+                                  </span>
+                                ) : customer.rto_risk === 'medium' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                                    <ShieldAlert className="w-3 h-3" /> Medium
+                                  </span>
+                                ) : customer.rto_risk === 'low' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                                    <ShieldAlert className="w-3 h-3" /> Low
+                                  </span>
+                                ) : (
+                                  <span className="text-sm text-gray-400">—</span>
+                                )}
                               </td>
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -431,6 +472,20 @@ export default function Customers() {
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">{selectedCustomer.name}</h3>
                   <p className="text-sm text-gray-500">Customer ID: {selectedCustomer.id.slice(0, 8)}</p>
+                  {selectedCustomer.blacklisted && (
+                    <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-900 text-white">
+                      <ShieldOff className="w-3 h-3" /> Blacklisted
+                    </span>
+                  )}
+                  {!selectedCustomer.blacklisted && selectedCustomer.rto_risk && (
+                    <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      selectedCustomer.rto_risk === 'high' ? 'bg-red-100 text-red-700' :
+                      selectedCustomer.rto_risk === 'medium' ? 'bg-amber-100 text-amber-700' :
+                      'bg-green-100 text-green-700'
+                    }`}>
+                      <ShieldAlert className="w-3 h-3" /> RTO Risk: {selectedCustomer.rto_risk.charAt(0).toUpperCase() + selectedCustomer.rto_risk.slice(1)}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -511,25 +566,53 @@ export default function Customers() {
                     )}
                   </p>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Create Customer Modal */}
-      {showCreateCustomer && (
-        <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Add New Customer</h2>
-              <button
-                onClick={() => {
-                  setShowCreateCustomer(false);
-                  setNewCustomer({ name: "", number: "", email: "", channel: "" as const });
-                  setError(null);
-                }}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                {/* RTO Shield Section */}
+                {(selectedCustomer.rto_risk || selectedCustomer.rto_count !== undefined || selectedCustomer.blacklisted) && (
+                  <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <ShieldAlert className="w-4 h-4 text-gray-600" />
+                      <span className="text-sm font-semibold text-gray-700">RTO Shield</span>
+                    </div>
+                    <div className="flex flex-wrap gap-3 text-sm">
+                      {selectedCustomer.rto_risk && (
+                        <div>
+                          <span className="text-gray-500">Risk Level: </span>
+                          <span className={`font-semibold ${
+                            selectedCustomer.rto_risk === 'high' ? 'text-red-600' :
+                            selectedCustomer.rto_risk === 'medium' ? 'text-amber-600' :
+                            'text-green-600'
+                          }`}>{selectedCustomer.rto_risk.charAt(0).toUpperCase() + selectedCustomer.rto_risk.slice(1)}</span>
+                        </div>
+                      )}
+                      {selectedCustomer.rto_count !== undefined && (
+                        <div>
+                          <span className="text-gray-500">RTO Count: </span>
+                          <span className="font-semibold text-gray-900">{selectedCustomer.rto_count}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Blacklist Toggle */}
+                <div className="pt-2">
+                  <button
+                    onClick={() => handleToggleBlacklist(selectedCustomer)}
+                    disabled={togglingBlacklist}
+                    className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 ${
+                      selectedCustomer.blacklisted
+                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+                    }`}
+                  >
+                    {selectedCustomer.blacklisted ? (
+                      <><ShieldOff className="w-4 h-4" /> Remove from Blacklist</>
+                    ) : (
+                      <><ShieldAlert className="w-4 h-4" /> Blacklist Customer</>
+                    )}
+                  </button>
+                </div>
               >
                 <X className="w-5 h-5" />
               </button>

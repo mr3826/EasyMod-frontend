@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CheckCircle, Clock, Package as PackageIcon, XCircle, Eye, Plus, Search, Download, ChevronDown, X } from "lucide-react";
+import { CheckCircle, Clock, Package as PackageIcon, XCircle, Eye, Plus, Search, Download, ChevronDown, X, AlertTriangle } from "lucide-react";
 import { Order, Product } from "../lib/api";
 import { apiClient } from "../lib/api";
 import { authService } from "../lib/auth";
@@ -100,6 +100,11 @@ export default function Orders() {
 
   const handleUpdateStatus = async (orderId: string, newStatus: Order['status']) => {
     try {
+      const order = orders.find(o => o.id === orderId);
+      if (newStatus === 'confirmed' && order?.rto_risk === 'high') {
+        setError('Cannot confirm order: customer has a high RTO risk rating. Please review before proceeding.');
+        return;
+      }
       const updatedOrder = await apiClient.updateOrder(orderId, { status: newStatus });
       setOrders(orders.map(o => 
         o.id === orderId ? updatedOrder : o
@@ -443,7 +448,19 @@ export default function Orders() {
                     <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs">
                       {order.customerName.charAt(0)}
                     </div>
-                    <span className="text-sm text-gray-900">{order.customerName}</span>
+                    <div>
+                      <span className="text-sm text-gray-900">{order.customerName}</span>
+                      {order.rto_risk === 'high' && (
+                        <span className="ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                          <AlertTriangle className="w-3 h-3" /> High RTO
+                        </span>
+                      )}
+                      {order.rto_risk === 'medium' && (
+                        <span className="ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                          <AlertTriangle className="w-3 h-3" /> Med RTO
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">{order.items.length} items</td>
@@ -672,6 +689,12 @@ export default function Orders() {
                     <option value="refunded">Refunded</option>
                     <option value="partially_paid">Partially Paid</option>
                   </select>
+                  {(manualOrder.payment === 'unpaid' || manualOrder.payment === 'pending') && (
+                    <p className="mt-1.5 flex items-center gap-1 text-xs text-amber-700">
+                      <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                      COD/unpaid orders carry higher return-to-origin (RTO) risk.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Order Notes</label>

@@ -28,6 +28,7 @@ export interface BrandingRules {
   languagePreference: string;
   emojiUsage: 'none' | 'light' | 'moderate' | 'heavy';
   forbiddenPhrases: string[];
+  escalationKeywords: string[];
   greetingStyle: string;
   closingStyle: string;
 }

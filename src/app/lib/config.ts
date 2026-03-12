@@ -4,18 +4,16 @@ interface Config {
   environment: 'development' | 'staging' | 'production';
 }
 
-// Validate required environment variables
-const requiredEnvVars = ['VITE_API_BASE_URL', 'VITE_ENV'];
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+const environment = (import.meta.env.VITE_ENV || import.meta.env.MODE || 'development') as Config['environment'];
 
-const missingVars = requiredEnvVars.filter(varName => !import.meta.env[varName]);
-
-if (missingVars.length > 0) {
-  throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+if (!apiBaseUrl) {
+  throw new Error('Missing API base URL. Set VITE_API_BASE_URL or VITE_API_URL.');
 }
 
 const config: Config = {
-  apiBaseUrl: import.meta.env.VITE_API_BASE_URL,
-  environment: import.meta.env.VITE_ENV as Config['environment'],
+  apiBaseUrl,
+  environment,
 };
 
 // Validate environment value
