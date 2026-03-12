@@ -1,128 +1,131 @@
-import { createElement } from "react";
+import { lazy, createElement, Suspense, type LazyExoticComponent } from "react";
 import { createBrowserRouter, redirect } from "react-router-dom";
-import DashboardLayout from "./components/DashboardLayout";
-import Dashboard from "./components/Dashboard";
-import UnifiedInbox from "./components/UnifiedInbox";
-import Channels from "./components/Channels";
-import Products from "./components/Products";
-import Orders from "./components/Orders";
-import Reports from "./components/Reports";
-import Knowledge from "./components/Knowledge";
-import AddProduct from "./components/AddProduct";
-import ProductDetails from "./components/ProductDetails";
-import Customers from "./components/Customers";
-import Categories from "./components/Categories";
-import CategoryDetails from "./components/CategoryDetails";
-import SubcategoryDetails from "./components/SubcategoryDetails";
-import ManageShop from "./components/ManageShop";
-import ChatSettings from "./components/ChatSettings";
-import DeliverySettings from "./components/DeliverySettings";
-import PaymentSettings from "./components/PaymentSettings";
-import BusinessInfoSettings from "./components/BusinessInfoSettings";
-import SignIn from "./components/SignIn";
-import Signup from "./components/Signup";
-import ForgotPassword from "./components/ForgotPassword";
-import ResetPassword from "./components/ResetPassword";
-import RouteError from "./components/RouteError";
-
-import Subscription from "./components/Subscription";
 import { authService } from "./lib/auth";
+
+const DashboardLayout = lazy(() => import("./components/DashboardLayout"));
+const Dashboard = lazy(() => import("./components/Dashboard"));
+const UnifiedInbox = lazy(() => import("./components/UnifiedInbox"));
+const Channels = lazy(() => import("./components/Channels"));
+const Products = lazy(() => import("./components/Products"));
+const Orders = lazy(() => import("./components/Orders"));
+const Reports = lazy(() => import("./components/Reports"));
+const Knowledge = lazy(() => import("./components/Knowledge"));
+const AddProduct = lazy(() => import("./components/AddProduct"));
+const ProductDetails = lazy(() => import("./components/ProductDetails"));
+const Customers = lazy(() => import("./components/Customers"));
+const Categories = lazy(() => import("./components/Categories"));
+const CategoryDetails = lazy(() => import("./components/CategoryDetails"));
+const SubcategoryDetails = lazy(() => import("./components/SubcategoryDetails"));
+const ManageShop = lazy(() => import("./components/ManageShop"));
+const ChatSettings = lazy(() => import("./components/ChatSettings"));
+const DeliverySettings = lazy(() => import("./components/DeliverySettings"));
+const PaymentSettings = lazy(() => import("./components/PaymentSettings"));
+const BusinessInfoSettings = lazy(() => import("./components/BusinessInfoSettings"));
+const SignIn = lazy(() => import("./components/SignIn"));
+const Signup = lazy(() => import("./components/Signup"));
+const ForgotPassword = lazy(() => import("./components/ForgotPassword"));
+const ResetPassword = lazy(() => import("./components/ResetPassword"));
+const RouteError = lazy(() => import("./components/RouteError"));
+const Subscription = lazy(() => import("./components/Subscription"));
 
 // Loader function to check authentication
 async function protectedLoader() {
-  await authService.ensureInitialized();
-  if (!authService.isAuthenticated()) {
-    return redirect("/");
-  }
-  return null;
+	await authService.ensureInitialized();
+	if (!authService.isAuthenticated()) {
+		return redirect("/");
+	}
+	return null;
 }
 
 async function publicLoader() {
-  await authService.ensureInitialized();
-  if (authService.isAuthenticated()) {
-    return redirect("/app");
-  }
-  return null;
+	await authService.ensureInitialized();
+	if (authService.isAuthenticated()) {
+		return redirect("/app");
+	}
+	return null;
 }
 
-export const router = createBrowserRouter([
-  {
-    path: "/signin",
-    Component: SignIn,
-    loader: publicLoader,
-    errorElement: createElement(RouteError),
-  },
-  {
-    path: "/forgot-password",
-    Component: ForgotPassword,
-    loader: publicLoader,
-    errorElement: createElement(RouteError),
-  },
-  {
-    path: "/reset-password",
-    Component: ResetPassword,
-    loader: publicLoader,
-    errorElement: createElement(RouteError),
-  },
-  {
-    path: "/products/add",
-    loader: () => {
-      if (!authService.isAuthenticated()) {
-        return redirect("/");
-      }
-      return redirect("/app/products/add");
-    },
-  },
-  {
-    path: "/products",
-    loader: () => redirect("/app/products"),
-  },
-  {
-    path: "/",
-    Component: Signup,
-    loader: publicLoader,
-    errorElement: createElement(RouteError),
-  },
-  {
-    path: "/signup",
-    Component: Signup,
-    loader: publicLoader,
-    errorElement: createElement(RouteError),
-  },
+const withSuspense = (Component: LazyExoticComponent<any>) => (props: any) =>
+	createElement(Suspense, { fallback: createElement("div", { className: "p-8 text-center" }, "Loading...") },
+		createElement(Component, props));
 
-  {
-    path: "/app",
-    Component: DashboardLayout,
-    loader: protectedLoader,
-    errorElement: createElement(RouteError),
-    children: [
-      { index: true, Component: Dashboard },
-      { path: "inbox", Component: UnifiedInbox },
-      { path: "channels", Component: Channels },
-      {
-        path: "manage-shop",
-        Component: ManageShop,
-        children: [
-          { index: true, Component: BusinessInfoSettings },
-          { path: "chat-settings", Component: ChatSettings },
-          { path: "delivery-settings", Component: DeliverySettings },
-          { path: "payment-settings", Component: PaymentSettings },
-        ],
-      },
-      { path: "products", Component: Products },
-      { path: "products/add", Component: AddProduct },
-      { path: "products/:productId", Component: ProductDetails },
-      { path: "products/:productId/edit", Component: AddProduct },
-      { path: "categories", Component: Categories },
-      { path: "categories/create", Component: CategoryDetails },
-      { path: "categories/:categoryId", Component: CategoryDetails },
-      { path: "categories/:categoryId/edit", Component: CategoryDetails },
-      { path: "categories/:categoryId/:subcategoryId", Component: SubcategoryDetails },
-      { path: "orders", Component: Orders },
-      { path: "customers", Component: Customers },
-      { path: "knowledge", Component: Knowledge },
-      { path: "reports", Component: Reports },
-      { path: "subscription", Component: Subscription },
-    ],
-  },
+export const router = createBrowserRouter([
+	{
+		path: "/signin",
+		Component: withSuspense(SignIn),
+		loader: publicLoader,
+		errorElement: createElement(RouteError),
+	},
+	{
+		path: "/forgot-password",
+		Component: withSuspense(ForgotPassword),
+		loader: publicLoader,
+		errorElement: createElement(RouteError),
+	},
+	{
+		path: "/reset-password",
+		Component: withSuspense(ResetPassword),
+		loader: publicLoader,
+		errorElement: createElement(RouteError),
+	},
+	{
+		path: "/products/add",
+		loader: () => {
+			if (!authService.isAuthenticated()) {
+				return redirect("/");
+			}
+			return redirect("/app/products/add");
+		},
+	},
+	{
+		path: "/products",
+		loader: () => redirect("/app/products"),
+	},
+	{
+		path: "/",
+		Component: withSuspense(Signup),
+		loader: publicLoader,
+		errorElement: createElement(RouteError),
+	},
+	{
+		path: "/signup",
+		Component: withSuspense(Signup),
+		loader: publicLoader,
+		errorElement: createElement(RouteError),
+	},
+	{
+		path: "/app",
+		Component: withSuspense(DashboardLayout),
+		loader: protectedLoader,
+		errorElement: createElement(RouteError),
+		children: [
+			{ index: true, Component: withSuspense(Dashboard) },
+			{ path: "inbox", Component: withSuspense(UnifiedInbox) },
+			{ path: "channels", Component: withSuspense(Channels) },
+			{
+				path: "manage-shop",
+				Component: withSuspense(ManageShop),
+				children: [
+					{ index: true, Component: withSuspense(BusinessInfoSettings) },
+					{ path: "chat-settings", Component: withSuspense(ChatSettings) },
+					{ path: "delivery-settings", Component: withSuspense(DeliverySettings) },
+					{ path: "payment-settings", Component: withSuspense(PaymentSettings) },
+				],
+			},
+			{ path: "products", Component: withSuspense(Products) },
+			{ path: "products/add", Component: withSuspense(AddProduct) },
+			{ path: "products/:productId", Component: withSuspense(ProductDetails) },
+			{ path: "products/:productId/edit", Component: withSuspense(AddProduct) },
+			{ path: "categories", Component: withSuspense(Categories) },
+			{ path: "categories/create", Component: withSuspense(CategoryDetails) },
+			{ path: "categories/:categoryId", Component: withSuspense(CategoryDetails) },
+			{ path: "categories/:categoryId/edit", Component: withSuspense(CategoryDetails) },
+			{ path: "categories/:categoryId/:subcategoryId", Component: withSuspense(SubcategoryDetails) },
+			{ path: "orders", Component: withSuspense(Orders) },
+			{ path: "customers", Component: withSuspense(Customers) },
+			{ path: "knowledge", Component: withSuspense(Knowledge) },
+			{ path: "reports", Component: withSuspense(Reports) },
+			{ path: "subscription", Component: withSuspense(Subscription) },
+		],
+	},
 ]);

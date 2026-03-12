@@ -13,6 +13,8 @@ interface AddProductProps {
 }
 
 export default function AddProduct({ editMode = false, editProduct = null, onClose, onSave, isModal = false }: AddProductProps) {
+    // Store object URLs for cleanup
+    const [imageObjectUrls, setImageObjectUrls] = useState<string[]>([]);
   const navigate = useNavigate();
   const { productId } = useParams<{ productId?: string }>();
   
@@ -26,6 +28,19 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
   const [discountable, setDiscountable] = useState(false);
   const [taxable, setTaxable] = useState(false);
   const [productImages, setProductImages] = useState<File[]>([]);
+
+    // Clean up object URLs to prevent memory leaks
+    useEffect(() => {
+      // Revoke previous URLs
+      imageObjectUrls.forEach(url => URL.revokeObjectURL(url));
+      // Create new URLs for current images
+      const urls = productImages.map(file => URL.createObjectURL(file));
+      setImageObjectUrls(urls);
+      // Cleanup on unmount
+      return () => {
+        urls.forEach(url => URL.revokeObjectURL(url));
+      };
+    }, [productImages]);
   
   // Categories
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -358,8 +373,9 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Product Info</h2>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
+                    <label htmlFor="modal-product-name" className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
                     <input
+                      id="modal-product-name"
                       type="text"
                       value={productName}
                       onChange={(e) => setProductName(e.target.value)}
@@ -368,8 +384,9 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <label htmlFor="modal-description" className="block text-sm font-medium text-gray-700 mb-2">Description</label>
                     <textarea
+                      id="modal-description"
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Describe your product..."
@@ -379,8 +396,11 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Price</label>
+                      <label htmlFor="modal-base-price" className="block text-sm font-medium text-gray-700 mb-2">
+                        Selling Price <span className="text-red-500">*</span>
+                      </label>
                       <input
+                        id="modal-base-price"
                         type="number"
                         value={basePrice}
                         onChange={(e) => setBasePrice(e.target.value)}
@@ -390,8 +410,9 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">SKU</label>
+                      <label htmlFor="modal-sku" className="block text-sm font-medium text-gray-700 mb-2">SKU</label>
                       <input
+                        id="modal-sku"
                         type="text"
                         value={sku}
                         onChange={(e) => setSku(e.target.value)}
@@ -416,7 +437,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                 onClick={() => handleSave("publish")}
                 className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
               >
-                {editMode ? 'Update Product' : 'Add Product'}
+                {editMode ? 'Update Product' : 'Publish'}
               </button>
             </div>
           </div>
@@ -577,7 +598,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                         <div key={index} className="relative group">
                           <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-500 transition-colors">
                             <img
-                              src={URL.createObjectURL(file)}
+                              src={imageObjectUrls[index]}
                               alt={`Product ${index + 1}`}
                               className="w-full h-full object-cover"
                             />
@@ -1320,7 +1341,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
         >
           <Package className="w-5 h-5" />
-          {isEditPage ? 'Update Product' : 'Add Product'}
+          {isEditPage ? 'Update Product' : 'Publish'}
         </button>
       </div>
 
