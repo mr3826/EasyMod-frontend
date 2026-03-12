@@ -4,18 +4,25 @@ import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Eye, EyeOff } from 'lucide-react';
-import { authService } from '@/app/lib/auth';
+import { useAuth } from '../../features/auth/AuthProvider';
 
 export default function SignIn() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('rememberMe') === 'true';
+    }
+    return false;
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { signin } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
+    localStorage.setItem('rememberMe', rememberMe ? 'true' : 'false');
     e.preventDefault();
     setError('');
 
@@ -32,7 +39,7 @@ export default function SignIn() {
     setIsLoading(true);
 
     try {
-      await authService.signin({ email, password });
+      await signin({ email, password });
       navigate('/app');
     } catch (error: any) {
       setError(
@@ -108,7 +115,6 @@ export default function SignIn() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-500 hover:text-gray-700 rounded-md transition-colors"
-                  tabIndex={-1}
                 >
                   {showPassword ? (
                     <EyeOff className="w-4 h-4" />

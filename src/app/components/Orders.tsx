@@ -904,12 +904,20 @@ export default function Orders() {
                 Close
               </button>
               {selectedOrder.status === 'draft' && (
-                <button
-                  onClick={() => handleUpdateStatus(selectedOrder.id, 'confirmed')}
-                  className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Confirm Order
-                </button>
+                <>
+                  <button
+                    onClick={() => handleUpdateStatus(selectedOrder.id, 'confirmed')}
+                    className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Confirm Order
+                  </button>
+                  <button
+                    onClick={() => handleUpdateStatus(selectedOrder.id, 'cancelled')}
+                    className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 ml-2"
+                  >
+                    Cancel Order
+                  </button>
+                </>
               )}
             </div>
           </div>
