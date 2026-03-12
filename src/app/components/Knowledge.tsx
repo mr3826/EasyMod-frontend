@@ -20,6 +20,7 @@ export default function Knowledge() {
     languagePreference: '',
     emojiUsage: 'none',
     forbiddenPhrases: [],
+    escalationKeywords: [],
     greetingStyle: '',
     closingStyle: '',
   });
@@ -67,7 +68,8 @@ export default function Knowledge() {
           tone: 'formal',
           languagePreference: '',
           emojiUsage: 'none',
-          forbiddenPhrases: [],
+        forbiddenPhrases: [],
+          escalationKeywords: [],
           greetingStyle: '',
           closingStyle: '',
         });
@@ -531,6 +533,23 @@ export default function Knowledge() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Escalation Keywords (comma separated)</label>
+                <input
+                  type="text"
+                  value={(brandingRules.escalationKeywords ?? []).join(', ')}
+                  onChange={(e) => setBrandingRules({
+                    ...brandingRules,
+                    escalationKeywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean),
+                  })}
+                  placeholder="human, agent, help, মানুষ"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  When a customer sends any of these keywords, AI auto-reply is automatically paused and the conversation is flagged for human review.
+                </p>
+              </div>
+
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="font-semibold text-blue-900 mb-2">Preview</h4>
                 <div className="bg-white rounded-lg p-4 space-y-2">
@@ -632,9 +651,12 @@ export default function Knowledge() {
         <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-8 max-w-lg w-full mx-4">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Knowledge Document</h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 mb-4">
               Upload documents containing FAQs, business info, or branding guidelines
             </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-xs text-amber-800">
+              <strong>Privacy notice:</strong> Content uploaded here is processed by our AI to generate automated responses. Uploaded data is stored encrypted and isolated to your shop only.
+            </div>
 
             {uploadProgress === 0 ? (
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">

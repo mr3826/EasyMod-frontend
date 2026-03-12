@@ -60,4 +60,14 @@ export const EVENTS = {
   // Channel events
   CHANNEL_CONNECTED: 'channel.connected',
   CHANNEL_DISCONNECTED: 'channel.disconnected',
+
+  // HITL & AI events
+  CONVERSATION_HITL_ACTIVATED: 'conversation.hitl_activated',
+  CONVERSATION_HITL_DEACTIVATED: 'conversation.hitl_deactivated',
+  AI_SUGGESTION_ACCEPTED: 'ai.suggestion_accepted',
+  AI_SUGGESTION_REJECTED: 'ai.suggestion_rejected',
+
+  // RTO events
+  ORDER_RTO: 'order.rto',
+  CUSTOMER_BLACKLISTED: 'customer.blacklisted',
 };
