@@ -27,6 +27,7 @@ const ForgotPassword = lazy(() => import("./components/ForgotPassword"));
 const ResetPassword = lazy(() => import("./components/ResetPassword"));
 const RouteError = lazy(() => import("./components/RouteError"));
 const Subscription = lazy(() => import("./components/Subscription"));
+const PrivacyPolicy = lazy(() => import("./components/PrivacyPolicy"));
 
 // Loader function to check authentication
 async function protectedLoader() {
@@ -80,6 +81,11 @@ export const router = createBrowserRouter([
 	{
 		path: "/products",
 		loader: () => redirect("/app/products"),
+	},
+	{
+		path: "/privacy-policy",
+		Component: withSuspense(PrivacyPolicy),
+		errorElement: createElement(RouteError),
 	},
 	{
 		path: "/",

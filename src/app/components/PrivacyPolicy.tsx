@@ -1,0 +1,473 @@
+import { Link } from "react-router-dom";
+
+const EFFECTIVE_DATE = "March 18, 2025";
+const CONTACT_EMAIL = "privacy@easymod.tech";
+const APP_NAME = "Easy Moderator";
+
+export default function PrivacyPolicy() {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200">
+        <div className="mx-auto max-w-4xl px-6 py-4 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600" />
+            <span className="text-lg font-bold text-gray-900">{APP_NAME}</span>
+          </Link>
+          <span className="text-sm text-gray-500">Privacy Policy</span>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-4xl px-6 py-12">
+        {/* Title block */}
+        <div className="mb-10">
+          <h1 className="text-3xl font-bold text-gray-900">Privacy Policy</h1>
+          <p className="mt-2 text-sm text-gray-500">Effective date: {EFFECTIVE_DATE}</p>
+          <p className="mt-4 text-gray-600 leading-relaxed">
+            This Privacy Policy describes how <strong>{APP_NAME}</strong> ("we", "us", or "our") collects, uses,
+            stores, and shares information when you use our e-commerce moderation platform, including our web
+            application and integrations with Meta (WhatsApp Business, Facebook Messenger, Instagram Direct
+            Messages) and other third-party services.
+          </p>
+          <p className="mt-3 text-gray-600 leading-relaxed">
+            By accessing or using {APP_NAME}, you agree to the practices described in this policy. If you are a
+            business using {APP_NAME} to manage customer interactions, you are responsible for ensuring your own
+            customers are informed about how their data is handled through your use of our platform.
+          </p>
+        </div>
+
+        <div className="space-y-10 text-gray-700">
+
+          {/* 1 — Information We Collect */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">1. Information We Collect</h2>
+
+            <h3 className="text-base font-semibold text-gray-800 mb-2">From Business Users (Shop Owners & Staff)</h3>
+            <p className="mb-3 leading-relaxed">
+              When you create an account or manage a shop on {APP_NAME}, we collect:
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-sm leading-relaxed ml-2">
+              <li>Full name, email address, and phone number</li>
+              <li>Business name, timezone, and operating hours</li>
+              <li>Hashed passwords (we never store plain-text passwords)</li>
+              <li>Meta platform access tokens (encrypted at rest using AES-256-GCM)</li>
+              <li>Payment gateway credentials (bKash, Nagad — encrypted at rest)</li>
+              <li>Delivery provider credentials (Pathao, Steadfast — encrypted at rest)</li>
+              <li>IP address and browser/device information (for security audit logs)</li>
+              <li>Session tokens stored as httpOnly, secure cookies</li>
+            </ul>
+
+            <h3 className="text-base font-semibold text-gray-800 mt-5 mb-2">From End-Customers (via Connected Channels)</h3>
+            <p className="mb-3 leading-relaxed">
+              When a business uses {APP_NAME} to manage customer interactions, we may process the following
+              customer data on behalf of the business:
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-sm leading-relaxed ml-2">
+              <li>Name, phone number, and email address</li>
+              <li>Messages sent and received through WhatsApp, Facebook Messenger, Instagram DMs, Telegram, or web chat</li>
+              <li>Platform-specific user identifiers (e.g., WhatsApp phone number, Facebook Page-scoped user ID)</li>
+              <li>Message delivery and read receipts</li>
+              <li>Order details: items, quantities, prices, delivery address, and payment method</li>
+              <li>Language preference and last active timestamp</li>
+              <li>Delivery tracking information</li>
+            </ul>
+          </section>
+
+          {/* 2 — How We Use Information */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">2. How We Use Information</h2>
+            <p className="mb-3 leading-relaxed">We use the information we collect to:</p>
+            <ul className="list-disc list-inside space-y-1 text-sm leading-relaxed ml-2">
+              <li>Provide, operate, and improve the {APP_NAME} platform</li>
+              <li>Enable AI-assisted customer service responses on behalf of businesses</li>
+              <li>Process and manage customer orders, payments, and deliveries</li>
+              <li>Maintain a knowledge base for automated replies (RAG — Retrieval-Augmented Generation)</li>
+              <li>Track subscription usage and enforce plan limits</li>
+              <li>Send transactional emails (account verification, password reset, invoices)</li>
+              <li>Maintain security audit logs for fraud prevention and compliance</li>
+              <li>Provide analytics dashboards to business users (message counts, AI usage, costs)</li>
+              <li>Forward events to workflow automation tools chosen by the business (Make.com, n8n)</li>
+            </ul>
+            <p className="mt-3 text-sm leading-relaxed">
+              We do <strong>not</strong> use customer data for advertising, sell data to third parties, or use
+              data from Meta platforms for any purpose other than operating the {APP_NAME} service as described.
+            </p>
+          </section>
+
+          {/* 3 — Meta Platform Data (Required by Meta App Review) */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">3. Meta Platform Data</h2>
+            <p className="mb-3 leading-relaxed">
+              {APP_NAME} integrates with Meta platforms (WhatsApp Business API, Facebook Messenger, and Instagram
+              Direct Messages) to allow businesses to manage customer conversations. This section describes how
+              we handle data received from Meta in compliance with Meta's Platform Terms and Developer Policies.
+            </p>
+
+            <h3 className="text-base font-semibold text-gray-800 mb-2">Data Received from Meta</h3>
+            <p className="mb-2 text-sm leading-relaxed">Through Meta webhooks, we receive and store:</p>
+            <ul className="list-disc list-inside space-y-1 text-sm leading-relaxed ml-2">
+              <li>Inbound and outbound message content (text, media references)</li>
+              <li>Platform user identifiers (page-scoped IDs, WhatsApp phone numbers)</li>
+              <li>Message delivery status and read receipts</li>
+              <li>Messaging opt-in events</li>
+              <li>Post-back payloads from interactive message buttons</li>
+            </ul>
+
+            <h3 className="text-base font-semibold text-gray-800 mt-5 mb-2">How We Use Meta Data</h3>
+            <ul className="list-disc list-inside space-y-1 text-sm leading-relaxed ml-2">
+              <li>To display and manage conversations in the {APP_NAME} inbox</li>
+              <li>To generate AI-assisted reply suggestions using our language model providers</li>
+              <li>To match customer inquiries against the business's knowledge base</li>
+              <li>To associate conversations with customer profiles and order history</li>
+              <li>To provide analytics on message volume and AI usage to the business</li>
+            </ul>
+
+            <h3 className="text-base font-semibold text-gray-800 mt-5 mb-2">What We Do Not Do with Meta Data</h3>
+            <ul className="list-disc list-inside space-y-1 text-sm leading-relaxed ml-2">
+              <li>We do <strong>not</strong> use data from Meta platforms to target users with advertising</li>
+              <li>We do <strong>not</strong> sell or share Meta platform data with data brokers or advertisers</li>
+              <li>We do <strong>not</strong> use Meta data for any purpose beyond providing and improving the {APP_NAME} service</li>
+              <li>We do <strong>not</strong> transfer Meta data to unauthorized third parties</li>
+            </ul>
+
+            <h3 className="text-base font-semibold text-gray-800 mt-5 mb-2">Meta Permissions Used</h3>
+            <div className="overflow-x-auto mt-2">
+              <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700 border-b border-gray-200">Permission</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700 border-b border-gray-200">Purpose</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-xs text-blue-700">pages_manage_messaging</td>
+                    <td className="px-4 py-3 text-gray-600">Send and receive Facebook Messenger messages on behalf of connected Pages</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-xs text-blue-700">pages_read_engagement</td>
+                    <td className="px-4 py-3 text-gray-600">Receive delivery and read receipt events for Facebook messages</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-xs text-blue-700">instagram_manage_messages</td>
+                    <td className="px-4 py-3 text-gray-600">Send and receive Instagram Direct Messages on behalf of connected accounts</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-xs text-blue-700">whatsapp_business_messaging</td>
+                    <td className="px-4 py-3 text-gray-600">Send and receive WhatsApp Business messages via the WhatsApp Business API</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* 4 — Third-Party Service Providers */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">4. Third-Party Service Providers</h2>
+            <p className="mb-4 leading-relaxed">
+              To operate {APP_NAME}, we share data with the following categories of third-party service
+              providers. Each provider has their own privacy policy and data processing terms.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700 border-b border-gray-200">Service</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700 border-b border-gray-200">Category</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700 border-b border-gray-200">Data Shared</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700 border-b border-gray-200">Purpose</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-gray-900">Meta (Facebook, Instagram, WhatsApp)</td>
+                    <td className="px-4 py-3 text-gray-600">Communication Platform</td>
+                    <td className="px-4 py-3 text-gray-600">Message content, user IDs</td>
+                    <td className="px-4 py-3 text-gray-600">Webhook message delivery</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-gray-900">Anthropic (Claude)</td>
+                    <td className="px-4 py-3 text-gray-600">AI Provider</td>
+                    <td className="px-4 py-3 text-gray-600">Conversation text</td>
+                    <td className="px-4 py-3 text-gray-600">AI response generation (primary)</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-gray-900">OpenAI</td>
+                    <td className="px-4 py-3 text-gray-600">AI Provider</td>
+                    <td className="px-4 py-3 text-gray-600">Conversation text, text embeddings</td>
+                    <td className="px-4 py-3 text-gray-600">AI fallback + knowledge base indexing</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-gray-900">Google (Gemini)</td>
+                    <td className="px-4 py-3 text-gray-600">AI Provider</td>
+                    <td className="px-4 py-3 text-gray-600">Conversation text</td>
+                    <td className="px-4 py-3 text-gray-600">AI fallback</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-gray-900">Deepseek</td>
+                    <td className="px-4 py-3 text-gray-600">AI Provider</td>
+                    <td className="px-4 py-3 text-gray-600">Conversation text</td>
+                    <td className="px-4 py-3 text-gray-600">AI fallback</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-gray-900">Pinecone</td>
+                    <td className="px-4 py-3 text-gray-600">Vector Database</td>
+                    <td className="px-4 py-3 text-gray-600">Text embeddings (numerical vectors)</td>
+                    <td className="px-4 py-3 text-gray-600">Knowledge base semantic search</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-gray-900">bKash</td>
+                    <td className="px-4 py-3 text-gray-600">Payment Gateway</td>
+                    <td className="px-4 py-3 text-gray-600">Customer phone number, order amount</td>
+                    <td className="px-4 py-3 text-gray-600">Mobile payment processing</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-gray-900">Nagad</td>
+                    <td className="px-4 py-3 text-gray-600">Payment Gateway</td>
+                    <td className="px-4 py-3 text-gray-600">Customer account number, order amount</td>
+                    <td className="px-4 py-3 text-gray-600">Mobile payment processing</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-gray-900">Pathao</td>
+                    <td className="px-4 py-3 text-gray-600">Delivery Provider</td>
+                    <td className="px-4 py-3 text-gray-600">Customer name, phone, delivery address</td>
+                    <td className="px-4 py-3 text-gray-600">Courier delivery</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-gray-900">Steadfast</td>
+                    <td className="px-4 py-3 text-gray-600">Delivery Provider</td>
+                    <td className="px-4 py-3 text-gray-600">Customer name, phone, delivery address, COD amount</td>
+                    <td className="px-4 py-3 text-gray-600">Courier delivery</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-gray-900">Make.com / n8n (optional)</td>
+                    <td className="px-4 py-3 text-gray-600">Workflow Automation</td>
+                    <td className="px-4 py-3 text-gray-600">Event data (configured by business)</td>
+                    <td className="px-4 py-3 text-gray-600">Business workflow automation (opt-in)</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-gray-900">Amazon Web Services</td>
+                    <td className="px-4 py-3 text-gray-600">Cloud Infrastructure</td>
+                    <td className="px-4 py-3 text-gray-600">All application data</td>
+                    <td className="px-4 py-3 text-gray-600">Hosting, storage, secrets management</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-sm text-gray-600 leading-relaxed">
+              AI providers receive conversation text for the sole purpose of generating automated customer
+              service responses. We use per-tenant isolation in vector databases to ensure that data from one
+              business is not retrievable by another. Workflow automation forwarding is entirely opt-in and
+              controlled by the business owner.
+            </p>
+          </section>
+
+          {/* 5 — Data Retention */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">5. Data Retention</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700 border-b border-gray-200">Data Type</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700 border-b border-gray-200">Retention Period</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <td className="px-4 py-3 text-gray-800">Business user accounts</td>
+                    <td className="px-4 py-3 text-gray-600">Until account deletion is requested</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-gray-800">Customer profiles and conversation history</td>
+                    <td className="px-4 py-3 text-gray-600">Until the business deletes them or closes their account; PII is nullified on deletion</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-gray-800">Order records</td>
+                    <td className="px-4 py-3 text-gray-600">Until the business deletes them or closes their account</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-gray-800">Authentication cookies</td>
+                    <td className="px-4 py-3 text-gray-600">Access token: 24 hours; Refresh token: 7 days</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-gray-800">Security audit logs</td>
+                    <td className="px-4 py-3 text-gray-600">Retained for compliance and security review purposes</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-gray-800">Subscription and billing records</td>
+                    <td className="px-4 py-3 text-gray-600">Retained for financial compliance purposes</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-gray-800">Knowledge base content</td>
+                    <td className="px-4 py-3 text-gray-600">Until deleted by the business; vector embeddings deleted simultaneously</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* 6 — Data Security */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">6. Data Security</h2>
+            <p className="mb-3 leading-relaxed">
+              We implement industry-standard security measures to protect your data:
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-sm leading-relaxed ml-2">
+              <li>All data in transit is protected by TLS (HTTPS)</li>
+              <li>Meta access tokens and payment credentials are encrypted at rest using AES-256-GCM</li>
+              <li>Authentication uses short-lived JWT tokens stored as httpOnly cookies, inaccessible to JavaScript</li>
+              <li>Passwords are hashed using bcrypt and never stored in plain text</li>
+              <li>Tenant isolation ensures each business's data is logically separated from others</li>
+              <li>Production secrets are stored in AWS Secrets Manager, not in source code or configuration files</li>
+              <li>Rate limiting and CSRF protection are enforced on all state-mutating endpoints</li>
+              <li>Security audit logs record all significant actions with IP address and user agent</li>
+            </ul>
+            <p className="mt-3 text-sm leading-relaxed">
+              While we take reasonable steps to protect your information, no system is completely secure. We
+              encourage business users to use strong passwords and report any suspected security issues to{" "}
+              <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">{CONTACT_EMAIL}</a>.
+            </p>
+          </section>
+
+          {/* 7 — Cookies and Authentication */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">7. Cookies and Authentication</h2>
+            <p className="mb-3 leading-relaxed">
+              {APP_NAME} uses only authentication cookies. We do not use tracking, advertising, or analytics
+              cookies.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700 border-b border-gray-200">Cookie</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700 border-b border-gray-200">Purpose</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700 border-b border-gray-200">Duration</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-xs text-blue-700">access_token</td>
+                    <td className="px-4 py-3 text-gray-600">Authenticates API requests (httpOnly, secure, sameSite=lax)</td>
+                    <td className="px-4 py-3 text-gray-600">24 hours</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-xs text-blue-700">refresh_token</td>
+                    <td className="px-4 py-3 text-gray-600">Renews the access token without re-login (httpOnly, secure, sameSite=lax)</td>
+                    <td className="px-4 py-3 text-gray-600">7 days</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed">
+              These cookies are strictly necessary for the service to function. You can delete them by logging
+              out, which blacklists the tokens on our server.
+            </p>
+          </section>
+
+          {/* 8 — Your Rights */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">8. Your Rights</h2>
+            <p className="mb-3 leading-relaxed">
+              Depending on your location, you may have the following rights regarding your personal data:
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-sm leading-relaxed ml-2">
+              <li><strong>Access:</strong> Request a copy of the personal data we hold about you.</li>
+              <li><strong>Correction:</strong> Request correction of inaccurate or incomplete data.</li>
+              <li><strong>Deletion:</strong> Request deletion of your personal data. Business users may delete their account; end-customers may request deletion through the business that collected their data.</li>
+              <li><strong>Portability:</strong> Request your data in a machine-readable format.</li>
+              <li><strong>Objection:</strong> Object to certain types of processing.</li>
+              <li><strong>Withdraw Consent:</strong> Where processing is based on consent, you may withdraw it at any time.</li>
+            </ul>
+            <p className="mt-3 text-sm leading-relaxed">
+              To exercise any of these rights, email us at{" "}
+              <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">{CONTACT_EMAIL}</a>. We
+              will respond within 30 days.
+            </p>
+          </section>
+
+          {/* 9 — Data Deletion */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">9. Data Deletion Request</h2>
+            <p className="mb-3 leading-relaxed">
+              You may request deletion of your data at any time:
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-sm leading-relaxed ml-2">
+              <li>
+                <strong>Business users:</strong> Email{" "}
+                <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">{CONTACT_EMAIL}</a>{" "}
+                with subject "Account Deletion Request". We will delete your account and associated shop data
+                within 30 days.
+              </li>
+              <li>
+                <strong>End-customers:</strong> Contact the business that collected your information directly.
+                Businesses operating on {APP_NAME} are responsible for honoring their customers' deletion
+                requests. If you cannot reach the business, email us and we will facilitate the deletion.
+              </li>
+              <li>
+                <strong>Meta data deletion:</strong> If you connected a Facebook Page, Instagram account, or
+                WhatsApp Business Account to {APP_NAME} and later disconnect it, you may request deletion of
+                all associated message data by emailing{" "}
+                <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">{CONTACT_EMAIL}</a>.
+              </li>
+            </ul>
+          </section>
+
+          {/* 10 — Children's Privacy */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">10. Children's Privacy</h2>
+            <p className="leading-relaxed">
+              {APP_NAME} is a business tool intended for adults operating commercial enterprises. We do not
+              knowingly collect personal information from children under the age of 13. If you believe a child
+              has provided us with personal information, please contact us at{" "}
+              <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">{CONTACT_EMAIL}</a>{" "}
+              and we will delete it promptly.
+            </p>
+          </section>
+
+          {/* 11 — Changes */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">11. Changes to This Policy</h2>
+            <p className="leading-relaxed">
+              We may update this Privacy Policy from time to time. When we make material changes, we will
+              update the "Effective date" at the top of this page and, where appropriate, notify business users
+              by email. Your continued use of {APP_NAME} after changes become effective constitutes acceptance
+              of the revised policy.
+            </p>
+          </section>
+
+          {/* 12 — Contact */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">12. Contact Us</h2>
+            <p className="mb-3 leading-relaxed">
+              If you have questions about this Privacy Policy, wish to exercise your rights, or need to report
+              a privacy concern, please contact us:
+            </p>
+            <div className="rounded-xl border border-gray-200 bg-white p-5 text-sm space-y-1">
+              <p className="font-semibold text-gray-900">{APP_NAME}</p>
+              <p className="text-gray-600">
+                Email:{" "}
+                <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">
+                  {CONTACT_EMAIL}
+                </a>
+              </p>
+              <p className="text-gray-600">Subject line: <em>Privacy Inquiry</em></p>
+            </div>
+          </section>
+        </div>
+
+        {/* Back to top / footer */}
+        <div className="mt-16 pt-8 border-t border-gray-200 flex items-center justify-between text-sm text-gray-500">
+          <span>© {new Date().getFullYear()} {APP_NAME}. All rights reserved.</span>
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="text-blue-600 hover:underline"
+          >
+            Back to top
+          </button>
+        </div>
+      </main>
+    </div>
+  );
+}
