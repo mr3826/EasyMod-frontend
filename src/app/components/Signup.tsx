@@ -102,83 +102,114 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-6xl px-4 py-12">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
-          <div className="flex-1">
-            <div className="mb-8">
-              <div className="inline-flex items-center gap-2">
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600" />
-                <span className="text-3xl font-bold text-gray-900">Easy Moderator</span>
-              </div>
-              <p className="mt-4 text-lg text-gray-600">
-                Choose a subscription plan and create your account to launch Easy Moderator.
-              </p>
-              <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                Dev mode active: payments are simulated. This flow mirrors production checkout, but no
-                actual charges are processed.
-              </div>
+    <div className="min-h-screen" style={{ backgroundColor: '#F9FAF8' }}>
+      {/* Top bar */}
+      <header className="bg-white border-b border-gray-100 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm" style={{ background: 'linear-gradient(135deg, #008040 0%, #00A651 100%)' }}>
+              <span className="text-white font-black text-sm">E</span>
             </div>
+            <span className="text-gray-900 text-lg font-bold tracking-tight">Easy Moderator</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span>ইতিমধ্যে অ্যাকাউন্ট আছে?</span>
+            <Link to="/signin" className="font-semibold transition-colors" style={{ color: '#00A651' }}>
+              লগইন করুন
+            </Link>
+          </div>
+        </div>
+      </header>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-4 py-10">
+        {/* Page heading */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-full px-4 py-1.5 text-sm text-emerald-700 font-medium mb-4">
+            🇧🇩 ১০,০০০+ বাংলাদেশী ব্যবসায়ী ব্যবহার করছেন
+          </div>
+          <h1 className="text-4xl font-extrabold text-gray-900">শুরু করুন আজই</h1>
+          <p className="mt-2 text-gray-500 text-base max-w-md mx-auto">
+            আপনার বাংলাদেশী ব্যবসাকে AI দিয়ে এগিয়ে নিন — মাত্র ৫ মিনিটে সেটআপ করুন।
+          </p>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
+          {/* Left — plan selection */}
+          <div className="flex-1 min-w-0">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Select your plan</h2>
-                  <p className="text-sm text-gray-500">Switch billing to see the best value.</p>
+                  <h2 className="text-lg font-bold text-gray-900">আপনার প্ল্যান বেছে নিন</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">বার্ষিক বিলিংয়ে ২ মাস বিনামূল্যে পান</p>
                 </div>
-                <div className="flex items-center gap-3 text-sm text-gray-600">
-                  <span className={!billingAnnual ? "font-semibold text-gray-900" : ""}>Monthly</span>
+                <div className="flex items-center gap-3 text-sm">
+                  <span className={`font-medium ${!billingAnnual ? 'text-gray-900' : 'text-gray-400'}`}>মাসিক</span>
                   <Switch
                     checked={billingAnnual}
                     onCheckedChange={(value: boolean) => setBillingAnnual(value)}
                     aria-label="Toggle annual billing"
+                    className="data-[state=checked]:bg-emerald-600"
                   />
-                  <span className={billingAnnual ? "font-semibold text-gray-900" : ""}>Annual</span>
-                  <Badge className="bg-emerald-100 text-emerald-700">2 months free</Badge>
+                  <span className={`font-medium ${billingAnnual ? 'text-gray-900' : 'text-gray-400'}`}>বার্ষিক</span>
+                  {billingAnnual && (
+                    <span className="bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                      ২ মাস ফ্রি
+                    </span>
+                  )}
                 </div>
               </div>
 
-              <div className="mt-6 grid gap-4 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {subscriptionPlans.map((plan) => {
                   const isSelected = plan.id === selectedPlanId;
                   const price = getPlanPrice(plan, billingAnnual ? "yearly" : "monthly");
+                  const isFree = plan.id === 'free';
                   return (
                     <button
                       key={plan.id}
                       type="button"
                       onClick={() => setSelectedPlanId(plan.id)}
-                      className={`flex h-full flex-col rounded-xl border p-5 text-left transition ${isSelected
-                        ? "border-blue-600 bg-blue-50 shadow-sm"
-                        : "border-gray-200 bg-white hover:border-blue-300"
-                        }`}
+                      className={`flex flex-col rounded-2xl border-2 p-5 text-left transition-all duration-200 ${
+                        isSelected
+                          ? 'border-emerald-500 bg-emerald-50 shadow-md ring-1 ring-emerald-500/20'
+                          : 'border-gray-150 bg-white hover:border-emerald-300 hover:shadow-sm'
+                      }`}
+                      style={{ borderColor: isSelected ? '#00A651' : undefined }}
                     >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-lg font-semibold text-gray-900">{plan.name}</p>
-                          <p className="text-sm text-gray-500">{plan.description}</p>
-                        </div>
+                      <div className="flex items-start justify-between gap-1 mb-3">
+                        <p className="text-base font-bold text-gray-900">{plan.name}</p>
                         {plan.popular && (
-                          <Badge className="bg-purple-100 text-purple-700">Popular</Badge>
+                          <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-600 text-white">
+                            জনপ্রিয়
+                          </span>
+                        )}
+                        {isFree && (
+                          <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                            বিনামূল্যে
+                          </span>
                         )}
                       </div>
-                      <div className="mt-4 flex items-end gap-2">
-                        <span className="text-3xl font-bold text-gray-900">{formatPrice(price)}</span>
-                        <span className="text-sm text-gray-500">/mo</span>
+
+                      <div className="flex items-end gap-1 mb-1">
+                        <span className="text-2xl font-extrabold text-gray-900">{formatPrice(price)}</span>
+                        <span className="text-xs text-gray-400 pb-1">/মাস</span>
                       </div>
-                      <p className="mt-1 text-xs text-gray-500">
-                        {billingAnnual ? "Billed annually" : "Billed monthly"}
+                      <p className="text-xs text-gray-400 mb-4">
+                        {billingAnnual ? 'বার্ষিক বিল' : 'মাসিক বিল'}
                       </p>
-                      <ul className="mt-4 space-y-2 text-sm text-gray-600">
+
+                      <ul className="space-y-1.5 text-xs text-gray-600 flex-1">
                         {plan.highlights.map((feature) => (
                           <li key={feature} className="flex items-start gap-2">
-                            <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-600" />
+                            <span className="mt-0.5 text-emerald-500 font-bold">✓</span>
                             <span>{feature}</span>
                           </li>
                         ))}
                       </ul>
+
                       {isSelected && (
-                        <div className="mt-auto pt-4 text-sm font-medium text-blue-700">
-                          Selected plan
+                        <div className="mt-4 pt-3 border-t border-emerald-200 text-xs font-semibold text-emerald-700 flex items-center gap-1">
+                          <span>✓</span> নির্বাচিত প্ল্যান
                         </div>
                       )}
                     </button>
@@ -186,158 +217,180 @@ export default function Signup() {
                 })}
               </div>
             </div>
+
+            {/* BD features strip */}
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              {[
+                { icon: '🛡️', title: 'RTO Shield', desc: 'ভুয়া অর্ডার ব্লক' },
+                { icon: '🚚', title: 'Pathao & Steadfast', desc: 'সরাসরি ডেলিভারি' },
+                { icon: '💬', title: 'AI চ্যাটবট', desc: '২৪/৭ অটো রিপ্লাই' },
+              ].map(({ icon, title, desc }) => (
+                <div key={title} className="bg-white rounded-xl border border-gray-100 p-3 flex items-start gap-2.5">
+                  <span className="text-xl">{icon}</span>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-800">{title}</p>
+                    <p className="text-xs text-gray-400">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="w-full max-w-lg">
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Create your account</h2>
-                <p className="text-sm text-gray-500">
-                  Finish signup to activate the {selectedPlan.name} plan.
-                </p>
-              </div>
+          {/* Right — account form */}
+          <div className="w-full lg:w-[400px] shrink-0">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-1">অ্যাকাউন্ট তৈরি করুন</h2>
+              <p className="text-sm text-gray-500 mb-5">
+                <span className="font-medium" style={{ color: '#00A651' }}>{selectedPlan.name}</span> প্ল্যান সক্রিয় করতে নিচে পূরণ করুন।
+              </p>
 
               {error && (
-                <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {error}
+                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-start gap-2">
+                  <span>⚠️</span><span>{error}</span>
                 </div>
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700" htmlFor="fullName">
-                    Full name
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-gray-700" htmlFor="fullName">
+                    পূর্ণ নাম
                   </label>
                   <Input
                     id="fullName"
                     value={fullName}
-                    onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                      setFullName(event.target.value)
-                    }
-                    placeholder="Jane Smith"
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => setFullName(event.target.value)}
+                    placeholder="আপনার নাম লিখুন"
                     autoComplete="name"
                     disabled={isLoading}
+                    className="h-11 rounded-xl border-gray-200 focus:border-emerald-500"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700" htmlFor="email">
-                    Work email
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-gray-700" htmlFor="email">
+                    ইমেইল ঠিকানা
                   </label>
                   <Input
                     id="email"
                     type="email"
                     value={email}
-                    onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                      setEmail(event.target.value)
-                    }
-                    placeholder="you@company.com"
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => setEmail(event.target.value)}
+                    placeholder="you@example.com"
                     autoComplete="email"
                     disabled={isLoading}
+                    className="h-11 rounded-xl border-gray-200 focus:border-emerald-500"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700" htmlFor="phone">
-                    Phone (optional)
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-gray-700" htmlFor="phone">
+                    মোবাইল নম্বর
+                    <span className="ml-1 text-xs text-gray-400 font-normal">(ঐচ্ছিক)</span>
                   </label>
                   <Input
                     id="phone"
                     value={phone}
-                    onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                      setPhone(event.target.value)
-                    }
-                    placeholder="+1 555 000 0000"
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => setPhone(event.target.value)}
+                    placeholder="+8801XXXXXXXXX"
                     autoComplete="tel"
                     disabled={isLoading}
+                    className="h-11 rounded-xl border-gray-200 focus:border-emerald-500"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700" htmlFor="password">
-                    Password
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-gray-700" htmlFor="password">
+                    পাসওয়ার্ড
                   </label>
                   <Input
                     id="password"
                     type="password"
                     value={password}
-                    onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                      setPassword(event.target.value)
-                    }
-                    placeholder="Create a secure password"
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)}
+                    placeholder="শক্তিশালী পাসওয়ার্ড দিন"
                     autoComplete="new-password"
                     disabled={isLoading}
+                    className="h-11 rounded-xl border-gray-200 focus:border-emerald-500"
                   />
                 </div>
 
-                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-                  <p className="font-medium text-gray-800">Payment method (simulated)</p>
-                  <p className="mt-1">
-                    In production, billing details would be captured here. In dev mode, payments are
-                    skipped and no charge is applied.
-                  </p>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    <Input placeholder="Card number" disabled />
-                    <Input placeholder="MM / YY" disabled />
-                    <Input placeholder="CVC" disabled />
-                    <Input placeholder="Postal code" disabled />
+                {/* BD Payment section */}
+                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4">
+                  <p className="text-xs font-semibold text-gray-700 mb-2">পেমেন্ট পদ্ধতি</p>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {[
+                      { label: 'bKash', color: 'bg-pink-100 text-pink-700 border-pink-200' },
+                      { label: 'Nagad', color: 'bg-orange-100 text-orange-700 border-orange-200' },
+                      { label: 'SSL Commerz', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+                      { label: 'Rocket', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+                    ].map(({ label, color }) => (
+                      <span key={label} className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${color}`}>
+                        {label}
+                      </span>
+                    ))}
                   </div>
+                  <p className="text-xs text-gray-400">
+                    🔜 বাংলাদেশী পেমেন্ট পদ্ধতি শীঘ্রই আসছে।{' '}
+                    <span className="text-gray-500">Dev mode-এ কোনো চার্জ প্রযোজ্য নয়।</span>
+                  </p>
                 </div>
 
-                <div className="flex items-start gap-2">
+                {/* Terms */}
+                <div className="flex items-start gap-2.5">
                   <Checkbox
                     id="terms"
                     checked={acceptedTerms}
-                    onCheckedChange={(value: boolean | "indeterminate") =>
-                      setAcceptedTerms(value === true)
-                    }
+                    onCheckedChange={(value: boolean | "indeterminate") => setAcceptedTerms(value === true)}
                     disabled={isLoading}
+                    className="mt-0.5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
                   />
-                  <label htmlFor="terms" className="text-sm text-gray-600">
-                    I agree to the Terms of Service and{" "}
-                    <a
-                      href="/privacy-policy"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      Privacy Policy
-                    </a>
-                    .
+                  <label htmlFor="terms" className="text-xs text-gray-600 leading-relaxed">
+                    আমি{' '}
+                    <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="font-medium underline" style={{ color: '#00A651' }}>
+                      গোপনীয়তা নীতি
+                    </a>{' '}
+                    ও শর্তাবলী পড়েছি এবং সম্মতি দিচ্ছি।
                   </label>
                 </div>
 
-                <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-600">
-                  <div className="flex items-center justify-between">
-                    <span>Plan</span>
-                    <span className="font-medium text-gray-900">{selectedPlan.name}</span>
+                {/* Order summary */}
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-2 text-sm">
+                  <div className="flex justify-between text-gray-600">
+                    <span>প্ল্যান</span>
+                    <span className="font-semibold text-gray-900">{selectedPlan.name}</span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <span>Billing</span>
-                    <span className="font-medium text-gray-900">
-                      {billingAnnual ? "Annual" : "Monthly"}
-                    </span>
+                  <div className="flex justify-between text-gray-600">
+                    <span>বিলিং</span>
+                    <span className="font-semibold text-gray-900">{billingAnnual ? 'বার্ষিক' : 'মাসিক'}</span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <span>Amount due today</span>
-                    <span className="font-medium text-emerald-600">৳0 (dev mode)</span>
+                  <div className="border-t border-gray-200 pt-2 flex justify-between">
+                    <span className="text-gray-700 font-medium">আজ পেমেন্ট</span>
+                    <span className="font-bold text-emerald-600">৳০ (Dev Mode)</span>
                   </div>
                 </div>
 
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  className="w-full h-12 rounded-xl text-white font-bold text-base shadow-md transition-all hover:shadow-lg hover:opacity-90 disabled:opacity-60"
+                  style={{ background: 'linear-gradient(135deg, #008040 0%, #00A651 100%)' }}
                   disabled={isLoading}
                 >
-                  {isLoading ? "Creating account..." : "Start with selected plan"}
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      অ্যাকাউন্ট তৈরি হচ্ছে...
+                    </span>
+                  ) : (
+                    'অ্যাকাউন্ট তৈরি করুন →'
+                  )}
                 </Button>
               </form>
 
-              <div className="mt-5 text-center text-sm text-gray-500">
-                Already have an account?{" "}
-                <Link to="/signin" className="font-medium text-blue-600 hover:text-blue-700">
-                  Sign in
-                </Link>
+              <div className="mt-4 text-center text-xs text-gray-400">
+                🔒 আপনার তথ্য সম্পূর্ণ সুরক্ষিত
               </div>
             </div>
           </div>
