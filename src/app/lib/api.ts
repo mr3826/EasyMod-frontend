@@ -187,26 +187,60 @@ export interface Order {
   payment_status?: string;
 }
 
+const normalizeOrderStatus = (rawStatus: string | undefined): Order['status'] => {
+  const status = (rawStatus || '').toLowerCase();
+
+  if (status === 'confirmed' || status === 'processing' || status === 'completed' || status === 'cancelled' || status === 'draft') {
+    return status;
+  }
+
+  // Map backend extended states to frontend display states.
+  if (status === 'placed' || status === 'paid') {
+    return 'confirmed';
+  }
+  if (status === 'fulfilled' || status === 'finalized' || status === 'refunded') {
+    return 'completed';
+  }
+
+  return 'draft';
+};
+
 // Transform backend order data to frontend format
 function transformOrderFromBackend(backendOrder: any): Order {
+  const rawItems = backendOrder.items || backendOrder.order_items || [];
+
   return {
     id: backendOrder.id,
     customerName: backendOrder.customer_name || backendOrder.customer?.name || 'Walk-in Customer',
-    items: backendOrder.items?.map((item: any) => ({
+    items: rawItems.map((item: any) => ({
       productId: item.product_id || item.productId,
       productName: item.product?.name || item.productName,
       quantity: item.quantity,
-      price: item.price
+      price: Number(item.price) || 0
     })) || [],
-    total: parseFloat(backendOrder.total),
-    status: backendOrder.order_status || backendOrder.status,
-    channel: backendOrder.channel,
+    total: Number(backendOrder.total) || 0,
+    status: normalizeOrderStatus(backendOrder.order_status || backendOrder.status),
+    channel: backendOrder.channel || 'manual',
     createdAt: backendOrder.created_at || backendOrder.createdAt,
     updatedAt: backendOrder.updated_at || backendOrder.updatedAt,
     rto_risk: backendOrder.rto_risk,
     payment_status: backendOrder.payment_status
   };
 }
+  const normalizeApiBaseUrl = (rawBaseUrl: string): string => {
+    const trimmed = rawBaseUrl.replace(/\/+$/, '');
+
+    if (trimmed === '') {
+      return '/api';
+    }
+
+    if (trimmed === '/api' || trimmed.endsWith('/api')) {
+      return trimmed;
+    }
+
+    return `${trimmed}/api`;
+  };
+
 
 // Audit log types
 export interface AuditLog {
@@ -377,8 +411,10 @@ class ApiClient {
   private csrfToken: string | null = null;
 
   constructor() {
+    const normalizedBaseUrl = normalizeApiBaseUrl(config.apiBaseUrl);
+
     this.client = axios.create({
-      baseURL: config.apiBaseUrl,
+      baseURL: normalizedBaseUrl,
       timeout: 10000,
       withCredentials: true, // send httpOnly cookies automatically
       headers: {
@@ -772,9 +808,15 @@ class ApiClient {
     return response.data.data;
   }
 
-  async getOrders(): Promise<Order[]> {
-    const response: AxiosResponse<ApiResponse<any[]>> = await this.client.get('/order');
-    return response.data.data.map(transformOrderFromBackend);
+  async getOrders(params?: { search?: string; start_date?: string; end_date?: string; payment_status?: string; fulfillment_status?: string; page?: number; limit?: number }): Promise<Order[]> {
+    const response: AxiosResponse<ApiResponse<any[]>> = await this.client.get('/order', { params });
+    const payload = response.data?.data;
+
+    if (!Array.isArray(payload)) {
+      return [];
+    }
+
+    return payload.map(transformOrderFromBackend);
   }
 
   async createOrder(order: any): Promise<Order> {

@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { CheckCircle, Clock, Package as PackageIcon, XCircle, Eye, Plus, Search, Download, ChevronDown, X, AlertTriangle } from "lucide-react";
 import { Order, Product } from "../lib/api";
 import { apiClient } from "../lib/api";
-import { authService } from "../lib/auth";
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-700',
@@ -48,6 +47,27 @@ export default function Orders() {
   const [showCreateOrder, setShowCreateOrder] = useState(false);
   const [showProductSelector, setShowProductSelector] = useState(false);
 
+  const resolveDateRange = (value: string): { start_date?: string; end_date?: string } => {
+    const now = new Date();
+
+    if (value === 'today') {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return { start_date: start.toISOString(), end_date: now.toISOString() };
+    }
+
+    if (value === 'last7days') {
+      const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return { start_date: start.toISOString(), end_date: now.toISOString() };
+    }
+
+    if (value === 'last30days') {
+      const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return { start_date: start.toISOString(), end_date: now.toISOString() };
+    }
+
+    return {};
+  };
+
   // Manual order form state
   const [manualOrder, setManualOrder] = useState<ManualOrder>({
     customerName: '',
@@ -64,16 +84,27 @@ export default function Orders() {
     createdBy: 'user',
   });
 
-  // Fetch orders and products on mount
+  // Fetch orders and products from backend with server-side filters
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         setError(null);
+
+        const dateRange = resolveDateRange(dateFilter);
+        const paymentStatus = filterStatus === 'completed' ? 'paid' : undefined;
+        const fulfillmentStatus = filterStatus === 'cancelled' ? 'cancelled' : undefined;
         
         // Fetch both orders and products in parallel
         const [fetchedOrders, fetchedProducts] = await Promise.all([
-          apiClient.getOrders(),
+          apiClient.getOrders({
+            search: searchQuery || undefined,
+            ...dateRange,
+            payment_status: paymentStatus,
+            fulfillment_status: fulfillmentStatus,
+            page: 1,
+            limit: 100,
+          }),
           apiClient.getProducts()
         ]);
         
@@ -87,15 +118,14 @@ export default function Orders() {
     };
 
     fetchData();
-  }, []);
+  }, [dateFilter, searchQuery, filterStatus]);
 
   const filteredOrders = orders.filter(order => {
-    const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
-    const matchesSearch = searchQuery === '' || 
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.channel.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
+    if (filterStatus === 'all') {
+      return true;
+    }
+
+    return order.status === filterStatus;
   });
 
   const handleUpdateStatus = async (orderId: string, newStatus: Order['status']) => {
@@ -105,7 +135,13 @@ export default function Orders() {
         setError('Cannot confirm order: customer has a high RTO risk rating. Please review before proceeding.');
         return;
       }
-      const updatedOrder = await apiClient.updateOrder(orderId, { status: newStatus });
+      let updatedOrder: Order;
+      if (newStatus === 'confirmed') {
+        updatedOrder = await apiClient.confirmOrder(orderId);
+      } else {
+        updatedOrder = await apiClient.updateOrder(orderId, { status: newStatus });
+      }
+
       setOrders(orders.map(o => 
         o.id === orderId ? updatedOrder : o
       ));

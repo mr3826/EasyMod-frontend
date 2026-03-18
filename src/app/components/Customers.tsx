@@ -613,6 +613,25 @@ export default function Customers() {
                     )}
                   </button>
                 </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      )}
+
+      {/* Create Customer Modal */}
+      {showCreateCustomer && (
+        <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">Add Customer</h2>
+              <button
+                onClick={() => {
+                  setShowCreateCustomer(false);
+                  setNewCustomer({ name: "", number: "", email: "", channel: "" as const });
+                  setError(null);
+                }}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
