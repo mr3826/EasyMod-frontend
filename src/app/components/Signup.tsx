@@ -82,7 +82,7 @@ export default function Signup() {
       });
 
       localStorage.setItem(
-        "commerceai_selected_plan",
+        "easymod_selected_plan",
         JSON.stringify({
           planId: selectedPlan.id,
           billing: billingAnnual ? "annual" : "monthly",
