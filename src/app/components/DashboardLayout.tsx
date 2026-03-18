@@ -137,6 +137,18 @@ export default function DashboardLayout() {
           })}
         </nav>
 
+        {/* Privacy footer */}
+        <div className="px-4 pb-2 text-center">
+          <a
+            href="/privacy-policy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-gray-400 hover:text-gray-600 hover:underline"
+          >
+            Privacy Policy
+          </a>
+        </div>
+
         {/* Shop Profile at bottom */}
         <div className="border-t border-gray-200 p-4">
           <button

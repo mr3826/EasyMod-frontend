@@ -294,7 +294,16 @@ export default function Signup() {
                     disabled={isLoading}
                   />
                   <label htmlFor="terms" className="text-sm text-gray-600">
-                    I agree to the Terms of Service and Privacy Policy.
+                    I agree to the Terms of Service and{" "}
+                    <a
+                      href="/privacy-policy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      Privacy Policy
+                    </a>
+                    .
                   </label>
                 </div>
 

@@ -1,4 +1,5 @@
 import { apiClient, User, Shop, AuthResponse, SigninRequest, SignupRequest, CreateShopRequest } from './api';
+import { queryClient } from './queryClient';
 
 // Auth state interface
 export interface AuthState {
@@ -115,8 +116,7 @@ export class AuthService {
 
     const result = await apiClient.switchShop(shopId);
     this.setAuthState({ currentShop: result.currentShop });
-    // TODO: Invalidate TanStack Query cache here instead of reloading the page
-    // queryClient.invalidateQueries();
+    await queryClient.invalidateQueries();
   }
 
   async refreshShops(): Promise<void> {
@@ -141,8 +141,7 @@ export class AuthService {
       currentShop: switchResult.currentShop,
     });
 
-    // TODO: Invalidate TanStack Query cache here instead of reloading the page
-    // queryClient.invalidateQueries();
+    await queryClient.invalidateQueries();
 
     return newShop;
   }
