@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 
-const EFFECTIVE_DATE = "March 18, 2025";
+const EFFECTIVE_DATE = "March 18, 2026";
 const CONTACT_EMAIL = "privacy@easymod.tech";
 const APP_NAME = "Easy Moderator";
 
