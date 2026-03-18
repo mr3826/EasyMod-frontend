@@ -23,7 +23,7 @@ export default function Subscription() {
   const [success, setSuccess] = useState<string | null>(null);
   const [hasSubscriptionData, setHasSubscriptionData] = useState(true);
   const [isUpdatingPlan, setIsUpdatingPlan] = useState(false);
-  const [selectedPlanId, setSelectedPlanId] = useState(subscriptionPlans[1]?.id || "starter");
+  const [selectedPlanId, setSelectedPlanId] = useState(subscriptionPlans[1]?.id || "growth");
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
 
   // State for actual data from API
