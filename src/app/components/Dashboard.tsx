@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from 'react-i18next';
 import { ArrowUp, ArrowDown, MessageSquare, Package, ShoppingCart, TrendingUp } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { apiClient } from "../lib/api";
 
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <div className="text-red-600">⚠️</div>
             <div>
-              <h3 className="font-semibold text-red-900">Error Loading Dashboard</h3>
+              <h3 className="font-semibold text-red-900">{t('dashboard.home.error')}</h3>
               <p className="text-red-700">{error}</p>
             </div>
           </div>
@@ -67,7 +69,7 @@ export default function Dashboard() {
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       </div>
@@ -76,7 +78,7 @@ export default function Dashboard() {
 
   const metrics = dashboardData ? [
     {
-      name: 'Total Messages',
+      name: t('dashboard.home.metrics.totalMessages'),
       value: dashboardData.metrics.totalMessages.toString(),
       change: null as string | null,
       trend: null as 'up' | 'down' | null,
@@ -84,7 +86,7 @@ export default function Dashboard() {
       color: 'blue',
     },
     {
-      name: 'Active Products',
+      name: t('dashboard.home.metrics.activeProducts'),
       value: dashboardData.metrics.activeProducts.toString(),
       change: null as string | null,
       trend: null as 'up' | 'down' | null,
@@ -92,7 +94,7 @@ export default function Dashboard() {
       color: 'purple',
     },
     {
-      name: 'Orders Today',
+      name: t('dashboard.home.metrics.ordersToday'),
       value: dashboardData.metrics.ordersToday.toString(),
       change: `${dashboardData.metrics.weeklyChange >= 0 ? '+' : ''}${dashboardData.metrics.weeklyChange.toFixed(1)}%`,
       trend: dashboardData.metrics.weeklyChange >= 0 ? 'up' : 'down',
@@ -100,7 +102,7 @@ export default function Dashboard() {
       color: 'green',
     },
     {
-      name: 'Conversion Rate',
+      name: t('dashboard.home.metrics.conversionRate'),
       value: `${dashboardData.metrics.conversionRate}%`,
       change: null as string | null,
       trend: null as 'up' | 'down' | null,
@@ -112,20 +114,20 @@ export default function Dashboard() {
   const insights = dashboardData ? [
     {
       id: '1',
-      title: 'Performance Overview',
-      description: `You have ${dashboardData.metrics.activeProducts} active products and ${dashboardData.metrics.ordersToday} orders today.`,
+      title: t('dashboard.home.insights.performance'),
+      description: t('dashboard.home.insights.performanceMsg', { products: dashboardData.metrics.activeProducts, orders: dashboardData.metrics.ordersToday }),
       type: 'info' as const,
     },
     {
       id: '2',
-      title: 'Channel Activity',
-      description: `${dashboardData.channels.active} of ${dashboardData.channels.total} channels are active.`,
+      title: t('dashboard.home.insights.channelActivity'),
+      description: t('dashboard.home.insights.channelMsg', { active: dashboardData.channels.active, total: dashboardData.channels.total }),
       type: 'success' as const,
     },
     {
       id: '3',
-      title: 'Weekly Trend',
-      description: `Orders ${dashboardData.metrics.weeklyChange >= 0 ? 'increased' : 'decreased'} by ${Math.abs(dashboardData.metrics.weeklyChange)}% this week.`,
+      title: t('dashboard.home.insights.weeklyTrend'),
+      description: t('dashboard.home.insights.weeklyMsg', { percent: Math.abs(dashboardData.metrics.weeklyChange), direction: dashboardData.metrics.weeklyChange >= 0 ? t('dashboard.home.insights.increased') : t('dashboard.home.insights.decreased') }),
       type: 'warning' as const,
     },
   ] : [];
@@ -135,15 +137,15 @@ export default function Dashboard() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">Welcome back! Here's your business overview.</p>
+        <h1 className="text-3xl font-bold text-gray-900">{t('dashboard.home.title')}</h1>
+        <p className="text-gray-600 mt-1">{t('dashboard.home.subtitle')}</p>
       </div>
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {metrics.length === 0 ? (
           <div className="col-span-full bg-white rounded-xl p-6 border border-gray-200 text-center text-gray-500">
-            No dashboard metrics available from the backend.
+            {t('dashboard.home.noMetrics')}
           </div>
         ) : (
           metrics.map((metric) => {
@@ -177,10 +179,10 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Orders Chart */}
         <div className="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Orders This Week</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('dashboard.home.ordersChart')}</h2>
           {realChartData.length === 0 ? (
             <div className="h-[300px] flex items-center justify-center text-gray-500">
-              No chart data available from the backend.
+              {t('dashboard.home.noChartData')}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
@@ -203,18 +205,18 @@ export default function Dashboard() {
 
         {/* Channel Status */}
         <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Channel Status</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('dashboard.home.channelStatus')}</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-gray-600">Active Channels</span>
+              <span className="text-gray-600">{t('dashboard.home.activeChannels')}</span>
               <span className="text-2xl font-bold text-gray-900">{dashboardData?.channels?.active || 0}/{dashboardData?.channels?.total || 0}</span>
             </div>
             <div className="text-center py-8">
               <div className="text-4xl mb-2">📡</div>
               <p className="text-gray-600 text-sm">
                 {(dashboardData?.channels?.active || 0) > 0
-                  ? `${dashboardData.channels.active} of ${dashboardData.channels.total} channels are active`
-                  : 'No active channels'
+                  ? t('dashboard.home.channelsActive', { active: dashboardData.channels.active, total: dashboardData.channels.total })
+                  : t('dashboard.home.noActiveChannels')
                 }
               </p>
             </div>
@@ -225,8 +227,8 @@ export default function Dashboard() {
       {/* AI Insights */}
       <div className="bg-white rounded-xl p-6 border border-gray-200">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">AI-Generated Insights</h2>
-          <span className="text-sm text-gray-500">Updated 5 mins ago</span>
+          <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.home.aiInsights')}</h2>
+          <span className="text-sm text-gray-500">{t('dashboard.home.updatedAgo')}</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {insights.length === 0 ? (

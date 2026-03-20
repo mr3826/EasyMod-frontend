@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Truck, Check, X, AlertCircle, Loader2, Power, TestTube } from 'lucide-react';
 import { 
   apiClient, 
@@ -137,6 +138,7 @@ const applyDefaults = (settings?: Partial<DeliveryShopSettings> | null): Deliver
 };
 
 export default function DeliverySettings() {
+  const { t } = useTranslation();
   const [providers, setProviders] = useState<DeliveryProviderStatus[]>([]);
   const [deliverySettings, setDeliverySettings] = useState<DeliveryShopSettings>(DEFAULT_DELIVERY_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -164,7 +166,7 @@ export default function DeliverySettings() {
       setProviders(settings.providers);
       setDeliverySettings(applyDefaults(settings.settings));
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load delivery settings');
+      setError(err.response?.data?.message || t('manageShop.deliverySettings.errors.loadFailed'));
       console.error('Failed to load delivery settings:', err);
     } finally {
       setLoading(false);
@@ -179,9 +181,9 @@ export default function DeliverySettings() {
 
       const saved = await apiClient.updateDeliverySettings(deliverySettings);
       setDeliverySettings(applyDefaults(saved));
-      setSuccessMessage('Delivery settings saved successfully');
+      setSuccessMessage(t('manageShop.deliverySettings.success.settingsSaved'));
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save delivery settings');
+      setError(err.response?.data?.message || t('manageShop.deliverySettings.errors.saveFailed'));
       console.error('Failed to save delivery settings:', err);
     } finally {
       setSavingSettings(false);
@@ -269,7 +271,7 @@ export default function DeliverySettings() {
       // Validate all required fields
       for (const field of config.fields) {
         if (field.required && !credentials[field.name]) {
-          throw new Error(`${field.label} is required`);
+          throw new Error(t('manageShop.deliverySettings.errors.fieldRequired', { field: field.label }));
         }
       }
 
@@ -279,12 +281,12 @@ export default function DeliverySettings() {
         is_sandbox: isSandbox
       });
 
-      setSuccessMessage(`${config.display_name} connected successfully!`);
+      setSuccessMessage(t('manageShop.deliverySettings.success.connected', { provider: config.display_name }));
       setShowCredentialsForm(null);
       setCredentials({});
       await loadDeliverySettings();
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to connect provider');
+      setError(err.response?.data?.message || err.message || t('manageShop.deliverySettings.errors.connectFailed'));
       console.error('Failed to connect provider:', err);
     } finally {
       setConnectingProvider(null);
@@ -293,7 +295,7 @@ export default function DeliverySettings() {
 
   const handleDisconnect = async (provider: DeliveryProvider) => {
     const config = PROVIDER_CONFIGS.find(c => c.provider === provider);
-    if (!confirm(`Are you sure you want to disconnect ${config?.display_name}? This will deactivate the provider.`)) {
+    if (!confirm(t('manageShop.deliverySettings.disconnectConfirm', { provider: config?.display_name }))) {
       return;
     }
 
@@ -304,10 +306,10 @@ export default function DeliverySettings() {
 
       await apiClient.disconnectDeliveryProvider({ provider });
 
-      setSuccessMessage(`${config?.display_name} disconnected successfully`);
+      setSuccessMessage(t('manageShop.deliverySettings.success.disconnected', { provider: config?.display_name }));
       await loadDeliverySettings();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to disconnect provider');
+      setError(err.response?.data?.message || t('manageShop.deliverySettings.errors.disconnectFailed'));
       console.error('Failed to disconnect provider:', err);
     } finally {
       setDisconnectingProvider(null);
@@ -326,10 +328,12 @@ export default function DeliverySettings() {
       });
 
       const config = PROVIDER_CONFIGS.find(c => c.provider === provider);
-      setSuccessMessage(`${config?.display_name} ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+      setSuccessMessage(!currentStatus
+        ? t('manageShop.deliverySettings.success.activated', { provider: config?.display_name })
+        : t('manageShop.deliverySettings.success.deactivated', { provider: config?.display_name }));
       await loadDeliverySettings();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to toggle provider');
+      setError(err.response?.data?.message || t('manageShop.deliverySettings.errors.toggleFailed'));
       console.error('Failed to toggle provider:', err);
     } finally {
       setTogglingProvider(null);
@@ -345,9 +349,9 @@ export default function DeliverySettings() {
       await apiClient.testDeliveryConnection(provider);
 
       const config = PROVIDER_CONFIGS.find(c => c.provider === provider);
-      setSuccessMessage(`${config?.display_name} connection test successful!`);
+      setSuccessMessage(t('manageShop.deliverySettings.success.testSuccess', { provider: config?.display_name }));
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Connection test failed');
+      setError(err.response?.data?.message || t('manageShop.deliverySettings.errors.testFailed'));
       console.error('Connection test failed:', err);
     } finally {
       setTestingProvider(null);
@@ -375,10 +379,10 @@ export default function DeliverySettings() {
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <Truck className="w-6 h-6 text-gray-700" />
-          <h1 className="text-2xl font-semibold text-gray-900">Delivery Settings</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('manageShop.deliverySettings.title')}</h1>
         </div>
         <p className="text-sm text-gray-600">
-          Configure your delivery providers for automated order fulfillment
+          {t('manageShop.deliverySettings.subtitle')}
         </p>
       </div>
 
@@ -414,21 +418,21 @@ export default function DeliverySettings() {
       <div className="mb-8 space-y-6">
         <div className="border border-gray-200 rounded-lg bg-white p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">General Delivery Settings</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('manageShop.deliverySettings.generalSettings')}</h2>
             <button
               onClick={handleSaveSettings}
               disabled={savingSettings}
               className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {savingSettings && <Loader2 className="w-4 h-4 animate-spin" />}
-              Save Settings
+              {t('manageShop.deliverySettings.saveSettings')}
             </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Default Delivery Charge
+                {t('manageShop.deliverySettings.defaultCharge')}
               </label>
               <input
                 type="number"
@@ -440,7 +444,7 @@ export default function DeliverySettings() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cash on Delivery Charge
+                {t('manageShop.deliverySettings.codCharge')}
               </label>
               <input
                 type="number"
@@ -460,7 +464,7 @@ export default function DeliverySettings() {
                 onChange={(e) => updateSetting('cod_enabled', e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-blue-600"
               />
-              Enable Cash on Delivery
+              {t('manageShop.deliverySettings.enableCOD')}
             </label>
 
             <label className="inline-flex items-center gap-2 text-sm text-gray-700">
@@ -470,19 +474,19 @@ export default function DeliverySettings() {
                 onChange={(e) => updateSetting('non_refundable', e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-blue-600"
               />
-              Non-refundable Delivery Charge
+              {t('manageShop.deliverySettings.nonRefundable')}
             </label>
           </div>
         </div>
 
         <div className="border border-gray-200 rounded-lg bg-white p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Area Based Pricing</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('manageShop.deliverySettings.areaBasedPricing')}</h2>
             <button
               onClick={addAreaPricing}
               className="text-sm text-blue-600 hover:text-blue-700"
             >
-              + Add Area
+              {t('manageShop.deliverySettings.addArea')}
             </button>
           </div>
 
@@ -519,7 +523,7 @@ export default function DeliverySettings() {
                       onChange={(e) => updateAreaPricing(index, 'cod_enabled', e.target.checked)}
                       className="h-4 w-4 rounded border-gray-300 text-blue-600"
                     />
-                    COD Allowed
+                    {t('manageShop.deliverySettings.codAllowed')}
                   </label>
                 </div>
                 <div className="md:col-span-1 flex justify-end">
@@ -539,7 +543,7 @@ export default function DeliverySettings() {
         <div className="border border-gray-200 rounded-lg bg-white p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-gray-900">Weight Based Extra Charges</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('manageShop.deliverySettings.weightCharges')}</h2>
               <span
                 className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 text-xs font-semibold text-gray-600"
                 title="Weight tier guide: Add extra charges by weight range. Example: 0-1 kg = 0, 1-3 kg = 20. Extra charge adds to base delivery charge."
@@ -551,7 +555,7 @@ export default function DeliverySettings() {
               onClick={addWeightTier}
               className="text-sm text-blue-600 hover:text-blue-700"
             >
-              + Add Tier
+              {t('manageShop.deliverySettings.addTier')}
             </button>
           </div>
 
@@ -569,7 +573,7 @@ export default function DeliverySettings() {
                     value={tier.from_kg}
                     onChange={(e) => updateWeightTier(index, 'from_kg', Number(e.target.value) || 0)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                    placeholder="From (kg)"
+                    placeholder={t('manageShop.deliverySettings.weightFrom')}
                   />
                 </div>
                 <div className="md:col-span-3">
@@ -578,7 +582,7 @@ export default function DeliverySettings() {
                     value={tier.to_kg}
                     onChange={(e) => updateWeightTier(index, 'to_kg', Number(e.target.value) || 0)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                    placeholder="To (kg)"
+                    placeholder={t('manageShop.deliverySettings.weightTo')}
                   />
                 </div>
                 <div className="md:col-span-4">
@@ -587,7 +591,7 @@ export default function DeliverySettings() {
                     value={tier.extra_charge}
                     onChange={(e) => updateWeightTier(index, 'extra_charge', Number(e.target.value) || 0)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                    placeholder="Extra charge"
+                    placeholder={t('manageShop.deliverySettings.extraCharge')}
                   />
                 </div>
                 <div className="md:col-span-2 flex justify-end">
@@ -603,7 +607,7 @@ export default function DeliverySettings() {
             ))}
 
             {deliverySettings.weight_tiers.length === 0 && (
-              <p className="text-sm text-gray-500">No weight tiers added yet.</p>
+              <p className="text-sm text-gray-500">{t('manageShop.deliverySettings.noTiers')}</p>
             )}
           </div>
         </div>
@@ -637,11 +641,11 @@ export default function DeliverySettings() {
                         <div className="flex items-center gap-4 mt-2">
                           <div className="flex items-center gap-1.5">
                             <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                            <span className="text-xs text-gray-600">Connected</span>
+                            <span className="text-xs text-gray-600">{t('manageShop.deliverySettings.connected')}</span>
                           </div>
                           {providerStatus.last_validated_at && (
                             <span className="text-xs text-gray-500">
-                              Last tested: {new Date(providerStatus.last_validated_at).toLocaleDateString()}
+                              {t('manageShop.deliverySettings.lastTested', { date: new Date(providerStatus.last_validated_at).toLocaleDateString() })}
                             </span>
                           )}
                         </div>
@@ -653,17 +657,17 @@ export default function DeliverySettings() {
                   <div>
                     {isActive && (
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                        Active
+                        {t('manageShop.deliverySettings.statusActive')}
                       </span>
                     )}
                     {isConnected && !isActive && (
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                        Inactive
+                        {t('manageShop.deliverySettings.statusInactive')}
                       </span>
                     )}
                     {!isConnected && (
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
-                        Not Connected
+                        {t('manageShop.deliverySettings.statusNotConnected')}
                       </span>
                     )}
                   </div>
@@ -678,7 +682,7 @@ export default function DeliverySettings() {
                       className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {isConnecting && <Loader2 className="w-4 h-4 animate-spin" />}
-                      Connect
+                      {t('common.connect')}
                     </button>
                   )}
 
@@ -695,7 +699,7 @@ export default function DeliverySettings() {
                       >
                         {isToggling && <Loader2 className="w-4 h-4 animate-spin" />}
                         {!isToggling && <Power className="w-4 h-4" />}
-                        {isActive ? 'Deactivate' : 'Activate'}
+                        {isActive ? t('manageShop.deliverySettings.deactivate') : t('manageShop.deliverySettings.activate')}
                       </button>
 
                       <button
@@ -705,7 +709,7 @@ export default function DeliverySettings() {
                       >
                         {isTesting && <Loader2 className="w-4 h-4 animate-spin" />}
                         {!isTesting && <TestTube className="w-4 h-4" />}
-                        Test Connection
+                        {t('manageShop.deliverySettings.testConnection')}
                       </button>
 
                       <button
@@ -715,7 +719,7 @@ export default function DeliverySettings() {
                       >
                         {isDisconnecting && <Loader2 className="w-4 h-4 animate-spin" />}
                         {!isDisconnecting && <X className="w-4 h-4" />}
-                        Disconnect
+                        {t('common.disconnect')}
                       </button>
                     </>
                   )}
@@ -756,7 +760,7 @@ export default function DeliverySettings() {
                           className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         />
                         <label htmlFor="sandbox" className="text-sm text-gray-700">
-                          Use Sandbox/Test Environment
+                          {t('manageShop.deliverySettings.useSandbox')}
                         </label>
                       </div>
                     )}
@@ -768,7 +772,7 @@ export default function DeliverySettings() {
                         className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
                         {isConnecting && <Loader2 className="w-4 h-4 animate-spin" />}
-                        Save & Connect
+                        {t('manageShop.deliverySettings.saveConnect')}
                       </button>
                       <button
                         onClick={() => {
@@ -777,7 +781,7 @@ export default function DeliverySettings() {
                         }}
                         className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200"
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </button>
                     </div>
                   </div>

@@ -1,16 +1,18 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
 import { Switch } from "./ui/switch";
-import { Badge } from "./ui/badge";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { apiClient } from "../lib/api";
 import { subscriptionPlans, getPlanPrice } from "../lib/subscriptionPlans";
+import LanguageToggle from "./LanguageToggle";
 
 export default function Signup() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { signup } = useAuth();
   const [billingAnnual, setBillingAnnual] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState("growth");
@@ -34,27 +36,27 @@ export default function Signup() {
     setError("");
 
     if (!selectedPlan) {
-      setError("Please select a subscription plan.");
+      setError(t('auth.signup.errors.selectPlan'));
       return;
     }
 
     if (!fullName.trim()) {
-      setError("Please enter your full name.");
+      setError(t('auth.signup.errors.enterName'));
       return;
     }
 
     if (!email.trim()) {
-      setError("Please enter a valid email.");
+      setError(t('auth.signup.errors.enterEmail'));
       return;
     }
 
     if (!password) {
-      setError("Please create a password.");
+      setError(t('auth.signup.errors.createPassword'));
       return;
     }
 
     if (!acceptedTerms) {
-      setError("Please accept the terms to continue.");
+      setError(t('auth.signup.errors.acceptTerms'));
       return;
     }
 
@@ -94,12 +96,18 @@ export default function Signup() {
       setError(
         signupError.response?.data?.error?.message ||
         signupError.response?.data?.message ||
-        "Unable to create account."
+        t('auth.signup.errors.unableToCreate')
       );
     } finally {
       setIsLoading(false);
     }
   };
+
+  const signupFeatures = [
+    { icon: '🛡️', title: t('auth.signup.features.rtoShield.title'), desc: t('auth.signup.features.rtoShield.desc') },
+    { icon: '🚚', title: t('auth.signup.features.delivery.title'), desc: t('auth.signup.features.delivery.desc') },
+    { icon: '💬', title: t('auth.signup.features.chatbot.title'), desc: t('auth.signup.features.chatbot.desc') },
+  ];
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F9FAF8' }}>
@@ -112,11 +120,14 @@ export default function Signup() {
             </div>
             <span className="text-gray-900 text-lg font-bold tracking-tight">Easy Moderator</span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <span>ইতিমধ্যে অ্যাকাউন্ট আছে?</span>
-            <Link to="/signin" className="font-semibold transition-colors" style={{ color: '#00A651' }}>
-              লগইন করুন
-            </Link>
+          <div className="flex items-center gap-4">
+            <LanguageToggle variant="dark" />
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <span>{t('auth.signup.alreadyHaveAccount')}</span>
+              <Link to="/signin" className="font-semibold transition-colors" style={{ color: '#00A651' }}>
+                {t('auth.signup.signIn')}
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -125,11 +136,11 @@ export default function Signup() {
         {/* Page heading */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-full px-4 py-1.5 text-sm text-emerald-700 font-medium mb-4">
-            🇧🇩 ১০,০০০+ বাংলাদেশী ব্যবসায়ী ব্যবহার করছেন
+            {t('auth.signup.badge')}
           </div>
-          <h1 className="text-4xl font-extrabold text-gray-900">শুরু করুন আজই</h1>
+          <h1 className="text-4xl font-extrabold text-gray-900">{t('auth.signup.heading')}</h1>
           <p className="mt-2 text-gray-500 text-base max-w-md mx-auto">
-            আপনার বাংলাদেশী ব্যবসাকে AI দিয়ে এগিয়ে নিন — মাত্র ৫ মিনিটে সেটআপ করুন।
+            {t('auth.signup.subheading')}
           </p>
         </div>
 
@@ -139,21 +150,25 @@ export default function Signup() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">আপনার প্ল্যান বেছে নিন</h2>
-                  <p className="text-sm text-gray-500 mt-0.5">বার্ষিক বিলিংয়ে ২ মাস বিনামূল্যে পান</p>
+                  <h2 className="text-lg font-bold text-gray-900">{t('auth.signup.choosePlan')}</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">{t('auth.signup.annualSavings')}</p>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
-                  <span className={`font-medium ${!billingAnnual ? 'text-gray-900' : 'text-gray-400'}`}>মাসিক</span>
+                  <span className={`font-medium ${!billingAnnual ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {t('auth.signup.monthly')}
+                  </span>
                   <Switch
                     checked={billingAnnual}
                     onCheckedChange={(value: boolean) => setBillingAnnual(value)}
                     aria-label="Toggle annual billing"
                     className="data-[state=checked]:bg-emerald-600"
                   />
-                  <span className={`font-medium ${billingAnnual ? 'text-gray-900' : 'text-gray-400'}`}>বার্ষিক</span>
+                  <span className={`font-medium ${billingAnnual ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {t('auth.signup.annual')}
+                  </span>
                   {billingAnnual && (
                     <span className="bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-                      ২ মাস ফ্রি
+                      {t('auth.signup.twoMonthsFree')}
                     </span>
                   )}
                 </div>
@@ -180,22 +195,22 @@ export default function Signup() {
                         <p className="text-base font-bold text-gray-900">{plan.name}</p>
                         {plan.popular && (
                           <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-600 text-white">
-                            জনপ্রিয়
+                            {t('auth.signup.popular')}
                           </span>
                         )}
                         {isFree && (
                           <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                            বিনামূল্যে
+                            {t('auth.signup.free')}
                           </span>
                         )}
                       </div>
 
                       <div className="flex items-end gap-1 mb-1">
                         <span className="text-2xl font-extrabold text-gray-900">{formatPrice(price)}</span>
-                        <span className="text-xs text-gray-400 pb-1">/মাস</span>
+                        <span className="text-xs text-gray-400 pb-1">{t('auth.signup.perMonth')}</span>
                       </div>
                       <p className="text-xs text-gray-400 mb-4">
-                        {billingAnnual ? 'বার্ষিক বিল' : 'মাসিক বিল'}
+                        {billingAnnual ? t('auth.signup.annualBilling') : t('auth.signup.monthlyBilling')}
                       </p>
 
                       <ul className="space-y-1.5 text-xs text-gray-600 flex-1">
@@ -209,7 +224,7 @@ export default function Signup() {
 
                       {isSelected && (
                         <div className="mt-4 pt-3 border-t border-emerald-200 text-xs font-semibold text-emerald-700 flex items-center gap-1">
-                          <span>✓</span> নির্বাচিত প্ল্যান
+                          {t('auth.signup.selectedPlan')}
                         </div>
                       )}
                     </button>
@@ -220,11 +235,7 @@ export default function Signup() {
 
             {/* BD features strip */}
             <div className="mt-4 grid grid-cols-3 gap-3">
-              {[
-                { icon: '🛡️', title: 'RTO Shield', desc: 'ভুয়া অর্ডার ব্লক' },
-                { icon: '🚚', title: 'Pathao & Steadfast', desc: 'সরাসরি ডেলিভারি' },
-                { icon: '💬', title: 'AI চ্যাটবট', desc: '২৪/৭ অটো রিপ্লাই' },
-              ].map(({ icon, title, desc }) => (
+              {signupFeatures.map(({ icon, title, desc }) => (
                 <div key={title} className="bg-white rounded-xl border border-gray-100 p-3 flex items-start gap-2.5">
                   <span className="text-xl">{icon}</span>
                   <div>
@@ -239,9 +250,10 @@ export default function Signup() {
           {/* Right — account form */}
           <div className="w-full lg:w-[400px] shrink-0">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-1">অ্যাকাউন্ট তৈরি করুন</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-1">{t('auth.signup.createAccountHeading')}</h2>
               <p className="text-sm text-gray-500 mb-5">
-                <span className="font-medium" style={{ color: '#00A651' }}>{selectedPlan.name}</span> প্ল্যান সক্রিয় করতে নিচে পূরণ করুন।
+                <span className="font-medium" style={{ color: '#00A651' }}>{selectedPlan.name}</span>{' '}
+                {t('auth.signup.activatePlan')}
               </p>
 
               {error && (
@@ -253,13 +265,13 @@ export default function Signup() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-gray-700" htmlFor="fullName">
-                    পূর্ণ নাম
+                    {t('auth.signup.fullName')}
                   </label>
                   <Input
                     id="fullName"
                     value={fullName}
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) => setFullName(event.target.value)}
-                    placeholder="আপনার নাম লিখুন"
+                    placeholder={t('auth.signup.fullNamePlaceholder')}
                     autoComplete="name"
                     disabled={isLoading}
                     className="h-11 rounded-xl border-gray-200 focus:border-emerald-500"
@@ -268,14 +280,14 @@ export default function Signup() {
 
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-gray-700" htmlFor="email">
-                    ইমেইল ঠিকানা
+                    {t('auth.signup.email')}
                   </label>
                   <Input
                     id="email"
                     type="email"
                     value={email}
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) => setEmail(event.target.value)}
-                    placeholder="you@example.com"
+                    placeholder={t('auth.signup.emailPlaceholder')}
                     autoComplete="email"
                     disabled={isLoading}
                     className="h-11 rounded-xl border-gray-200 focus:border-emerald-500"
@@ -284,8 +296,8 @@ export default function Signup() {
 
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-gray-700" htmlFor="phone">
-                    মোবাইল নম্বর
-                    <span className="ml-1 text-xs text-gray-400 font-normal">(ঐচ্ছিক)</span>
+                    {t('auth.signup.phone')}
+                    <span className="ml-1 text-xs text-gray-400 font-normal">{t('auth.signup.optional')}</span>
                   </label>
                   <Input
                     id="phone"
@@ -300,14 +312,14 @@ export default function Signup() {
 
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-gray-700" htmlFor="password">
-                    পাসওয়ার্ড
+                    {t('auth.signup.password')}
                   </label>
                   <Input
                     id="password"
                     type="password"
                     value={password}
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)}
-                    placeholder="শক্তিশালী পাসওয়ার্ড দিন"
+                    placeholder={t('auth.signup.passwordPlaceholder')}
                     autoComplete="new-password"
                     disabled={isLoading}
                     className="h-11 rounded-xl border-gray-200 focus:border-emerald-500"
@@ -316,7 +328,7 @@ export default function Signup() {
 
                 {/* BD Payment section */}
                 <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4">
-                  <p className="text-xs font-semibold text-gray-700 mb-2">পেমেন্ট পদ্ধতি</p>
+                  <p className="text-xs font-semibold text-gray-700 mb-2">{t('auth.signup.paymentMethod')}</p>
                   <div className="flex flex-wrap gap-2 mb-3">
                     {[
                       { label: 'bKash', color: 'bg-pink-100 text-pink-700 border-pink-200' },
@@ -330,8 +342,8 @@ export default function Signup() {
                     ))}
                   </div>
                   <p className="text-xs text-gray-400">
-                    🔜 বাংলাদেশী পেমেন্ট পদ্ধতি শীঘ্রই আসছে।{' '}
-                    <span className="text-gray-500">Dev mode-এ কোনো চার্জ প্রযোজ্য নয়।</span>
+                    {t('auth.signup.paymentComingSoon')}{' '}
+                    <span className="text-gray-500">{t('auth.signup.paymentDevMode')}</span>
                   </p>
                 </div>
 
@@ -345,27 +357,29 @@ export default function Signup() {
                     className="mt-0.5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
                   />
                   <label htmlFor="terms" className="text-xs text-gray-600 leading-relaxed">
-                    আমি{' '}
+                    {t('auth.signup.agreePrefix')}{' '}
                     <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="font-medium underline" style={{ color: '#00A651' }}>
-                      গোপনীয়তা নীতি
+                      {t('auth.signup.privacyPolicy')}
                     </a>{' '}
-                    ও শর্তাবলী পড়েছি এবং সম্মতি দিচ্ছি।
+                    {t('auth.signup.agreeSuffix')}
                   </label>
                 </div>
 
                 {/* Order summary */}
                 <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-2 text-sm">
                   <div className="flex justify-between text-gray-600">
-                    <span>প্ল্যান</span>
+                    <span>{t('auth.signup.plan')}</span>
                     <span className="font-semibold text-gray-900">{selectedPlan.name}</span>
                   </div>
                   <div className="flex justify-between text-gray-600">
-                    <span>বিলিং</span>
-                    <span className="font-semibold text-gray-900">{billingAnnual ? 'বার্ষিক' : 'মাসিক'}</span>
+                    <span>{t('auth.signup.billing')}</span>
+                    <span className="font-semibold text-gray-900">
+                      {billingAnnual ? t('auth.signup.annual') : t('auth.signup.monthly')}
+                    </span>
                   </div>
                   <div className="border-t border-gray-200 pt-2 flex justify-between">
-                    <span className="text-gray-700 font-medium">আজ পেমেন্ট</span>
-                    <span className="font-bold text-emerald-600">৳০ (Dev Mode)</span>
+                    <span className="text-gray-700 font-medium">{t('auth.signup.payToday')}</span>
+                    <span className="font-bold text-emerald-600">{t('auth.signup.devModeAmount')}</span>
                   </div>
                 </div>
 
@@ -381,16 +395,16 @@ export default function Signup() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                       </svg>
-                      অ্যাকাউন্ট তৈরি হচ্ছে...
+                      {t('auth.signup.creating')}
                     </span>
                   ) : (
-                    'অ্যাকাউন্ট তৈরি করুন →'
+                    t('auth.signup.createButton')
                   )}
                 </Button>
               </form>
 
               <div className="mt-4 text-center text-xs text-gray-400">
-                🔒 আপনার তথ্য সম্পূর্ণ সুরক্ষিত
+                {t('auth.signup.secure')}
               </div>
             </div>
           </div>

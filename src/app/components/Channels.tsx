@@ -4,6 +4,7 @@ import { Channel } from "../lib/api";
 import { apiClient } from "../lib/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from 'react-i18next';
 
 interface ChannelType {
   id: string;
@@ -40,6 +41,7 @@ const availableChannels: ChannelType[] = [
 ];
 
 export default function Channels() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -77,7 +79,7 @@ export default function Channels() {
 
   const handleTestConnection = async () => {
     if (!accessToken.trim()) {
-      toast.error('Please enter an access token');
+      toast.error(t('channels.errors.tokenRequired'));
       return;
     }
     if (!selectedChannel) return;
@@ -92,10 +94,10 @@ export default function Channels() {
         systemUserToken: accessToken,
       });
       setConnectionStep('complete');
-      toast.success(`${selectedChannel.name} connected successfully!`);
+      toast.success(t('channels.successToast', { channel: selectedChannel.name }));
       fetchChannels();
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Connection failed. Check your token.');
+      toast.error(error.response?.data?.error?.message || t('channels.errors.connectionFailed'));
       setConnectionStep('authorize');
     } finally {
       setIsConnecting(false);
@@ -119,15 +121,15 @@ export default function Channels() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Channels</h1>
-          <p className="text-gray-600 mt-1">Manage your communication channels</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('channels.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('channels.subtitle')}</p>
         </div>
         <button
           onClick={() => setShowConnectModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Plus className="w-5 h-5" />
-          Connect Channel
+          {t('channels.connectChannel')}
         </button>
       </div>
 
@@ -160,7 +162,7 @@ export default function Channels() {
           <div className="flex items-center gap-3">
             <AlertCircle className="w-6 h-6 text-red-600" />
             <div>
-              <h3 className="font-semibold text-red-900">Error Loading Channels</h3>
+              <h3 className="font-semibold text-red-900">{t('channels.errorTitle')}</h3>
               <p className="text-red-700">{error}</p>
             </div>
           </div>
@@ -168,20 +170,20 @@ export default function Channels() {
             onClick={() => fetchChannels()}
             className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       ) : channels.length === 0 ? (
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-12 text-center">
           <div className="text-6xl mb-4">{'\uD83D\uDCE1'}</div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Channels Connected</h3>
-          <p className="text-gray-600 mb-6">Connect your first channel to start receiving messages from customers.</p>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('channels.noChannels')}</h3>
+          <p className="text-gray-600 mb-6">{t('channels.noChannelsHint')}</p>
           <button
             onClick={() => setShowConnectModal(true)}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 mx-auto"
           >
             <Plus className="w-5 h-5" />
-            Connect First Channel
+            {t('channels.connectFirst')}
           </button>
         </div>
       ) : (
@@ -200,19 +202,19 @@ export default function Channels() {
                   {channel.status === 'active' && (
                     <span className="flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      Active
+                      {t('channels.statusActive')}
                     </span>
                   )}
                   {channel.status === 'inactive' && (
                     <span className="flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
                       <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                      Inactive
+                      {t('channels.statusInactive')}
                     </span>
                   )}
                   {channel.status === 'error' && (
                     <span className="flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm">
                       <AlertCircle className="w-3 h-3" />
-                      Error
+                      {t('channels.statusError')}
                     </span>
                   )}
                 </div>
@@ -221,11 +223,11 @@ export default function Channels() {
               {channel.connected && (
                 <div className="space-y-3 mb-4">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Messages Today</span>
+                    <span className="text-gray-600">{t('channels.messagesToday')}</span>
                     <span className="font-semibold text-gray-900">{channel.messageCount}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Last Sync</span>
+                    <span className="text-gray-600">{t('channels.lastSync')}</span>
                     <span className="font-semibold text-gray-900">{channel.lastSync}</span>
                   </div>
                 </div>
@@ -237,7 +239,7 @@ export default function Channels() {
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
                 >
                   <Settings className="w-4 h-4" />
-                  Configure
+                  {t('channels.configure')}
                 </button>
                 {channel.connected && (
                   <button
@@ -258,12 +260,17 @@ export default function Channels() {
       {showConnectModal && (
         <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Connect New Channel</h2>
-            <p className="text-gray-600 mb-6">Choose a platform to connect with your customers</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('channels.connectModal.title')}</h2>
+            <p className="text-gray-600 mb-6">{t('channels.connectModal.subtitle')}</p>
 
             {/* Step Indicator */}
             <div className="flex items-center justify-between mb-8">
-              {['Select', 'Authorize', 'Test', 'Complete'].map((step, index) => {
+              {[
+                t('channels.connectModal.steps.select'),
+                t('channels.connectModal.steps.authorize'),
+                t('channels.connectModal.steps.test'),
+                t('channels.connectModal.steps.complete'),
+              ].map((step, index) => {
                 const steps = ['select', 'authorize', 'test', 'complete'];
                 const currentIndex = steps.indexOf(connectionStep);
                 const isActive = index <= currentIndex;
@@ -295,9 +302,10 @@ export default function Channels() {
                     <div className="flex items-center gap-3">
                       <div className="text-3xl">{channel.icon}</div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{channel.name}</h3>
-                        <p className="text-sm text-gray-600">{channel.description}</p>
+                        <h3 className="font-semibold text-gray-900">{t(`channels.connectModal.channels.${channel.id}.name`)}</h3>
+                        <p className="text-sm text-gray-600">{t(`channels.connectModal.channels.${channel.id}.description`)}</p>
                       </div>
+                      <span className="text-sm text-blue-600 font-medium">{t('channels.connectModal.selectButton')}</span>
                     </div>
                   </button>
                 ))}
@@ -309,31 +317,30 @@ export default function Channels() {
               <div>
                 <div className="text-center mb-6">
                   <div className="text-5xl mb-3">{selectedChannel.icon}</div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{selectedChannel.name}</h3>
-                  <p className="text-gray-600">{selectedChannel.description}</p>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{t(`channels.connectModal.channels.${selectedChannel.id}.name`)}</h3>
+                  <p className="text-gray-600">{t(`channels.connectModal.channels.${selectedChannel.id}.description`)}</p>
                 </div>
 
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Access Token / API Key
+                      {t('channels.connectModal.tokenLabel')}
                     </label>
                     <input
                       type="text"
                       value={accessToken}
                       onChange={(e) => setAccessToken(e.target.value)}
-                      placeholder="Paste your token here..."
+                      placeholder={t('channels.connectModal.tokenPlaceholder')}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-blue-900 mb-2">How to get your token:</h4>
+                    <h4 className="font-semibold text-blue-900 mb-2">{t('channels.connectModal.howToGet')}</h4>
                     <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                      <li>Go to {selectedChannel.name} Developer Portal</li>
-                      <li>Create a new app or use existing one</li>
-                      <li>Generate an access token</li>
-                      <li>Copy and paste it above</li>
+                      {(t('channels.connectModal.instructions', { returnObjects: true }) as string[]).map((item, idx) => (
+                        <li key={idx}>{item}</li>
+                      ))}
                     </ol>
                   </div>
                 </div>
@@ -347,14 +354,14 @@ export default function Channels() {
                     }}
                     className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     onClick={handleTestConnection}
                     disabled={!accessToken.trim() || isConnecting}
                     className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    {isConnecting ? 'Connecting...' : 'Connect'}
+                    {isConnecting ? t('channels.connectModal.connectButton') : t('channels.connectModal.connectButton')}
                   </button>
                 </div>
               </div>
@@ -364,8 +371,8 @@ export default function Channels() {
             {connectionStep === 'test' && (
               <div className="text-center py-12">
                 <Loader2 className="w-16 h-16 text-blue-600 mx-auto mb-4 animate-spin" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Connecting...</h3>
-                <p className="text-gray-600">Please wait while we verify your credentials</p>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('channels.connectModal.testingTitle')}</h3>
+                <p className="text-gray-600">{t('channels.connectModal.testingMessage')}</p>
               </div>
             )}
 
@@ -375,8 +382,8 @@ export default function Channels() {
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Check className="w-10 h-10 text-green-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Connection Successful!</h3>
-                <p className="text-gray-600 mb-6">Your channel is now active and ready to receive messages</p>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('channels.connectModal.successTitle')}</h3>
+                <p className="text-gray-600 mb-6">{t('channels.connectModal.successMessage')}</p>
                 <button
                   onClick={() => {
                     setShowConnectModal(false);
@@ -385,7 +392,7 @@ export default function Channels() {
                   }}
                   className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
-                  Done
+                  {t('channels.connectModal.doneButton')}
                 </button>
               </div>
             )}

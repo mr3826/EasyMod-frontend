@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from 'react-i18next';
 import { CheckCircle, Clock, Package as PackageIcon, XCircle, Eye, Plus, Search, Download, ChevronDown, X, AlertTriangle } from "lucide-react";
 import { Order, Product } from "../lib/api";
 import { apiClient } from "../lib/api";
@@ -35,6 +36,7 @@ interface ManualOrder {
 }
 
 export default function Orders() {
+  const { t } = useTranslation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -111,7 +113,7 @@ export default function Orders() {
         setOrders(fetchedOrders);
         setProducts(fetchedProducts);
       } catch (error: any) {
-        setError(error.response?.data?.message || 'Failed to load orders and products');
+        setError(error.response?.data?.message || t('orders.errors.loadFailed'));
       } finally {
         setIsLoading(false);
       }
@@ -132,7 +134,7 @@ export default function Orders() {
     try {
       const order = orders.find(o => o.id === orderId);
       if (newStatus === 'confirmed' && order?.rto_risk === 'high') {
-        setError('Cannot confirm order: customer has a high RTO risk rating. Please review before proceeding.');
+        setError(t('orders.errors.highRTO'));
         return;
       }
       let updatedOrder: Order;
@@ -149,7 +151,7 @@ export default function Orders() {
         setSelectedOrder(updatedOrder);
       }
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Failed to update order status');
+      setError(error.response?.data?.message || t('orders.errors.updateStatus'));
     }
   };
 
@@ -185,14 +187,14 @@ export default function Orders() {
 
   const handleExport = (format: 'csv' | 'excel') => {
     if (orders.length === 0) {
-      setError('No orders available to export.');
+      setError(t('orders.errors.noExportData'));
       setTimeout(() => setError(null), 2500);
       setShowExportMenu(false);
       return;
     }
 
     if (format === 'excel') {
-      setError('Excel export is not available yet. Downloaded CSV instead.');
+      setError(t('orders.errors.excelNotAvailable'));
       setTimeout(() => setError(null), 2500);
     }
 
@@ -272,19 +274,19 @@ export default function Orders() {
     try {
       // Validate required fields
       if (!manualOrder.customerName.trim()) {
-        setError('Customer name is required');
+        setError(t('orders.errors.nameRequired'));
         return;
       }
       if (!manualOrder.customerPhone.trim()) {
-        setError('Phone/Mobile number is required');
+        setError(t('orders.errors.phoneRequired'));
         return;
       }
       if (!manualOrder.deliveryAddress.trim()) {
-        setError('Delivery address is required');
+        setError(t('orders.errors.addressRequired'));
         return;
       }
       if (manualOrder.items.length === 0) {
-        setError('At least one item is required');
+        setError(t('orders.errors.itemRequired'));
         return;
       }
 
@@ -326,7 +328,7 @@ export default function Orders() {
         createdBy: 'user',
       });
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Failed to create order');
+      setError(error.response?.data?.message || t('orders.errors.createFailed'));
     }
   };
 
@@ -334,8 +336,8 @@ export default function Orders() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Orders</h1>
-          <p className="text-gray-600 mt-1">Manage customer orders and fulfillment</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('orders.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('orders.subtitle')}</p>
         </div>
       </div>
 
@@ -344,28 +346,28 @@ export default function Orders() {
         <div className="bg-white rounded-lg p-4 border border-gray-200">
           <div className="flex items-center gap-2 text-gray-600 mb-2">
             <Clock className="w-4 h-4" />
-            <span className="text-sm">Draft</span>
+            <span className="text-sm">{t('orders.statusDraft')}</span>
           </div>
           <p className="text-2xl font-bold text-gray-900">{orders.filter(o => o.status === 'draft').length}</p>
         </div>
         <div className="bg-white rounded-lg p-4 border border-gray-200">
           <div className="flex items-center gap-2 text-blue-600 mb-2">
             <CheckCircle className="w-4 h-4" />
-            <span className="text-sm">Confirmed</span>
+            <span className="text-sm">{t('orders.statusConfirmed')}</span>
           </div>
           <p className="text-2xl font-bold text-gray-900">{orders.filter(o => o.status === 'confirmed').length}</p>
         </div>
         <div className="bg-white rounded-lg p-4 border border-gray-200">
           <div className="flex items-center gap-2 text-yellow-600 mb-2">
             <PackageIcon className="w-4 h-4" />
-            <span className="text-sm">Processing</span>
+            <span className="text-sm">{t('orders.statusProcessing')}</span>
           </div>
           <p className="text-2xl font-bold text-gray-900">{orders.filter(o => o.status === 'processing').length}</p>
         </div>
         <div className="bg-white rounded-lg p-4 border border-gray-200">
           <div className="flex items-center gap-2 text-green-600 mb-2">
             <CheckCircle className="w-4 h-4" />
-            <span className="text-sm">Completed</span>
+            <span className="text-sm">{t('orders.statusCompleted')}</span>
           </div>
           <p className="text-2xl font-bold text-gray-900">{orders.filter(o => o.status === 'completed').length}</p>
         </div>
@@ -376,16 +378,16 @@ export default function Orders() {
         <div className="flex flex-wrap items-center gap-3">
           {/* Date Filter */}
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Filter by Date:</label>
+            <label className="text-sm font-medium text-gray-700">{t('orders.filterDate')}</label>
             <select
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             >
-              <option value="today">Today</option>
-              <option value="last7days">Last 7 days</option>
-              <option value="last30days">Last 30 days</option>
-              <option value="custom">Custom range</option>
+              <option value="today">{t('orders.dateToday')}</option>
+              <option value="last7days">{t('orders.dateLast7')}</option>
+              <option value="last30days">{t('orders.dateLast30')}</option>
+              <option value="custom">{t('orders.dateCustom')}</option>
             </select>
           </div>
 
@@ -397,7 +399,7 @@ export default function Orders() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Order ID / Customer / Channel"
+                placeholder={t('orders.searchPlaceholder')}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
@@ -410,7 +412,7 @@ export default function Orders() {
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
             >
               <Download className="w-4 h-4" />
-              Export
+              {t('orders.export')}
               <ChevronDown className="w-4 h-4" />
             </button>
             {showExportMenu && (
@@ -419,13 +421,13 @@ export default function Orders() {
                   onClick={() => handleExport('csv')}
                   className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
                 >
-                  Export CSV
+                  {t('orders.exportCSV')}
                 </button>
                 <button
                   onClick={() => handleExport('excel')}
                   className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm border-t border-gray-200"
                 >
-                  Export Excel
+                  {t('orders.exportExcel')}
                 </button>
               </div>
             )}
@@ -437,7 +439,7 @@ export default function Orders() {
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
           >
             <Plus className="w-4 h-4" />
-            Create Order
+            {t('orders.createOrder')}
           </button>
         </div>
       </div>
@@ -445,17 +447,24 @@ export default function Orders() {
       {/* Filters */}
       <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
         <div className="flex gap-2">
-          {['all', 'draft', 'confirmed', 'processing', 'completed', 'cancelled'].map((status) => (
+          {[
+            { value: 'all', label: t('orders.statusAll') },
+            { value: 'draft', label: t('orders.statusDraft') },
+            { value: 'confirmed', label: t('orders.statusConfirmed') },
+            { value: 'processing', label: t('orders.statusProcessing') },
+            { value: 'completed', label: t('orders.statusCompleted') },
+            { value: 'cancelled', label: t('orders.statusCancelled') },
+          ].map(({ value, label }) => (
             <button
-              key={status}
-              onClick={() => setFilterStatus(status)}
+              key={value}
+              onClick={() => setFilterStatus(value)}
               className={`px-4 py-2 rounded-lg text-sm transition-colors ${
-                filterStatus === status
+                filterStatus === value
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
+              {label}
             </button>
           ))}
         </div>
@@ -466,13 +475,13 @@ export default function Orders() {
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Channel</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.orderId')}</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.customer')}</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.items')}</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.total')}</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.channel')}</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.status')}</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.actions')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -488,18 +497,18 @@ export default function Orders() {
                       <span className="text-sm text-gray-900">{order.customerName}</span>
                       {order.rto_risk === 'high' && (
                         <span className="ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-                          <AlertTriangle className="w-3 h-3" /> High RTO
+                          <AlertTriangle className="w-3 h-3" /> {t('customers.highRTO')}
                         </span>
                       )}
                       {order.rto_risk === 'medium' && (
                         <span className="ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-                          <AlertTriangle className="w-3 h-3" /> Med RTO
+                          <AlertTriangle className="w-3 h-3" /> {t('customers.medRTO')}
                         </span>
                       )}
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-500">{order.items.length} items</td>
+                <td className="px-6 py-4 text-sm text-gray-500">{t('orders.itemCount', { count: order.items.length })}</td>
                 <td className="px-6 py-4 text-sm font-semibold text-gray-900">${order.total.toFixed(2)}</td>
                 <td className="px-6 py-4">
                   <span className="text-sm text-gray-600 capitalize">{order.channel}</span>
@@ -528,7 +537,7 @@ export default function Orders() {
         <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="text-2xl font-bold text-gray-900">Create Manual Order</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{t('orders.createModal.title')}</h2>
               <button
                 onClick={() => setShowCreateOrder(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -540,40 +549,40 @@ export default function Orders() {
             <div className="p-6 space-y-6">
               {/* Customer Info */}
               <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Customer Information</h3>
+                <h3 className="font-semibold text-gray-900 mb-3">{t('orders.createModal.customerSection')}</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Customer Name <span className="text-red-500">*</span>
+                      {t('orders.createModal.customerName')} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={manualOrder.customerName}
                       onChange={(e) => setManualOrder({ ...manualOrder, customerName: e.target.value })}
-                      placeholder="Enter customer name"
+                      placeholder={t('orders.createModal.customerNamePlaceholder')}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone/Mobile Number <span className="text-red-500">*</span>
+                      {t('orders.createModal.phone')} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="tel"
                       value={manualOrder.customerPhone}
                       onChange={(e) => setManualOrder({ ...manualOrder, customerPhone: e.target.value })}
-                      placeholder="Enter phone number"
+                      placeholder={t('orders.createModal.phonePlaceholder')}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Channel</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('orders.createModal.channel')}</label>
                     <select
                       value={manualOrder.channel}
                       onChange={(e) => setManualOrder({ ...manualOrder, channel: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="manual">Manual Entry</option>
+                      <option value="manual">{t('orders.createModal.channelManual')}</option>
                       <option value="whatsapp">WhatsApp</option>
                       <option value="facebook">Facebook</option>
                       <option value="webchat">Web Chat</option>
@@ -585,12 +594,12 @@ export default function Orders() {
                 {/* Delivery Address */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Delivery Address <span className="text-red-500">*</span>
+                    {t('orders.createModal.address')} <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={manualOrder.deliveryAddress}
                     onChange={(e) => setManualOrder({ ...manualOrder, deliveryAddress: e.target.value })}
-                    placeholder="Enter complete delivery address"
+                    placeholder={t('orders.createModal.addressPlaceholder')}
                     rows={3}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -600,20 +609,20 @@ export default function Orders() {
               {/* Products */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-gray-900">Products</h3>
+                  <h3 className="font-semibold text-gray-900">{t('orders.createModal.productsSection')}</h3>
                   <button
                     onClick={() => setShowProductSelector(true)}
                     className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                   >
                     <Plus className="w-4 h-4" />
-                    Add Product
+                    {t('orders.createModal.addProduct')}
                   </button>
                 </div>
 
                 {manualOrder.items.length === 0 ? (
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                     <PackageIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600">No products added yet</p>
+                    <p className="text-gray-600">{t('orders.createModal.noProducts')}</p>
                   </div>
                 ) : (
                   <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
@@ -655,14 +664,14 @@ export default function Orders() {
 
               {/* Order Summary */}
               <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-4">Order Summary</h3>
+                <h3 className="font-semibold text-gray-900 mb-4">{t('orders.createModal.orderSummary')}</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="text-gray-600">{t('orders.createModal.subtotal')}:</span>
                     <span className="text-gray-900">${calculateSubtotal().toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm items-center">
-                    <span className="text-gray-600">Discount:</span>
+                    <span className="text-gray-600">{t('orders.createModal.discount')}:</span>
                     <div className="flex items-center gap-2">
                       <span className="text-gray-500">$</span>
                       <input
@@ -676,7 +685,7 @@ export default function Orders() {
                     </div>
                   </div>
                   <div className="flex justify-between text-sm items-center">
-                    <span className="text-gray-600">VAT / TAX:</span>
+                    <span className="text-gray-600">{t('orders.createModal.vat')}:</span>
                     <div className="flex items-center gap-2">
                       <span className="text-gray-500">$</span>
                       <input
@@ -690,7 +699,7 @@ export default function Orders() {
                     </div>
                   </div>
                   <div className="flex justify-between text-sm items-center">
-                    <span className="text-gray-600">Delivery:</span>
+                    <span className="text-gray-600">{t('orders.createModal.delivery')}:</span>
                     <div className="flex items-center gap-2">
                       <span className="text-gray-500">$</span>
                       <input
@@ -704,7 +713,7 @@ export default function Orders() {
                     </div>
                   </div>
                   <div className="border-t border-gray-300 pt-3 flex justify-between font-bold">
-                    <span className="text-gray-900">Total:</span>
+                    <span className="text-gray-900">{t('orders.createModal.total')}:</span>
                     <span className="text-blue-600 text-lg">${calculateTotal().toFixed(2)}</span>
                   </div>
                 </div>
@@ -713,32 +722,32 @@ export default function Orders() {
               {/* Payment & Notes */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Payment Status</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('orders.createModal.paymentStatus')}</label>
                   <select
                     value={manualOrder.payment}
                     onChange={(e) => setManualOrder({ ...manualOrder, payment: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="pending">Pending</option>
-                    <option value="paid">Paid</option>
-                    <option value="unpaid">Unpaid</option>
-                    <option value="refunded">Refunded</option>
-                    <option value="partially_paid">Partially Paid</option>
+                    <option value="pending">{t('orders.createModal.payPending')}</option>
+                    <option value="paid">{t('orders.createModal.payPaid')}</option>
+                    <option value="unpaid">{t('orders.createModal.payUnpaid')}</option>
+                    <option value="refunded">{t('orders.createModal.payRefunded')}</option>
+                    <option value="partially_paid">{t('orders.createModal.payPartial')}</option>
                   </select>
                   {(manualOrder.payment === 'unpaid' || manualOrder.payment === 'pending') && (
                     <p className="mt-1.5 flex items-center gap-1 text-xs text-amber-700">
                       <AlertTriangle className="w-3 h-3 flex-shrink-0" />
-                      COD/unpaid orders carry higher return-to-origin (RTO) risk.
+                      {t('orders.createModal.rtoWarning')}
                     </p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Order Notes</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('orders.createModal.notes')}</label>
                   <input
                     type="text"
                     value={manualOrder.notes}
                     onChange={(e) => setManualOrder({ ...manualOrder, notes: e.target.value })}
-                    placeholder="Optional notes"
+                    placeholder={t('orders.createModal.notesPlaceholder')}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -750,7 +759,7 @@ export default function Orders() {
                 onClick={() => setShowCreateOrder(false)}
                 className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleCreateOrder}
@@ -762,7 +771,7 @@ export default function Orders() {
                 }
                 className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Order
+                {t('orders.createModal.createButton')}
               </button>
             </div>
           </div>
@@ -774,7 +783,7 @@ export default function Orders() {
         <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900">Select Product</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('orders.selectProduct.title')}</h3>
               <button
                 onClick={() => setShowProductSelector(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -833,7 +842,7 @@ export default function Orders() {
           <div className="bg-white rounded-xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Order Details</h2>
+                <h2 className="text-2xl font-bold text-gray-900">{t('orders.detailModal.title')}</h2>
                 <p className="text-gray-600 mt-1">{selectedOrder.id}</p>
               </div>
               <button
@@ -846,18 +855,18 @@ export default function Orders() {
 
             {/* Customer Info */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <h3 className="font-semibold text-gray-900 mb-3">Customer Information</h3>
+              <h3 className="font-semibold text-gray-900 mb-3">{t('orders.detailModal.customerSection')}</h3>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Name:</span>
+                  <span className="text-gray-600">{t('orders.detailModal.name')}:</span>
                   <span className="text-gray-900 font-medium">{selectedOrder.customerName}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Channel:</span>
+                  <span className="text-gray-600">{t('orders.detailModal.channel')}:</span>
                   <span className="text-gray-900 font-medium capitalize">{selectedOrder.channel}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Created:</span>
+                  <span className="text-gray-600">{t('orders.detailModal.created')}:</span>
                   <span className="text-gray-900 font-medium">
                     {new Date(selectedOrder.createdAt).toLocaleString()}
                   </span>
@@ -867,22 +876,22 @@ export default function Orders() {
 
             {/* Order Meta Information */}
             <div className="bg-blue-50 rounded-lg p-4 mb-6 border border-blue-200">
-              <h3 className="font-semibold text-gray-900 mb-3">Order Meta Information</h3>
+              <h3 className="font-semibold text-gray-900 mb-3">{t('orders.detailModal.metaSection')}</h3>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Order Source:</span>
+                  <span className="text-gray-600">{t('orders.detailModal.orderSource')}:</span>
                   <span className="text-gray-900 font-medium capitalize">{selectedOrder.channel}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Created By:</span>
+                  <span className="text-gray-600">{t('orders.detailModal.createdBy')}:</span>
                   <span className="text-gray-900 font-medium">
-                    {selectedOrder.channel === 'manual' ? 'User (Manual)' : 'AI Assistant'}
+                    {selectedOrder.channel === 'manual' ? t('orders.detailModal.createdByManual') : t('orders.detailModal.createdByAI')}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Order Creation Method:</span>
+                  <span className="text-gray-600">{t('orders.detailModal.creationMethod')}:</span>
                   <span className="text-gray-900 font-medium">
-                    {selectedOrder.channel === 'manual' ? 'Manual Entry' : 'Automated'}
+                    {selectedOrder.channel === 'manual' ? t('orders.detailModal.methodManual') : t('orders.detailModal.methodAutomated')}
                   </span>
                 </div>
               </div>
@@ -890,13 +899,13 @@ export default function Orders() {
 
             {/* Order Items */}
             <div className="mb-6">
-              <h3 className="font-semibold text-gray-900 mb-3">Order Items</h3>
+              <h3 className="font-semibold text-gray-900 mb-3">{t('orders.detailModal.itemsSection')}</h3>
               <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
                 {selectedOrder.items.map((item, index) => (
                   <div key={index} className="p-4 flex justify-between items-center">
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">{item.productName}</p>
-                      <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
+                      <p className="text-sm text-gray-500">{t('orders.detailModal.quantity')}: {item.quantity}</p>
                     </div>
                     <p className="text-gray-900 font-semibold">
                       ${(item.price * item.quantity).toFixed(2)}
@@ -906,27 +915,32 @@ export default function Orders() {
               </div>
               
               <div className="mt-4 flex justify-between items-center text-lg font-bold">
-                <span>Total:</span>
+                <span>{t('orders.detailModal.total')}:</span>
                 <span className="text-blue-600">${selectedOrder.total.toFixed(2)}</span>
               </div>
             </div>
 
             {/* Order Status */}
             <div className="mb-6">
-              <h3 className="font-semibold text-gray-900 mb-3">Update Status</h3>
+              <h3 className="font-semibold text-gray-900 mb-3">{t('orders.detailModal.updateStatus')}</h3>
               <div className="grid grid-cols-2 gap-2">
-                {(['confirmed', 'processing', 'completed', 'cancelled'] as Order['status'][]).map((status) => (
+                {([
+                  { value: 'confirmed' as Order['status'], label: t('orders.statusConfirmed') },
+                  { value: 'processing' as Order['status'], label: t('orders.statusProcessing') },
+                  { value: 'completed' as Order['status'], label: t('orders.statusCompleted') },
+                  { value: 'cancelled' as Order['status'], label: t('orders.statusCancelled') },
+                ]).map(({ value, label }) => (
                   <button
-                    key={status}
-                    onClick={() => handleUpdateStatus(selectedOrder.id, status)}
-                    disabled={selectedOrder.status === status}
+                    key={value}
+                    onClick={() => handleUpdateStatus(selectedOrder.id, value)}
+                    disabled={selectedOrder.status === value}
                     className={`px-4 py-2 rounded-lg text-sm transition-colors ${
-                      selectedOrder.status === status
-                        ? statusColors[status] + ' opacity-50 cursor-not-allowed'
+                      selectedOrder.status === value
+                        ? statusColors[value] + ' opacity-50 cursor-not-allowed'
                         : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                     }`}
                   >
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                    {label}
                   </button>
                 ))}
               </div>
@@ -937,7 +951,7 @@ export default function Orders() {
                 onClick={() => setSelectedOrder(null)}
                 className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
-                Close
+                {t('orders.detailModal.close')}
               </button>
               {selectedOrder.status === 'draft' && (
                 <>
@@ -945,13 +959,13 @@ export default function Orders() {
                     onClick={() => handleUpdateStatus(selectedOrder.id, 'confirmed')}
                     className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                   >
-                    Confirm Order
+                    {t('orders.detailModal.confirmOrder')}
                   </button>
                   <button
                     onClick={() => handleUpdateStatus(selectedOrder.id, 'cancelled')}
                     className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 ml-2"
                   >
-                    Cancel Order
+                    {t('orders.detailModal.cancelOrder')}
                   </button>
                 </>
               )}

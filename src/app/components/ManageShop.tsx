@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from 'react-i18next';
 import { MessageSquare, Truck, CreditCard, Building2 } from "lucide-react";
 
 type SettingsTab = 'chat' | 'delivery' | 'payment' | 'business';
 
 export default function ManageShop() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<SettingsTab>('business');
@@ -22,10 +24,10 @@ export default function ManageShop() {
   }, [location.pathname]);
 
   const tabs = [
-    { id: 'business' as SettingsTab, name: 'Business Info', icon: Building2 },
-    { id: 'chat' as SettingsTab, name: 'Chat Settings', icon: MessageSquare },
-    { id: 'delivery' as SettingsTab, name: 'Delivery Settings', icon: Truck },
-    { id: 'payment' as SettingsTab, name: 'Payment Settings', icon: CreditCard },
+    { id: 'business' as SettingsTab, name: t('manageShop.tabs.businessInfo'), icon: Building2 },
+    { id: 'chat' as SettingsTab, name: t('manageShop.tabs.chatSettings'), icon: MessageSquare },
+    { id: 'delivery' as SettingsTab, name: t('manageShop.tabs.deliverySettings'), icon: Truck },
+    { id: 'payment' as SettingsTab, name: t('manageShop.tabs.paymentSettings'), icon: CreditCard },
   ];
 
   return (
@@ -33,7 +35,7 @@ export default function ManageShop() {
       {/* Sub-navigation */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="px-8 py-4">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Manage Shop</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">{t('manageShop.title')}</h1>
           <nav className="flex gap-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;

@@ -1,14 +1,17 @@
-import { Receipt, AlertCircle, CheckCircle2, Download, Eye, TrendingUp, Package, ShoppingCart, MessageSquare } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Receipt, AlertCircle, CheckCircle2, Download, Eye, TrendingUp, Package, ShoppingCart, MessageSquare, CreditCard, Clock } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from 'react-i18next';
 import { Progress } from "@/app/components/ui/progress";
 import { Badge } from "@/app/components/ui/badge";
 import { Switch } from "@/app/components/ui/switch";
 import { toast } from "sonner";
 import { apiClient } from "@/app/lib/api";
 import { subscriptionPlans, getPlanPrice, findPlanByName, type BillingCycle } from "@/app/lib/subscriptionPlans";
+import { FeatureGate } from "@/app/components/FeatureGate";
 
 interface Invoice {
-  id: string;
+  id: string;       // invoice_number (displayed)
+  rawId: string;    // UUID (used for API calls)
   billingPeriod: string;
   amount: number;
   status: 'pending' | 'paid';
@@ -17,7 +20,10 @@ interface Invoice {
 }
 
 export default function Subscription() {
+  const { t } = useTranslation();
   const [selectedConversationPack, setSelectedConversationPack] = useState<number | null>(null);
+  const [selectedGateway, setSelectedGateway] = useState<'aamarpay' | 'sslcommerz'>('aamarpay');
+  const [isPayingInvoice, setIsPayingInvoice] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -25,6 +31,7 @@ export default function Subscription() {
   const [isUpdatingPlan, setIsUpdatingPlan] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState(subscriptionPlans[1]?.id || "growth");
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
 
   // State for actual data from API
   const [currentPlan, setCurrentPlan] = useState({
@@ -63,10 +70,22 @@ export default function Subscription() {
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
 
-  // Load subscription data on mount
+  // Load subscription data on mount; handle payment return from gateway
   useEffect(() => {
     loadSubscriptionData();
     loadInvoices();
+
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get('payment');
+    if (paymentStatus === 'success') {
+      setSuccess('Payment successful! Your conversation credits have been added.');
+      setTimeout(() => setSuccess(null), 8000);
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (paymentStatus === 'failed') {
+      setError('Payment was not completed. Please try again.');
+      setTimeout(() => setError(null), 8000);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }, []);
 
   const loadSubscriptionData = async () => {
@@ -104,6 +123,7 @@ export default function Subscription() {
           setSelectedPlanId(matchedPlan.id);
         }
         setBillingCycle(subscription.billing_cycle === 'yearly' ? 'yearly' : 'monthly');
+        setTrialEndsAt(subscription.trial_ends_at || null);
 
         // Update usage
         setUsage({
@@ -146,6 +166,7 @@ export default function Subscription() {
       if (response?.success && response.data) {
         const mappedInvoices = response.data.map((inv: any) => ({
           id: inv.invoice_number,
+          rawId: inv.id,
           billingPeriod: inv.billing_period,
           amount: parseFloat(inv.amount),
           status: inv.status,
@@ -198,12 +219,19 @@ export default function Subscription() {
   const getStatusLabel = (status: 'safe' | 'warning' | 'exceeded') => {
     switch (status) {
       case 'safe':
-        return 'Safe';
+        return t('subscription.statusSafe');
       case 'warning':
-        return 'Almost Used';
+        return t('subscription.statusAlmostUsed');
       case 'exceeded':
-        return 'Extra Usage Active';
+        return t('subscription.statusExtra');
     }
+  };
+
+  const getTrialDaysRemaining = () => {
+    if (!trialEndsAt) return null;
+    const ms = new Date(trialEndsAt).getTime() - Date.now();
+    if (ms <= 0) return null;
+    return Math.ceil(ms / (1000 * 60 * 60 * 24));
   };
 
   const calculateTotalBill = () => {
@@ -252,31 +280,39 @@ export default function Subscription() {
     }
   };
 
-  const handleRequestInvoice = async () => {
+  const handlePayConversationPack = async () => {
     if (!selectedConversationPack) return;
 
     try {
+      setIsPayingInvoice(true);
       setError(null);
       setSuccess(null);
-      
+
       const pack = conversationPacks.find(p => p.amount === selectedConversationPack);
       if (!pack) return;
 
-      const response = await apiClient.purchaseConversationPack({
+      // Step 1: Create the invoice
+      const invoiceRes = await apiClient.purchaseConversationPack({
         amount: selectedConversationPack,
         price: pack.price
       });
 
-      if (response.success) {
-        setSuccess(response.message);
-        setSelectedConversationPack(null);
-        // Reload invoices to show new one
-        loadInvoices();
-        setTimeout(() => setSuccess(null), 5000);
+      if (!invoiceRes.success || !invoiceRes.data?.id) {
+        throw new Error(invoiceRes.message || 'Failed to create invoice');
+      }
+
+      // Step 2: Initiate payment — redirect to gateway
+      const payRes = await apiClient.paySubscriptionInvoice(invoiceRes.data.id, selectedGateway);
+
+      if (payRes.success && payRes.data?.payment_url) {
+        window.location.href = payRes.data.payment_url;
+      } else {
+        throw new Error('Could not get payment URL');
       }
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Failed to request invoice');
-      setTimeout(() => setError(null), 5000);
+      setError(error.response?.data?.error?.message || error.message || 'Failed to initiate payment');
+      setTimeout(() => setError(null), 6000);
+      setIsPayingInvoice(false);
     }
   };
 
@@ -284,7 +320,7 @@ export default function Subscription() {
     return (
       <div className="p-8 max-w-7xl mx-auto">
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-600">Loading subscription details...</div>
+          <div className="text-gray-600">{t('subscription.loading')}</div>
         </div>
       </div>
     );
@@ -294,15 +330,15 @@ export default function Subscription() {
     return (
       <div className="p-8 max-w-7xl mx-auto">
         <div className="bg-white rounded-xl p-8 border border-gray-200 shadow-sm text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">No subscription data yet</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('subscription.noData')}</h2>
           <p className="text-gray-600 mb-6">
-            This shop doesn’t have any subscription details available. Try reloading or check back later.
+            {t('subscription.noDataMsg')}
           </p>
           <button
             onClick={() => loadSubscriptionData()}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Reload
+            {t('subscription.reload')}
           </button>
         </div>
       </div>
@@ -313,9 +349,41 @@ export default function Subscription() {
     <div className="p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Plan & Billing</h1>
-        <p className="text-gray-600 mt-1">Manage your subscription and view usage details</p>
+        <h1 className="text-3xl font-bold text-gray-900">{t('subscription.title')}</h1>
+        <p className="text-gray-600 mt-1">{t('subscription.subtitle')}</p>
       </div>
+
+      {/* Trial countdown banner */}
+      {(() => {
+        const days = getTrialDaysRemaining();
+        if (days === null) return null;
+        const urgent = days <= 3;
+        return (
+          <div className={`mb-4 flex items-center gap-3 px-4 py-3 rounded-lg border ${
+            urgent
+              ? 'bg-red-50 border-red-200 text-red-700'
+              : 'bg-amber-50 border-amber-200 text-amber-700'
+          }`}>
+            <Clock className="w-5 h-5 flex-shrink-0" />
+            <div className="flex-1">
+              <span className="font-semibold">
+                {urgent ? `⚠️ Trial ends in ${days} day${days === 1 ? '' : 's'}!` : `Trial: ${days} days remaining`}
+              </span>
+              <span className="ml-2 text-sm">
+                {urgent
+                  ? 'Upgrade now to keep your conversations and data.'
+                  : 'Enjoying Easy Moderator? Pick a plan before your trial ends.'}
+              </span>
+            </div>
+            <button
+              onClick={() => document.getElementById('plans-section')?.scrollIntoView({ behavior: 'smooth' })}
+              className={`text-sm font-medium underline whitespace-nowrap ${urgent ? 'text-red-700' : 'text-amber-700'}`}
+            >
+              View plans
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Error/Success Messages */}
       {error && (
@@ -334,40 +402,40 @@ export default function Subscription() {
         <div className="flex items-start justify-between mb-6">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <h2 className="text-2xl font-bold text-gray-900">{currentPlan.name} Plan</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{t('subscription.planTitle', { plan: currentPlan.name })}</h2>
               <Badge className={`${currentPlan.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                {currentPlan.status === 'active' ? 'Active' : 'Inactive'}
+                {currentPlan.status === 'active' ? t('common.active') : t('common.inactive')}
               </Badge>
               {currentPlan.features.imageUnderstanding && (
-                <Badge className="bg-blue-100 text-blue-700">Image Understanding Enabled</Badge>
+                <Badge className="bg-blue-100 text-blue-700">{t('subscription.imageUnderstanding')}</Badge>
               )}
             </div>
             <div className="space-y-1 text-gray-600">
-              <p className="text-lg">৳{currentPlan.price.toLocaleString()} BDT / {currentPlan.cycle}</p>
-              <p className="text-sm">Next billing: {currentPlan.nextBillingDate}</p>
+              <p className="text-lg">{t('subscription.price', { price: currentPlan.price.toLocaleString(), cycle: currentPlan.cycle })}</p>
+              <p className="text-sm">{t('subscription.nextBilling', { date: currentPlan.nextBillingDate })}</p>
             </div>
           </div>
           <div className="flex gap-3">
             <button className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-              Add More Conversations
+              {t('subscription.addConversations')}
             </button>
             <button className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-              Upgrade Plan
+              {t('subscription.upgradePlan')}
             </button>
           </div>
         </div>
       </div>
 
       {/* Section 2: Available Plans */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200 mb-6 shadow-sm">
+      <div id="plans-section" className="bg-white rounded-xl p-6 border border-gray-200 mb-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Plans</h2>
-            <p className="text-sm text-gray-500">Switch billing cycles or change your package.</p>
+            <h2 className="text-xl font-semibold text-gray-900">{t('subscription.plansTitle')}</h2>
+            <p className="text-sm text-gray-500">{t('subscription.plansSubtitle')}</p>
           </div>
           <div className="flex items-center gap-3 text-sm text-gray-600">
             <span className={billingCycle === 'monthly' ? 'font-semibold text-gray-900' : ''}>
-              Monthly
+              {t('subscription.monthly')}
             </span>
             <Switch
               checked={billingCycle === 'yearly'}
@@ -375,9 +443,9 @@ export default function Subscription() {
               aria-label="Toggle annual billing"
             />
             <span className={billingCycle === 'yearly' ? 'font-semibold text-gray-900' : ''}>
-              Annual
+              {t('subscription.annual')}
             </span>
-            <Badge className="bg-emerald-100 text-emerald-700">2 months free</Badge>
+            <Badge className="bg-emerald-100 text-emerald-700">{t('subscription.twoMonthsFree')}</Badge>
           </div>
         </div>
 
@@ -409,7 +477,7 @@ export default function Subscription() {
                   <span className="text-sm text-gray-500">/mo</span>
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
-                  {billingCycle === 'yearly' ? 'Billed annually' : 'Billed monthly'}
+                  {billingCycle === 'yearly' ? t('subscription.billedAnnually') : t('subscription.billedMonthly')}
                 </p>
                 <ul className="mt-4 space-y-2 text-sm text-gray-600">
                   {plan.highlights.map((feature) => (
@@ -420,14 +488,14 @@ export default function Subscription() {
                   ))}
                 </ul>
                 <div className="mt-4 space-y-1 text-xs text-gray-500">
-                  <div>Conversations: {plan.limits.conversations.toLocaleString()}</div>
-                  <div>Orders: {plan.limits.orders.toLocaleString()}</div>
-                  <div>Products: {plan.limits.products.toLocaleString()}</div>
+                  <div>{t('subscription.conversationsLimit', { count: plan.limits.conversations.toLocaleString() })}</div>
+                  <div>{t('subscription.ordersLimit', { count: plan.limits.orders.toLocaleString() })}</div>
+                  <div>{t('subscription.productsLimit', { count: plan.limits.products.toLocaleString() })}</div>
                 </div>
                 <div className="mt-auto pt-5">
                   {isActive ? (
                     <button className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600" disabled>
-                      Current plan
+                      {t('subscription.currentPlan')}
                     </button>
                   ) : (
                     <button
@@ -438,7 +506,7 @@ export default function Subscription() {
                       disabled={isUpdatingPlan}
                       className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
                     >
-                      {isUpdatingPlan && plan.id === selectedPlanId ? 'Updating...' : 'Switch plan'}
+                      {isUpdatingPlan && plan.id === selectedPlanId ? t('common.updating') : t('subscription.switchPlan')}
                     </button>
                   )}
                 </div>
@@ -456,12 +524,12 @@ export default function Subscription() {
             <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
               <MessageSquare className="w-5 h-5 text-blue-600" />
             </div>
-            <h3 className="font-semibold text-gray-900">AI Conversations</h3>
+            <h3 className="font-semibold text-gray-900">{t('subscription.aiConversations')}</h3>
           </div>
           <div className="mb-4">
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold text-gray-900">{usage.conversations.used.toLocaleString()}</span>
-              <span className="text-gray-500">/ {usage.conversations.limit.toLocaleString()} per month</span>
+              <span className="text-gray-500">{t('subscription.usagePerMonth', { used: usage.conversations.used.toLocaleString(), limit: usage.conversations.limit.toLocaleString() })}</span>
             </div>
           </div>
           <Progress 
@@ -475,7 +543,7 @@ export default function Subscription() {
           </div>
           {usage.conversations.status === 'exceeded' && (
             <p className="text-xs text-gray-500 mt-3">
-              Extra usage will be added to next bill
+              {t('subscription.extraUsageNote')}
             </p>
           )}
         </div>
@@ -486,12 +554,12 @@ export default function Subscription() {
             <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
               <ShoppingCart className="w-5 h-5 text-green-600" />
             </div>
-            <h3 className="font-semibold text-gray-900">Orders Created</h3>
+            <h3 className="font-semibold text-gray-900">{t('subscription.ordersCreated')}</h3>
           </div>
           <div className="mb-4">
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold text-gray-900">{usage.orders.used.toLocaleString()}</span>
-              <span className="text-gray-500">/ {usage.orders.limit.toLocaleString()} per month</span>
+              <span className="text-gray-500">{t('subscription.usagePerMonth', { used: usage.orders.used.toLocaleString(), limit: usage.orders.limit.toLocaleString() })}</span>
             </div>
           </div>
           <Progress 
@@ -511,12 +579,12 @@ export default function Subscription() {
             <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
               <Package className="w-5 h-5 text-purple-600" />
             </div>
-            <h3 className="font-semibold text-gray-900">Products Used</h3>
+            <h3 className="font-semibold text-gray-900">{t('subscription.productsUsed')}</h3>
           </div>
           <div className="mb-4">
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold text-gray-900">{usage.products.used.toLocaleString()}</span>
-              <span className="text-gray-500">/ {usage.products.limit.toLocaleString()} per month</span>
+              <span className="text-gray-500">{t('subscription.usagePerMonth', { used: usage.products.used.toLocaleString(), limit: usage.products.limit.toLocaleString() })}</span>
             </div>
           </div>
           <Progress 
@@ -539,22 +607,22 @@ export default function Subscription() {
               <AlertCircle className="w-5 h-5 text-yellow-600" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Your AI is still running</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('subscription.extraAlert')}</h3>
               <p className="text-gray-700 mb-4">
-                You have used {extraUsage.conversations} extra AI conversations. Your service is not stopped.
+                {t('subscription.extraAlertMsg', { count: extraUsage.conversations })}
               </p>
               <div className="bg-white rounded-lg p-4 border border-yellow-200">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Extra usage count:</span>
+                  <span className="text-sm text-gray-600">{t('subscription.extraCount')}</span>
                   <span className="font-semibold text-gray-900">{extraUsage.conversations} conversations</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Estimated extra charge:</span>
+                  <span className="text-sm text-gray-600">{t('subscription.extraCharge')}</span>
                   <span className="font-semibold text-gray-900">৳{extraUsage.estimatedCharge.toLocaleString()} BDT</span>
                 </div>
               </div>
               <p className="text-sm text-gray-600 mt-3">
-                This amount will be added to your next invoice.
+                {t('subscription.nextInvoiceNote')}
               </p>
             </div>
           </div>
@@ -564,7 +632,7 @@ export default function Subscription() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Section 4: Add More Conversations */}
         <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Add More AI Conversations</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subscription.addConversationsTitle')}</h3>
           <div className="space-y-3 mb-6">
             {conversationPacks.map((pack) => (
               <button
@@ -579,7 +647,7 @@ export default function Subscription() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-semibold text-gray-900">+{pack.amount} conversations</p>
-                    <p className="text-xs text-gray-500 mt-1">Added to your current plan</p>
+                    <p className="text-xs text-gray-500 mt-1">{t('subscription.addedToCurrentPlan')}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-gray-900">৳{pack.price.toLocaleString()}</p>
@@ -589,53 +657,97 @@ export default function Subscription() {
               </button>
             ))}
           </div>
+          {/* Gateway selector */}
+          <div className="mb-4">
+            <p className="text-sm text-gray-600 mb-2">Payment gateway</p>
+            <div className="flex gap-3">
+              {(['aamarpay', 'sslcommerz'] as const).map((gw) => (
+                <button
+                  key={gw}
+                  onClick={() => setSelectedGateway(gw)}
+                  className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-all ${
+                    selectedGateway === gw
+                      ? 'border-blue-600 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  {gw === 'aamarpay' ? 'AamarPay' : 'SSLCommerz'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <button
-            onClick={handleRequestInvoice}
-            disabled={!selectedConversationPack}
-            className={`w-full px-4 py-3 rounded-lg transition-colors ${
-              selectedConversationPack
+            onClick={handlePayConversationPack}
+            disabled={!selectedConversationPack || isPayingInvoice}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
+              selectedConversationPack && !isPayingInvoice
                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             }`}
           >
-            Request Invoice
+            <CreditCard className="w-4 h-4" />
+            {isPayingInvoice ? 'Redirecting to payment...' : t('subscription.requestInvoice')}
           </button>
           <p className="text-xs text-gray-500 text-center mt-3">
-            Conversations will be available immediately after invoice approval.
+            {t('subscription.invoiceNote')}
           </p>
         </div>
 
         {/* Section 5: Feature Access */}
         <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Plan Includes</h3>
-          <div className="space-y-3">
-            {planFeatures.map((feature, index) => (
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subscription.planIncludes')}</h3>
+          <div className="space-y-3 mb-5">
+            {(t('subscription.planFeatures', { returnObjects: true }) as string[]).map((feature, index) => (
               <div key={index} className="flex items-start gap-3">
                 <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                 <span className="text-gray-700">{feature}</span>
               </div>
             ))}
           </div>
+          {/* Contextual upgrade gates for locked features */}
+          <FeatureGate feature="image_understanding" featureLabel="Image Understanding" requiredPlan="Growth">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 border border-blue-100">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-4 h-4 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Image Understanding</p>
+                <p className="text-xs text-gray-500">AI reads product images to answer customer questions</p>
+              </div>
+            </div>
+          </FeatureGate>
+          <FeatureGate feature="advanced_ai" featureLabel="Advanced AI" requiredPlan="Growth">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-purple-50 border border-purple-100 mt-2">
+              <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                <MessageSquare className="w-4 h-4 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Advanced AI</p>
+                <p className="text-xs text-gray-500">Higher accuracy responses + 30 req/min rate limit</p>
+              </div>
+            </div>
+          </FeatureGate>
         </div>
       </div>
 
       {/* Section 6: Billing Summary */}
       <div className="bg-white rounded-xl p-6 border border-gray-200 mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Billing Summary</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subscription.billingTitle')}</h3>
         <div className="space-y-3">
           <div className="flex items-center justify-between py-2">
-            <span className="text-gray-600">Base Plan Price</span>
+            <span className="text-gray-600">{t('subscription.basePlan')}</span>
             <span className="font-semibold text-gray-900">৳{currentPlan.price.toLocaleString()} BDT</span>
           </div>
           {usage.conversations.status === 'exceeded' && (
             <div className="flex items-center justify-between py-2">
-              <span className="text-gray-600">Extra Usage Charge</span>
+              <span className="text-gray-600">{t('subscription.extraUsageCharge')}</span>
               <span className="font-semibold text-gray-900">৳{extraUsage.estimatedCharge.toLocaleString()} BDT</span>
             </div>
           )}
           {selectedConversationPack && (
             <div className="flex items-center justify-between py-2">
-              <span className="text-gray-600">Added Conversations ({selectedConversationPack})</span>
+              <span className="text-gray-600">{t('subscription.addedConversations', { count: selectedConversationPack })}</span>
               <span className="font-semibold text-gray-900">
                 ৳{conversationPacks.find(p => p.amount === selectedConversationPack)?.price.toLocaleString()} BDT
               </span>
@@ -643,29 +755,29 @@ export default function Subscription() {
           )}
           <div className="border-t border-gray-200 pt-3 mt-3">
             <div className="flex items-center justify-between">
-              <span className="text-lg font-semibold text-gray-900">Estimated Next Invoice</span>
+              <span className="text-lg font-semibold text-gray-900">{t('subscription.estimatedInvoice')}</span>
               <span className="text-2xl font-bold text-gray-900">৳{calculateTotalBill().toLocaleString()} BDT</span>
             </div>
           </div>
         </div>
         <p className="text-sm text-gray-500 mt-4">
-          Final invoice will be issued before billing date.
+          {t('subscription.invoiceDisclaimer')}
         </p>
       </div>
 
       {/* Section 7: Invoice History */}
       <div className="bg-white rounded-xl p-6 border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Invoices</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subscription.invoicesTitle')}</h3>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Invoice ID</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Billing Period</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Type</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Amount</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Action</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">{t('subscription.invoiceColumns.id')}</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">{t('subscription.invoiceColumns.period')}</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">{t('subscription.invoiceColumns.type')}</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">{t('subscription.invoiceColumns.amount')}</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">{t('subscription.invoiceColumns.status')}</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">{t('subscription.invoiceColumns.action')}</th>
               </tr>
             </thead>
             <tbody>
@@ -677,15 +789,23 @@ export default function Subscription() {
                   <td className="py-4 px-4 text-sm font-semibold text-gray-900">৳{invoice.amount.toLocaleString()}</td>
                   <td className="py-4 px-4">
                     <Badge className={invoice.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>
-                      {invoice.status === 'paid' ? 'Paid' : 'Pending'}
+                      {invoice.status === 'paid' ? t('subscription.paid') : t('subscription.pending')}
                     </Badge>
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
-                      <button className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                      <button
+                        onClick={() => window.open(`/api/subscription/invoices/${invoice.rawId}/pdf`, '_blank')}
+                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="View / Print invoice"
+                      >
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                      <button
+                        onClick={() => window.open(`/api/subscription/invoices/${invoice.rawId}/pdf`, '_blank')}
+                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Download invoice (print to PDF)"
+                      >
                         <Download className="w-4 h-4" />
                       </button>
                     </div>

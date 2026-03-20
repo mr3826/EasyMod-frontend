@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { apiClient } from '@/app/lib/api';
 
 export default function ResetPassword() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const token = useMemo(() => searchParams.get('token') || '', [searchParams]);
 
@@ -20,17 +22,17 @@ export default function ResetPassword() {
     setSuccess('');
 
     if (!token) {
-      setError('Reset token is missing. Please use the link from your email.');
+      setError(t('auth.resetPassword.errors.missingToken'));
       return;
     }
 
     if (!password || password.length < 6) {
-      setError('Password must be at least 6 characters long.');
+      setError(t('auth.resetPassword.errors.minLength'));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(t('auth.resetPassword.errors.mismatch'));
       return;
     }
 
@@ -38,14 +40,14 @@ export default function ResetPassword() {
 
     try {
       const result = await apiClient.resetPassword(token, password);
-      setSuccess(result.message || 'Password reset successfully.');
+      setSuccess(result.message || t('auth.resetPassword.successMessage'));
       setPassword('');
       setConfirmPassword('');
     } catch (error: any) {
       setError(
         error.response?.data?.error?.message ||
           error.response?.data?.message ||
-          'Failed to reset password'
+          t('auth.resetPassword.errors.failed')
       );
     } finally {
       setIsLoading(false);
@@ -60,11 +62,11 @@ export default function ResetPassword() {
             <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl"></div>
             <span className="text-3xl font-bold text-gray-900">Easy Moderator</span>
           </div>
-          <p className="text-gray-600">Set a new password</p>
+          <p className="text-gray-600">{t('auth.resetPassword.subtitle')}</p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Reset Password</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">{t('auth.resetPassword.title')}</h1>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
@@ -80,14 +82,14 @@ export default function ResetPassword() {
 
             <div className="space-y-2">
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                New Password
+                {t('auth.resetPassword.newPasswordLabel')}
               </label>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter a new password"
+                placeholder={t('auth.resetPassword.newPasswordPlaceholder')}
                 autoComplete="new-password"
                 disabled={isLoading}
               />
@@ -95,14 +97,14 @@ export default function ResetPassword() {
 
             <div className="space-y-2">
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                Confirm Password
+                {t('auth.resetPassword.confirmPasswordLabel')}
               </label>
               <Input
                 id="confirmPassword"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm your password"
+                placeholder={t('auth.resetPassword.confirmPasswordPlaceholder')}
                 autoComplete="new-password"
                 disabled={isLoading}
               />
@@ -113,7 +115,7 @@ export default function ResetPassword() {
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
               disabled={isLoading}
             >
-              {isLoading ? 'Resetting...' : 'Reset Password'}
+              {isLoading ? t('auth.resetPassword.resetting') : t('auth.resetPassword.resetButton')}
             </Button>
           </form>
 
@@ -122,7 +124,7 @@ export default function ResetPassword() {
               to="/signin"
               className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
             >
-              Back to Sign In
+              {t('auth.resetPassword.backToSignIn')}
             </Link>
           </div>
         </div>

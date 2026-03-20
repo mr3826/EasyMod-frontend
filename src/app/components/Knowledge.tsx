@@ -1,116 +1,89 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import mammoth from "mammoth";
-import { Upload, Bot, CheckCircle, Edit2, Trash2, AlertCircle, FileText, MessageCircle, TrendingUp, Plus } from "lucide-react";
-import { BusinessInfo, BrandingRules, FAQ, KnowledgeExtraction, KnowledgeGap } from "../lib/knowledgeTypes";
+import { Upload, Bot, CheckCircle, Edit2, Trash2, AlertCircle, FileText, MessageCircle, TrendingUp, Plus, Building2 } from "lucide-react";
+import type { BusinessInfo, BrandingRules, FAQ, KnowledgeGap } from "../lib/knowledgeTypes";
 import { apiClient } from "../lib/api";
+import { useTranslation } from 'react-i18next';
+
+type Tab = 'overview' | 'businessInfo' | 'faqs' | 'branding' | 'gaps';
 
 export default function Knowledge() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'faqs' | 'branding' | 'gaps'>('overview');
+  const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [businessInfo, setBusinessInfo] = useState<BusinessInfo>({
-    shopName: '',
-    address: '',
-    phone: '',
-    openingHours: '',
-    deliveryAreas: [],
-    paymentMethods: [],
+    shopName: '', address: '', phone: '', openingHours: '',
+    deliveryAreas: [], paymentMethods: [],
   });
   const [brandingRules, setBrandingRules] = useState<BrandingRules>({
-    tone: 'formal',
-    languagePreference: '',
-    emojiUsage: 'none',
-    forbiddenPhrases: [],
-    escalationKeywords: [],
-    greetingStyle: '',
-    closingStyle: '',
+    tone: 'formal', languagePreference: '', emojiUsage: 'none',
+    forbiddenPhrases: [], escalationKeywords: [], greetingStyle: '', closingStyle: '',
   });
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [extractedKnowledge, setExtractedKnowledge] = useState<KnowledgeExtraction | null>(null);
+  const [knowledgeGaps, setKnowledgeGaps] = useState<KnowledgeGap[]>([]);
   const [editingFAQ, setEditingFAQ] = useState<FAQ | null>(null);
   const [showFAQModal, setShowFAQModal] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [knowledgeGaps, setKnowledgeGaps] = useState<KnowledgeGap[]>([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const backendEnabled = true;
-  const createTemporaryFaq = () => ({
-    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`,
-    question: '',
-    answer: '',
-    category: 'General',
-    confidence: 0.9,
-    source: 'manual',
-    active: true,
-    usageCount: 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+  const [notice, setNotice] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Auto-dismiss notice after 4s — Fix #13
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  const showNotice = useCallback((text: string, type: 'success' | 'error' = 'success') => {
+    setNotice({ text, type });
+  }, []);
+
+  const createTemporaryFaq = (): FAQ => ({
+    id: crypto.randomUUID(),
+    question: '', answer: '', category: 'General',
+    confidence: 0.9, source: 'manual', active: true,
+    usageCount: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   });
 
+  // Initial data load
   useEffect(() => {
-    const loadKnowledge = async () => {
+    const load = async () => {
       try {
         setIsLoading(true);
         setLoadError(null);
         const data = await apiClient.getKnowledgeSummary();
         setFaqs(data.faqs || []);
-        setBusinessInfo(data.businessInfo || {
-          shopName: '',
-          address: '',
-          phone: '',
-          openingHours: '',
-          deliveryAreas: [],
-          paymentMethods: [],
-        });
-        setBrandingRules(data.brandingRules || {
-          tone: 'formal',
-          languagePreference: '',
-          emojiUsage: 'none',
-        forbiddenPhrases: [],
-          escalationKeywords: [],
-          greetingStyle: '',
-          closingStyle: '',
-        });
-        setKnowledgeGaps(data.gaps || []);
+        if (data.businessInfo?.shopName !== undefined) setBusinessInfo(data.businessInfo);
+        if (data.brandingRules?.tone !== undefined) setBrandingRules(data.brandingRules);
       } catch (error: any) {
         setLoadError(error.response?.data?.error?.message || 'Failed to load knowledge data');
       } finally {
         setIsLoading(false);
       }
     };
-
-    loadKnowledge();
+    load();
   }, []);
 
+  // Lazy-load gaps when that tab is opened — Fix #4
   useEffect(() => {
     if (activeTab !== 'gaps') return;
-
     let cancelled = false;
-    const loadGaps = async () => {
-      try {
-        const gaps = await apiClient.listKnowledgeGaps();
-        if (!cancelled) {
-          setKnowledgeGaps(gaps || []);
-        }
-      } catch (error: any) {
-        if (!cancelled) {
-          setNotice(error.response?.data?.error?.message || 'Failed to refresh knowledge gaps.');
-        }
-      }
-    };
+    apiClient.listKnowledgeGaps().then(gaps => {
+      if (!cancelled) setKnowledgeGaps(gaps || []);
+    }).catch((error: any) => {
+      if (!cancelled) showNotice(error.response?.data?.error?.message || 'Failed to load knowledge gaps.', 'error');
+    });
+    return () => { cancelled = true; };
+  }, [activeTab, showNotice]);
 
-    loadGaps();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab]);
-
+  // ── File upload — Fix #14: real progress steps ────────────────────────────
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploading(true);
+    setUploadProgress(10);
     try {
       const extension = file.name.split('.').pop()?.toLowerCase();
       let text = '';
@@ -125,16 +98,14 @@ export default function Knowledge() {
         throw new Error('Only .txt, .doc, or .docx files are supported.');
       }
 
+      setUploadProgress(50);
       await apiClient.createKnowledgeDocument({
-        name: file.name,
-        contentType: file.type,
-        size: file.size,
-        text,
-        source: 'upload'
+        name: file.name, contentType: file.type, size: file.size, text, source: 'upload'
       });
-      setNotice('Document uploaded and queued for indexing.');
+      setUploadProgress(100);
+      showNotice('Document uploaded and queued for indexing.');
     } catch (error: any) {
-      setNotice(error.response?.data?.error?.message || error.message || 'Failed to upload document.');
+      showNotice(error.response?.data?.error?.message || error.message || 'Failed to upload document.', 'error');
     } finally {
       setIsUploading(false);
       setShowUploadModal(false);
@@ -142,168 +113,139 @@ export default function Knowledge() {
     }
   };
 
-  const handleApproveFAQ = async (faq: FAQ) => {
+  // ── FAQ actions ───────────────────────────────────────────────────────────
+  const handleToggleFAQ = async (faqId: string) => {
+    const faq = faqs.find(f => f.id === faqId);
+    if (!faq) return;
     try {
-      const updated = await apiClient.updateKnowledgeFaq(faq.id, { active: true });
-      setFaqs(faqs.map((item) => (item.id === faq.id ? updated : item)));
-      setNotice('FAQ approved and indexed.');
+      const updated = await apiClient.updateKnowledgeFaq(faqId, { active: !faq.active });
+      setFaqs(faqs.map(f => f.id === faqId ? updated : f));
+      showNotice(`FAQ ${updated.active ? 'activated' : 'deactivated'}.`);
     } catch (error: any) {
-      setNotice(error.response?.data?.error?.message || 'Failed to approve FAQ.');
-    }
-  };
-
-  const handleApproveAll = async () => {
-    try {
-      const updates = await Promise.all(
-        faqs.filter((faq) => !faq.active).map((faq) => apiClient.updateKnowledgeFaq(faq.id, { active: true }))
-      );
-      const updatedMap = new Map(updates.map((faq) => [faq.id, faq]));
-      setFaqs(faqs.map((faq) => updatedMap.get(faq.id) || faq));
-      setNotice('All FAQs approved and indexed.');
-    } catch (error: any) {
-      setNotice(error.response?.data?.error?.message || 'Failed to approve all FAQs.');
+      showNotice(error.response?.data?.error?.message || 'Failed to update FAQ.', 'error');
     }
   };
 
   const handleDeleteFAQ = async (faqId: string) => {
     try {
       await apiClient.deleteKnowledgeFaq(faqId);
-      setFaqs(faqs.filter((faq) => faq.id !== faqId));
-      setNotice('FAQ deleted.');
+      setFaqs(faqs.filter(f => f.id !== faqId));
+      showNotice('FAQ deleted.');
     } catch (error: any) {
-      setNotice(error.response?.data?.error?.message || 'Failed to delete FAQ.');
+      showNotice(error.response?.data?.error?.message || 'Failed to delete FAQ.', 'error');
     }
   };
 
-  const handleToggleFAQ = async (faqId: string) => {
-    const faq = faqs.find((item) => item.id === faqId);
-    if (!faq) return;
-
+  const handleSaveFAQ = async () => {
+    if (!editingFAQ) return;
     try {
-      const updated = await apiClient.updateKnowledgeFaq(faqId, { active: !faq.active });
-      setFaqs(faqs.map((item) => (item.id === faqId ? updated : item)));
-      setNotice(`FAQ ${updated.active ? 'activated' : 'deactivated'}.`);
+      const existing = faqs.find(f => f.id === editingFAQ.id);
+      if (existing) {
+        const updated = await apiClient.updateKnowledgeFaq(editingFAQ.id, {
+          question: editingFAQ.question, answer: editingFAQ.answer,
+          category: editingFAQ.category, active: editingFAQ.active
+        });
+        setFaqs(faqs.map(f => f.id === editingFAQ.id ? updated : f));
+      } else {
+        const created = await apiClient.createKnowledgeFaq({
+          question: editingFAQ.question, answer: editingFAQ.answer,
+          category: editingFAQ.category, active: editingFAQ.active,
+          confidence: editingFAQ.confidence, source: editingFAQ.source, usageCount: 0
+        });
+        setFaqs([...faqs, created]);
+      }
+      setShowFAQModal(false);
+      setEditingFAQ(null);
+      showNotice('FAQ saved.');
     } catch (error: any) {
-      setNotice(error.response?.data?.error?.message || 'Failed to update FAQ.');
+      showNotice(error.response?.data?.error?.message || 'Failed to save FAQ.', 'error');
     }
   };
 
-  const totalKnowledge = faqs.filter(f => f.active).length + 
-    (businessInfo.shopName ? 1 : 0) + 
-    (brandingRules.tone ? 1 : 0);
+  const totalKnowledge = faqs.filter(f => f.active).length +
+    (businessInfo.shopName ? 1 : 0) + (brandingRules.tone ? 1 : 0);
 
   return (
     <div className="p-8">
+      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">AI Knowledge Training</h1>
-          <p className="text-gray-600 mt-1">Train your AI with business information and FAQs</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('knowledge.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('knowledge.subtitle')}</p>
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => backendEnabled ? setShowUploadModal(true) : setNotice('Knowledge upload requires backend API support.')}
-            disabled={!backendEnabled || isUploading}
-            className={`flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg ${!backendEnabled || isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-700'}`}
+            onClick={() => setShowUploadModal(true)}
+            disabled={isUploading}
+            className={`flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg ${isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-700'}`}
           >
             <Upload className="w-5 h-5" />
-            {isUploading ? 'Uploading...' : 'Upload Knowledge'}
+            {isUploading ? t('knowledge.uploading') : t('knowledge.uploadKnowledge')}
           </button>
           <button
-            onClick={() => {
-              setEditingFAQ(createTemporaryFaq());
-              setShowFAQModal(true);
-            }}
-            disabled={!backendEnabled}
-            className={`flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg ${!backendEnabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+            onClick={() => { setEditingFAQ(createTemporaryFaq()); setShowFAQModal(true); }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Plus className="w-5 h-5" />
-            Add FAQ
+            {t('knowledge.addFAQ')}
           </button>
         </div>
       </div>
 
-      {isLoading && (
-        <div className="mb-6 text-gray-500">Loading knowledge data...</div>
-      )}
-      {loadError && (
-        <div className="mb-6 text-red-600">{loadError}</div>
-      )}
+      {isLoading && <div className="mb-6 text-gray-500">{t('knowledge.loading')}</div>}
+      {loadError && <div className="mb-6 text-red-600">{loadError}</div>}
 
+      {/* Notice — Fix #13: auto-dismiss, color-coded */}
       {notice && (
-        <div className="mb-6 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg px-4 py-3">
-          {notice}
+        <div className={`mb-6 rounded-lg px-4 py-3 flex items-center justify-between ${
+          notice.type === 'error'
+            ? 'bg-red-50 border border-red-200 text-red-800'
+            : 'bg-green-50 border border-green-200 text-green-800'
+        }`}>
+          <span>{notice.text}</span>
+          <button onClick={() => setNotice(null)} className="ml-4 text-current opacity-60 hover:opacity-100">✕</button>
         </div>
       )}
 
-      {/* Stats Overview */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Bot className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{totalKnowledge}</p>
-              <p className="text-sm text-gray-600">Active Knowledge</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <MessageCircle className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{faqs.filter(f => f.active).length}</p>
-              <p className="text-sm text-gray-600">Active FAQs</p>
+        {[
+          { icon: Bot, color: 'blue', value: totalKnowledge, label: t('knowledge.metrics.activeKnowledge') },
+          { icon: MessageCircle, color: 'green', value: faqs.filter(f => f.active).length, label: t('knowledge.metrics.activeFAQs') },
+          { icon: TrendingUp, color: 'purple', value: faqs.reduce((s, f) => s + (f.usageCount || 0), 0), label: t('knowledge.metrics.totalAnswersUsed') },
+          { icon: AlertCircle, color: 'orange', value: knowledgeGaps.length, label: t('knowledge.metrics.knowledgeGaps') },
+        ].map(({ icon: Icon, color, value, label }) => (
+          <div key={label} className="bg-white rounded-xl p-6 border border-gray-200">
+            <div className="flex items-center gap-3 mb-2">
+              <div className={`w-12 h-12 bg-${color}-100 rounded-lg flex items-center justify-center`}>
+                <Icon className={`w-6 h-6 text-${color}-600`} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{value}</p>
+                <p className="text-sm text-gray-600">{label}</p>
+              </div>
             </div>
           </div>
-        </div>
-        
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">
-                {faqs.reduce((sum, faq) => sum + faq.usageCount, 0)}
-              </p>
-              <p className="text-sm text-gray-600">Total Answers Used</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{knowledgeGaps.length}</p>
-              <p className="text-sm text-gray-600">Knowledge Gaps</p>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Tabs */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="border-b border-gray-200">
-          <div className="flex">
-            {[
-              { id: 'overview', label: 'Overview', icon: FileText },
-              { id: 'faqs', label: 'FAQs', icon: MessageCircle },
-              { id: 'branding', label: 'Branding', icon: Bot },
-              { id: 'gaps', label: 'Knowledge Gaps', icon: AlertCircle },
-            ].map((tab) => {
+          <div className="flex overflow-x-auto">
+            {([
+              { id: 'overview',      label: t('knowledge.tabs.overview'),      icon: FileText },
+              { id: 'businessInfo',  label: t('knowledge.tabs.businessInfo') || 'Business Info', icon: Building2 },
+              { id: 'faqs',          label: t('knowledge.tabs.faqs'),          icon: MessageCircle },
+              { id: 'branding',      label: t('knowledge.tabs.branding'),       icon: Bot },
+              { id: 'gaps',          label: t('knowledge.tabs.knowledgeGaps'), icon: AlertCircle },
+            ] as { id: Tab; label: string; icon: any }[]).map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors ${
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-6 py-4 border-b-2 whitespace-nowrap transition-colors ${
                     activeTab === tab.id
                       ? 'border-blue-600 text-blue-600'
                       : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -323,23 +265,14 @@ export default function Knowledge() {
             <div className="space-y-6">
               <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
                 <div className="flex items-start gap-4">
-                  <Bot className="w-12 h-12 text-purple-600" />
+                  <Bot className="w-12 h-12 text-purple-600 shrink-0" />
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">How AI Knowledge Training Works</h3>
-                    <p className="text-gray-700 mb-4">
-                      Upload documents about your business, and our AI will extract FAQs, business information, 
-                      and branding guidelines. You review and approve before anything goes live.
-                    </p>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('knowledge.howItWorks')}</h3>
+                    <p className="text-gray-700 mb-4">{t('knowledge.howItWorksDesc')}</p>
                     <div className="flex flex-wrap gap-2">
-                      <span className="px-3 py-1 bg-white border border-purple-300 text-purple-700 rounded-full text-sm">
-                        Supported: PDF, DOC, TXT, MD
-                      </span>
-                      <span className="px-3 py-1 bg-white border border-purple-300 text-purple-700 rounded-full text-sm">
-                        AI Confidence: 85-98%
-                      </span>
-                      <span className="px-3 py-1 bg-white border border-purple-300 text-purple-700 rounded-full text-sm">
-                        Manual Override: Always Available
-                      </span>
+                      <span className="px-3 py-1 bg-white border border-purple-300 text-purple-700 rounded-full text-sm">{t('knowledge.badgePdf')}</span>
+                      <span className="px-3 py-1 bg-white border border-purple-300 text-purple-700 rounded-full text-sm">{t('knowledge.badgeConfidence')}</span>
+                      <span className="px-3 py-1 bg-white border border-purple-300 text-purple-700 rounded-full text-sm">{t('knowledge.badgeOverride')}</span>
                     </div>
                   </div>
                 </div>
@@ -347,43 +280,44 @@ export default function Knowledge() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="border border-gray-200 rounded-lg p-6">
-                  <h3 className="font-semibold text-gray-900 mb-4">Most Used FAQs</h3>
+                  <h3 className="font-semibold text-gray-900 mb-4">{t('knowledge.mostUsedFAQs')}</h3>
                   <div className="space-y-3">
-                    {faqs
-                      .filter(f => f.active)
-                      .sort((a, b) => b.usageCount - a.usageCount)
-                      .slice(0, 5)
-                      .map((faq) => (
-                        <div key={faq.id} className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="text-sm text-gray-900">{faq.question}</p>
-                            <p className="text-xs text-gray-500">{faq.usageCount} times used</p>
-                          </div>
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
-                            {Math.round(faq.confidence * 100)}%
-                          </span>
+                    {faqs.filter(f => f.active).sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0)).slice(0, 5).map((faq) => (
+                      <div key={faq.id} className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-900">{faq.question}</p>
+                          <p className="text-xs text-gray-500">{t('knowledge.timesUsed', { count: faq.usageCount || 0 })}</p>
                         </div>
-                      ))}
+                        <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
+                          {Math.round((faq.confidence || 0.9) * 100)}%
+                        </span>
+                      </div>
+                    ))}
+                    {faqs.filter(f => f.active).length === 0 && (
+                      <p className="text-sm text-gray-400">No active FAQs yet.</p>
+                    )}
                   </div>
                 </div>
 
                 <div className="border border-gray-200 rounded-lg p-6">
-                  <h3 className="font-semibold text-gray-900 mb-4">Knowledge Status</h3>
+                  <h3 className="font-semibold text-gray-900 mb-4">{t('knowledge.knowledgeStatus')}</h3>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Business Info</span>
+                      <span className="text-gray-600">{t('knowledge.statusItems.businessInfo')}</span>
+                      {businessInfo.shopName
+                        ? <CheckCircle className="w-5 h-5 text-green-600" />
+                        : <span className="text-xs text-gray-400">Not set</span>}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">{t('knowledge.statusItems.brandingRules')}</span>
                       <CheckCircle className="w-5 h-5 text-green-600" />
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Branding Rules</span>
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Active FAQs</span>
+                      <span className="text-gray-600">{t('knowledge.statusItems.activeFAQs')}</span>
                       <span className="text-gray-900 font-semibold">{faqs.filter(f => f.active).length}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Inactive FAQs</span>
+                      <span className="text-gray-600">{t('knowledge.statusItems.inactiveFAQs')}</span>
                       <span className="text-gray-500">{faqs.filter(f => !f.active).length}</span>
                     </div>
                   </div>
@@ -392,16 +326,85 @@ export default function Knowledge() {
             </div>
           )}
 
+          {/* Business Info Tab — Fix #7 */}
+          {activeTab === 'businessInfo' && (
+            <div className="space-y-6 max-w-2xl">
+              <h3 className="font-semibold text-gray-900">{t('knowledge.tabs.businessInfo') || 'Business Info'}</h3>
+
+              {([
+                { field: 'shopName',     label: 'Shop Name',     placeholder: 'My Boutique' },
+                { field: 'address',      label: 'Address',       placeholder: 'Dhaka, Bangladesh' },
+                { field: 'phone',        label: 'Phone / WhatsApp', placeholder: '+880 1XXX-XXXXXX' },
+                { field: 'openingHours', label: 'Opening Hours', placeholder: 'Sat–Thu 10am–9pm' },
+              ] as { field: keyof BusinessInfo; label: string; placeholder: string }[]).map(({ field, label, placeholder }) => (
+                <div key={field}>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+                  <input
+                    type="text"
+                    value={(businessInfo[field] as string) || ''}
+                    onChange={(e) => setBusinessInfo({ ...businessInfo, [field]: e.target.value })}
+                    placeholder={placeholder}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              ))}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Areas</label>
+                <input
+                  type="text"
+                  value={(businessInfo.deliveryAreas || []).join(', ')}
+                  onChange={(e) => setBusinessInfo({
+                    ...businessInfo,
+                    deliveryAreas: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                  })}
+                  placeholder="Dhaka, Chittagong, Sylhet"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Comma-separated list of areas you deliver to.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Methods</label>
+                <input
+                  type="text"
+                  value={(businessInfo.paymentMethods || []).join(', ')}
+                  onChange={(e) => setBusinessInfo({
+                    ...businessInfo,
+                    paymentMethods: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                  })}
+                  placeholder="Cash on Delivery, bKash, Nagad"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <button
+                onClick={async () => {
+                  try {
+                    const updated = await apiClient.updateKnowledgeBusinessInfo(businessInfo);
+                    if (updated?.businessInfo) setBusinessInfo(updated.businessInfo);
+                    showNotice('Business info updated and indexed.');
+                  } catch (error: any) {
+                    showNotice(error.response?.data?.error?.message || 'Failed to update business info.', 'error');
+                  }
+                }}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Save Business Info
+              </button>
+            </div>
+          )}
+
           {/* FAQs Tab */}
           {activeTab === 'faqs' && (
             <div>
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900">Manage FAQs</h3>
+                <h3 className="font-semibold text-gray-900">{t('knowledge.manageFAQs')}</h3>
                 <span className="text-sm text-gray-600">
-                  {faqs.filter(f => f.active).length} active / {faqs.length} total
+                  {t('knowledge.faqCount', { active: faqs.filter(f => f.active).length, total: faqs.length })}
                 </span>
               </div>
-              
+
               <div className="space-y-3">
                 {faqs.map((faq) => (
                   <div
@@ -415,40 +418,31 @@ export default function Knowledge() {
                         <div className="flex items-center gap-2 mb-1">
                           <h4 className="font-semibold text-gray-900">{faq.question}</h4>
                           <span className={`px-2 py-1 text-xs rounded ${
-                            faq.confidence >= 0.9
-                              ? 'bg-green-100 text-green-700'
-                              : faq.confidence >= 0.8
-                              ? 'bg-yellow-100 text-yellow-700'
+                            (faq.confidence || 0) >= 0.9 ? 'bg-green-100 text-green-700'
+                              : (faq.confidence || 0) >= 0.8 ? 'bg-yellow-100 text-yellow-700'
                               : 'bg-orange-100 text-orange-700'
                           }`}>
-                            {Math.round(faq.confidence * 100)}% confidence
+                            {Math.round((faq.confidence || 0.9) * 100)}% confidence
                           </span>
-                          <span className="px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">
-                            {faq.category}
-                          </span>
+                          <span className="px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">{faq.category}</span>
                         </div>
                         <p className="text-sm text-gray-700 mb-2">{faq.answer}</p>
                         <div className="flex items-center gap-4 text-xs text-gray-500">
                           <span>Source: {faq.source}</span>
-                          <span>Used {faq.usageCount} times</span>
+                          <span>Used {faq.usageCount || 0} times</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 ml-4">
                         <button
                           onClick={() => handleToggleFAQ(faq.id)}
                           className={`px-3 py-1 text-xs rounded ${
-                            faq.active
-                              ? 'bg-green-600 text-white hover:bg-green-700'
-                              : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                            faq.active ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
                           }`}
                         >
-                          {faq.active ? 'Active' : 'Inactive'}
+                          {faq.active ? t('channels.statusActive') : t('channels.statusInactive')}
                         </button>
                         <button
-                          onClick={() => {
-                            setEditingFAQ(faq);
-                            setShowFAQModal(true);
-                          }}
+                          onClick={() => { setEditingFAQ(faq); setShowFAQModal(true); }}
                           className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
                         >
                           <Edit2 className="w-4 h-4" />
@@ -463,15 +457,21 @@ export default function Knowledge() {
                     </div>
                   </div>
                 ))}
+                {faqs.length === 0 && (
+                  <div className="py-12 text-center text-gray-400">
+                    <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p>No FAQs yet. Add one or upload a document to get started.</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           {/* Branding Tab */}
           {activeTab === 'branding' && (
-            <div className="space-y-6">
+            <div className="space-y-6 max-w-2xl">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Tone of Voice</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('knowledge.branding.toneOfVoice')}</label>
                 <select
                   value={brandingRules.tone}
                   onChange={(e) => setBrandingRules({ ...brandingRules, tone: e.target.value as any })}
@@ -484,80 +484,62 @@ export default function Knowledge() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Emoji Usage</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('knowledge.branding.emojiUsage')}</label>
                 <select
                   value={brandingRules.emojiUsage}
                   onChange={(e) => setBrandingRules({ ...brandingRules, emojiUsage: e.target.value as any })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="none">None</option>
-                  <option value="light">Light (1-2 per message)</option>
-                  <option value="moderate">Moderate (3-4 per message)</option>
+                  <option value="light">Light (1–2 per message)</option>
+                  <option value="moderate">Moderate (3–4 per message)</option>
                   <option value="heavy">Heavy (5+ per message)</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Greeting Style</label>
-                <input
-                  type="text"
-                  value={brandingRules.greetingStyle}
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('knowledge.branding.greetingStyle')}</label>
+                <input type="text" value={brandingRules.greetingStyle}
                   onChange={(e) => setBrandingRules({ ...brandingRules, greetingStyle: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Hi! How can I help you?"
-                />
+                  placeholder="Hi! How can I help you?" />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Closing Style</label>
-                <input
-                  type="text"
-                  value={brandingRules.closingStyle}
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('knowledge.branding.closingStyle')}</label>
+                <input type="text" value={brandingRules.closingStyle}
                   onChange={(e) => setBrandingRules({ ...brandingRules, closingStyle: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Thank you!"
-                />
+                  placeholder="Thank you!" />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Forbidden Phrases (comma separated)</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('knowledge.branding.forbiddenPhrases')}</label>
+                <input type="text"
                   value={(brandingRules.forbiddenPhrases ?? []).join(', ')}
-                  onChange={(e) => setBrandingRules({ 
-                    ...brandingRules, 
-                    forbiddenPhrases: e.target.value.split(',').map(s => s.trim()) 
-                  })}
+                  onChange={(e) => setBrandingRules({ ...brandingRules, forbiddenPhrases: e.target.value.split(',').map(s => s.trim()) })}
                   placeholder="maybe, I think, not sure"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Escalation Keywords (comma separated)</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('knowledge.branding.escalationKeywords')}</label>
+                <input type="text"
                   value={(brandingRules.escalationKeywords ?? []).join(', ')}
-                  onChange={(e) => setBrandingRules({
-                    ...brandingRules,
-                    escalationKeywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean),
-                  })}
+                  onChange={(e) => setBrandingRules({ ...brandingRules, escalationKeywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
                   placeholder="human, agent, help, মানুষ"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 <p className="text-xs text-gray-500 mt-1">
-                  When a customer sends any of these keywords, AI auto-reply is automatically paused and the conversation is flagged for human review.
+                  When a customer sends any of these keywords, AI auto-reply is paused and flagged for human review.
                 </p>
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="font-semibold text-blue-900 mb-2">Preview</h4>
                 <div className="bg-white rounded-lg p-4 space-y-2">
-                  <p className="text-gray-900">{brandingRules.greetingStyle}</p>
-                  <p className="text-gray-700">
-                    We're located at {businessInfo.address}. Our opening hours are {businessInfo.openingHours}.
-                  </p>
-                  <p className="text-gray-900">{brandingRules.closingStyle}</p>
+                  <p className="text-gray-900">{brandingRules.greetingStyle || '(greeting)'}</p>
+                  <p className="text-gray-700">We're at {businessInfo.address || '…'}. Hours: {businessInfo.openingHours || '…'}.</p>
+                  <p className="text-gray-900">{brandingRules.closingStyle || '(closing)'}</p>
                 </div>
               </div>
 
@@ -565,356 +547,169 @@ export default function Knowledge() {
                 onClick={async () => {
                   try {
                     const updated = await apiClient.updateKnowledgeBrandingRules(brandingRules);
-                    setBrandingRules(updated.brandingRules || brandingRules);
-                    setNotice('Branding rules updated and indexed.');
+                    if (updated?.brandingRules) setBrandingRules(updated.brandingRules);
+                    showNotice('Branding rules updated and indexed.');
                   } catch (error: any) {
-                    setNotice(error.response?.data?.error?.message || 'Failed to update branding rules.');
+                    showNotice(error.response?.data?.error?.message || 'Failed to update branding rules.', 'error');
                   }
                 }}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
-                Save Changes
+                {t('knowledge.branding.saveChanges')}
               </button>
             </div>
           )}
 
-          {/* Knowledge Gaps Tab */}
+          {/* Knowledge Gaps Tab — Fix #4: uses real schema */}
           {activeTab === 'gaps' && (
             <div>
               <div className="mb-6">
-                <h3 className="font-semibold text-gray-900 mb-2">Unanswered Questions</h3>
-                <p className="text-sm text-gray-600">
-                  These questions were asked by customers but don't have answers in your knowledge base.
-                </p>
+                <h3 className="font-semibold text-gray-900 mb-2">{t('knowledge.gaps.title')}</h3>
+                <p className="text-sm text-gray-600">{t('knowledge.gaps.description')}</p>
               </div>
 
-              <div className="space-y-4">
-                {knowledgeGaps.map((gap) => (
-                  <div key={gap.id} className="border-2 border-orange-200 rounded-lg p-4 bg-orange-50">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h4 className="font-semibold text-gray-900">{gap.question}</h4>
-                          <span className="px-2 py-1 bg-orange-200 text-orange-700 text-xs rounded">
-                            Asked {gap.frequency} times
-                          </span>
-                        </div>
-                        {gap.suggestedAnswer && (
-                          <div className="bg-white rounded-lg p-3 border border-orange-200">
-                            <p className="text-sm text-gray-600 mb-1">AI Suggested Answer:</p>
-                            <p className="text-sm text-gray-900">{gap.suggestedAnswer}</p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              Confidence: {Math.round(gap.confidence * 100)}%
-                            </p>
+              {knowledgeGaps.length === 0 ? (
+                <div className="py-12 text-center text-gray-400">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p>No unanswered questions — your AI is handling everything!</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {knowledgeGaps.map((gap) => (
+                    <div key={gap.id} className="border-2 border-orange-200 rounded-lg p-4 bg-orange-50">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold text-gray-900">{gap.question}</h4>
+                            <span className="px-2 py-1 bg-orange-200 text-orange-700 text-xs rounded">
+                              {gap.frequency}×
+                            </span>
+                            {gap.platform && (
+                              <span className="px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded capitalize">
+                                {gap.platform}
+                              </span>
+                            )}
                           </div>
-                        )}
-                        <p className="text-xs text-gray-500 mt-2">
-                          First asked: {new Date(gap.firstAsked).toLocaleDateString()} • 
-                          Last asked: {new Date(gap.lastAsked).toLocaleDateString()}
-                        </p>
+                          <p className="text-xs text-gray-500">
+                            First asked: {new Date(gap.firstAsked).toLocaleDateString()} •{' '}
+                            Last asked: {new Date(gap.lastAsked).toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex gap-2">
                       <button
                         onClick={() => {
-                          if (gap.suggestedAnswer) {
-                            setEditingFAQ({
-                              ...createTemporaryFaq(),
-                              question: gap.question,
-                              answer: gap.suggestedAnswer,
-                              confidence: gap.confidence,
-                              source: 'ai-suggestion',
-                            });
-                            setShowFAQModal(true);
-                          }
+                          setEditingFAQ({ ...createTemporaryFaq(), question: gap.question });
+                          setShowFAQModal(true);
                         }}
-                        disabled={!gap.suggestedAnswer}
-                        className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                       >
                         <CheckCircle className="w-4 h-4" />
-                        Create FAQ
-                      </button>
-                      <button className="flex items-center gap-1 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm">
-                        Dismiss
+                        {t('knowledge.gaps.createFAQ')}
                       </button>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Upload Modal */}
+      {/* Upload Modal — Fix #14: progress bar works */}
       {showUploadModal && (
         <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-8 max-w-lg w-full mx-4">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Knowledge Document</h2>
-            <p className="text-gray-600 mb-4">
-              Upload documents containing FAQs, business info, or branding guidelines
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('knowledge.uploadModal.title')}</h2>
+            <p className="text-gray-600 mb-4">{t('knowledge.uploadModal.subtitle')}</p>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-xs text-amber-800">
-              <strong>Privacy notice:</strong> Content uploaded here is processed by our AI to generate automated responses. Uploaded data is stored encrypted and isolated to your shop only.
+              <strong>{t('knowledge.uploadModal.privacyNoticeLabel')}</strong> {t('knowledge.uploadModal.privacyNotice')}
             </div>
 
             {uploadProgress === 0 ? (
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
                 <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-4">Drag and drop or click to upload</p>
-                <input
-                  type="file"
-                  onChange={handleFileUpload}
-                  accept=".txt,.doc,.docx"
-                  className="hidden"
-                  id="knowledge-upload"
-                />
-                <label
-                  htmlFor="knowledge-upload"
-                  className="inline-block px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 cursor-pointer"
-                >
-                  Choose File
+                <p className="text-gray-600 mb-4">{t('knowledge.uploadModal.dragDrop')}</p>
+                <input type="file" onChange={handleFileUpload} accept=".txt,.doc,.docx" className="hidden" id="knowledge-upload" />
+                <label htmlFor="knowledge-upload" className="inline-block px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 cursor-pointer">
+                  {t('knowledge.uploadModal.chooseFile')}
                 </label>
-                <p className="text-sm text-gray-500 mt-4">
-                  Supported: DOC, DOCX, TXT
-                </p>
+                <p className="text-sm text-gray-500 mt-4">{t('knowledge.uploadModal.supportedFormats')}</p>
               </div>
             ) : (
               <div>
                 <div className="mb-4">
                   <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                    <span>AI Extracting Knowledge...</span>
+                    <span>{uploadProgress < 50 ? 'Reading file…' : uploadProgress < 100 ? 'Uploading…' : 'Done!'}</span>
                     <span>{uploadProgress}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-purple-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    ></div>
+                    <div className="bg-purple-600 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Bot className="w-4 h-4 animate-pulse" />
-                  <span>Analyzing FAQs, business info, and branding...</span>
+                  <span>{t('knowledge.uploadModal.analyzing')}</span>
                 </div>
               </div>
             )}
 
             <button
-              onClick={() => {
-                setShowUploadModal(false);
-                setUploadProgress(0);
-              }}
+              onClick={() => { setShowUploadModal(false); setUploadProgress(0); }}
               className="mt-6 w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         </div>
       )}
 
-      {/* Review Extracted Knowledge Modal */}
-      {showReviewModal && extractedKnowledge && (
-        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 overflow-y-auto">
-          <div className="bg-white rounded-xl p-8 max-w-4xl w-full mx-4 my-8">
-            <div className="flex items-center gap-3 mb-6">
-              <Bot className="w-8 h-8 text-purple-600" />
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Review Extracted Knowledge</h2>
-                <p className="text-gray-600">
-                  From: {extractedKnowledge.fileName} • 
-                  Confidence: {Math.round(extractedKnowledge.confidence * 100)}%
-                </p>
-              </div>
-            </div>
-
-            <div className="max-h-96 overflow-y-auto space-y-6">
-              {/* Extracted FAQs */}
-              {extractedKnowledge.extractedData.faqs && extractedKnowledge.extractedData.faqs.length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Extracted FAQs</h3>
-                  <div className="space-y-3">
-                    {extractedKnowledge.extractedData.faqs.map((faq) => (
-                      <div key={faq.id} className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50">
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-semibold text-gray-900">{faq.question}</h4>
-                              <span className="px-2 py-1 bg-purple-200 text-purple-700 text-xs rounded">
-                                {Math.round(faq.confidence * 100)}%
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-700">{faq.answer}</p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              setEditingFAQ(faq);
-                              setShowFAQModal(true);
-                            }}
-                            className="px-3 py-1 bg-white border border-purple-300 text-purple-700 rounded text-sm hover:bg-purple-100"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleApproveFAQ(faq)}
-                            className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                          >
-                            Approve
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Extracted Business Info */}
-              {extractedKnowledge.extractedData.businessInfo && (
-                <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
-                  <h3 className="font-semibold text-gray-900 mb-3">Extracted Business Info</h3>
-                  <div className="space-y-2 text-sm">
-                    {Object.entries(extractedKnowledge.extractedData.businessInfo).map(([key, value]) => (
-                      <div key={key} className="flex justify-between">
-                        <span className="text-gray-600 capitalize">{key.replace(/([A-Z])/g, ' $1')}:</span>
-                        <span className="text-gray-900 font-medium">
-                          {Array.isArray(value) ? value.join(', ') : value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Extracted Branding */}
-              {extractedKnowledge.extractedData.branding && (
-                <div className="border-2 border-green-200 rounded-lg p-4 bg-green-50">
-                  <h3 className="font-semibold text-gray-900 mb-3">Extracted Branding Rules</h3>
-                  <div className="space-y-2 text-sm">
-                    {Object.entries(extractedKnowledge.extractedData.branding).map(([key, value]) => (
-                      <div key={key} className="flex justify-between">
-                        <span className="text-gray-600 capitalize">{key.replace(/([A-Z])/g, ' $1')}:</span>
-                        <span className="text-gray-900 font-medium">{value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowReviewModal(false);
-                  setExtractedKnowledge(null);
-                }}
-                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleApproveAll}
-                className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                Approve All
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* FAQ Edit/Create Modal */}
+      {/* FAQ Create/Edit Modal */}
       {showFAQModal && editingFAQ && (
         <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-8 max-w-2xl w-full mx-4">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              {editingFAQ.source === 'manual' && !faqs.find(f => f.id === editingFAQ.id) ? 'Add New FAQ' : 'Edit FAQ'}
+              {faqs.find(f => f.id === editingFAQ.id)
+                ? t('knowledge.reviewModal.editFAQ')
+                : t('knowledge.reviewModal.addNewFAQ')}
             </h2>
 
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Question</label>
-                <input
-                  type="text"
-                  value={editingFAQ.question}
+                <input type="text" value={editingFAQ.question}
                   onChange={(e) => setEditingFAQ({ ...editingFAQ, question: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="What is your question?"
-                />
+                  placeholder="What is your question?" />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Answer</label>
-                <textarea
-                  value={editingFAQ.answer}
+                <textarea value={editingFAQ.answer}
                   onChange={(e) => setEditingFAQ({ ...editingFAQ, answer: e.target.value })}
                   rows={4}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Your answer here..."
-                />
+                  placeholder="Your answer here…" />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                <input
-                  type="text"
-                  value={editingFAQ.category}
+                <input type="text" value={editingFAQ.category}
                   onChange={(e) => setEditingFAQ({ ...editingFAQ, category: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., Delivery, Payment, Policy"
-                />
+                  placeholder="e.g., Delivery, Payment, Policy" />
               </div>
             </div>
 
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => {
-                  setShowFAQModal(false);
-                  setEditingFAQ(null);
-                }}
+                onClick={() => { setShowFAQModal(false); setEditingFAQ(null); }}
                 className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
-                onClick={async () => {
-                  if (!editingFAQ) return;
-
-                  try {
-                    const existing = faqs.find(f => f.id === editingFAQ.id);
-                    if (existing) {
-                      const updated = await apiClient.updateKnowledgeFaq(editingFAQ.id, {
-                        question: editingFAQ.question,
-                        answer: editingFAQ.answer,
-                        category: editingFAQ.category,
-                        confidence: editingFAQ.confidence,
-                        source: editingFAQ.source,
-                        active: editingFAQ.active
-                      });
-                      setFaqs(faqs.map(f => f.id === editingFAQ.id ? updated : f));
-                    } else {
-                      const created = await apiClient.createKnowledgeFaq({
-                        question: editingFAQ.question,
-                        answer: editingFAQ.answer,
-                        category: editingFAQ.category,
-                        confidence: editingFAQ.confidence,
-                        source: editingFAQ.source,
-                        active: editingFAQ.active,
-                        usageCount: editingFAQ.usageCount
-                      });
-                      setFaqs([...faqs, created]);
-                    }
-
-                    setShowFAQModal(false);
-                    setEditingFAQ(null);
-                  } catch (error: any) {
-                    setNotice(error.response?.data?.error?.message || 'Failed to save FAQ.');
-                  }
-                }}
+                onClick={handleSaveFAQ}
                 className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
-                Save FAQ
+                {t('knowledge.reviewModal.saveFAQ')}
               </button>
             </div>
           </div>

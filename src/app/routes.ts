@@ -29,6 +29,7 @@ const RouteError = lazy(() => import("./components/RouteError"));
 const Subscription = lazy(() => import("./components/Subscription"));
 const PrivacyPolicy = lazy(() => import("./components/PrivacyPolicy"));
 const LandingPage = lazy(() => import("./components/LandingPage"));
+const Pricing = lazy(() => import("./components/Pricing"));
 
 // Loader function to check authentication
 async function protectedLoader() {
@@ -91,6 +92,11 @@ export const router = createBrowserRouter([
 	{
 		path: "/landing",
 		Component: withSuspense(LandingPage),
+		errorElement: createElement(RouteError),
+	},
+	{
+		path: "/pricing",
+		Component: withSuspense(Pricing),
 		errorElement: createElement(RouteError),
 	},
 	{

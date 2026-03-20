@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
-import { Send, Bot, User, CheckCircle2, Edit3, Loader2, Search, UserCheck, Tag, AlertTriangle, Clock, Lock } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Send, Bot, User, CheckCircle2, Edit3, Loader2, Search, UserCheck, Tag, AlertTriangle, Clock, Lock, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient, Conversation, Message } from "../lib/api";
 import { useSubscriptionFeatures } from "../lib/useSubscriptionFeatures";
+import { useTranslation } from 'react-i18next';
+import { useInboxSSE } from "../lib/useInboxSSE";
 
 const channelIcons: Record<string, string> = {
   whatsapp: '💬',
@@ -12,6 +14,7 @@ const channelIcons: Record<string, string> = {
 };
 
 export default function UnifiedInbox() {
+  const { t } = useTranslation();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -26,6 +29,9 @@ export default function UnifiedInbox() {
   const [selectedMessageTag, setSelectedMessageTag] = useState('');
   const [togglingHITL, setTogglingHITL] = useState(false);
   const [dismissedSuggestionId, setDismissedSuggestionId] = useState<string | null>(null);
+  const [messagesPage, setMessagesPage] = useState(1);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const { features: planFeatures } = useSubscriptionFeatures();
 
   // Load conversations on mount
@@ -33,10 +39,14 @@ export default function UnifiedInbox() {
     loadConversations();
   }, []);
 
+  const PAGE_SIZE = 30;
+
   // Load messages when conversation changes
   useEffect(() => {
     if (selectedConversation) {
-      loadMessages(selectedConversation.id);
+      setMessagesPage(1);
+      setHasMoreMessages(false);
+      loadMessages(selectedConversation.id, 1);
       setDismissedSuggestionId(null);
     }
   }, [selectedConversation?.id]);
@@ -51,30 +61,89 @@ export default function UnifiedInbox() {
         setSelectedConversation(result.conversations[0]);
       }
     } catch (err) {
-      setError('Failed to load conversations');
-      toast.error('Failed to load conversations');
+      setError(t('inbox.errors.loadConversations'));
+      toast.error(t('inbox.errors.loadConversations'));
       console.error('Error loading conversations:', err);
     } finally {
       setLoadingConversations(false);
     }
   };
 
-  const loadMessages = async (conversationId: string) => {
+  const loadMessages = async (conversationId: string, page: number) => {
     try {
-      setLoadingMessages(true);
-      const result = await apiClient.getMessages(conversationId, { limit: 100 });
-      setMessages(result.messages);
+      if (page === 1) setLoadingMessages(true);
+      const result = await apiClient.getMessages(conversationId, { page, limit: PAGE_SIZE });
+      if (page === 1) {
+        setMessages(result.messages);
+      } else {
+        // Prepend older messages
+        setMessages((prev) => [...result.messages, ...prev]);
+      }
+      setHasMoreMessages(result.pagination.page < result.pagination.totalPages);
     } catch (err) {
-      toast.error('Failed to load messages');
+      toast.error(t('inbox.errors.loadMessages'));
     } finally {
       setLoadingMessages(false);
+      setLoadingMoreMessages(false);
     }
   };
 
-  const lastMsg = messages.length > 0 ? messages[messages.length - 1] : null;
-  const aiSuggestion = lastMsg?.ai_suggestion ?? '';
-  const aiConfidence = lastMsg?.ai_confidence ?? 0;
-  const hasAiSuggestion = !!aiSuggestion && lastMsg?.id !== dismissedSuggestionId;
+  const loadOlderMessages = async () => {
+    if (!selectedConversation || loadingMoreMessages || !hasMoreMessages) return;
+    setLoadingMoreMessages(true);
+    const nextPage = messagesPage + 1;
+    setMessagesPage(nextPage);
+    await loadMessages(selectedConversation.id, nextPage);
+  };
+
+  // SSE — real-time updates pushed from backend
+  useInboxSSE({
+    onNewMessage: useCallback(({ conversation_id, message }) => {
+      // Append to message thread if this conversation is open
+      setMessages((prev) => {
+        if (!prev.length && !selectedConversation) return prev;
+        // Only append if we're viewing this conversation
+        if (selectedConversation?.id === conversation_id) {
+          const alreadyExists = prev.some((m) => m.id === message.id);
+          return alreadyExists ? prev : [...prev, message];
+        }
+        return prev;
+      });
+      // Always bump the conversation list (latest message preview + timestamp)
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === conversation_id
+            ? { ...conv, updated_at: message.created_at, lastMessage: message.content }
+            : conv
+        )
+      );
+    }, [selectedConversation?.id]),
+
+    onHitlChanged: useCallback(({ conversation_id, hitl }) => {
+      setConversations((prev) =>
+        prev.map((conv) => conv.id === conversation_id ? { ...conv, hitl } : conv)
+      );
+      setSelectedConversation((prev) =>
+        prev?.id === conversation_id ? { ...prev, hitl } : prev
+      );
+    }, []),
+  });
+
+  // Find the most recent AI message — survives page refresh and agent replies
+  // Uses explicit ai_suggestion if stored, falls back to the AI message content
+  const lastAiMsg = [...messages].reverse().find((m) => m.sender === 'ai') ?? null;
+  const aiSuggestion = lastAiMsg?.ai_suggestion || lastAiMsg?.content || '';
+  const aiConfidence = lastAiMsg?.ai_confidence ?? 0;
+  // Only show suggestion if: there's content, it hasn't been dismissed,
+  // and the customer's last message is more recent than the agent's last reply
+  const lastCustomerMsg = [...messages].reverse().find((m) => m.sender === 'customer') ?? null;
+  const lastAgentMsg = [...messages].reverse().find((m) => m.sender === 'agent') ?? null;
+  const customerSentAfterAgent = lastCustomerMsg && (!lastAgentMsg ||
+    new Date(lastCustomerMsg.created_at) > new Date(lastAgentMsg.created_at));
+  const hasAiSuggestion =
+    !!aiSuggestion &&
+    lastAiMsg?.id !== dismissedSuggestionId &&
+    !!customerSentAfterAgent;
   const isLowConfidence = hasAiSuggestion && aiConfidence < 0.65;
 
   const META_CHANNELS = ['facebook', 'messenger', 'instagram'];
@@ -114,9 +183,9 @@ export default function UnifiedInbox() {
         new_values: { hitl: newHITL },
         metadata: { channel: selectedConversation.channel },
       }).catch(() => {/* audit failure is non-fatal */});
-      toast.success(newHITL ? 'AI paused — you are now handling this conversation' : 'AI auto-reply re-enabled');
+      toast.success(newHITL ? t('inbox.aiPaused') : t('inbox.aiReEnabled'));
     } catch {
-      toast.error('Failed to update conversation mode');
+      toast.error(t('inbox.errors.updateMode'));
     } finally {
       setTogglingHITL(false);
     }
@@ -135,7 +204,7 @@ export default function UnifiedInbox() {
     const trimmed = (overrideContent ?? editingMessage).trim();
     if (!selectedConversation || !trimmed || isSending) return;
     if (is24hExpired && !selectedMessageTag) {
-      toast.error('Select a Message Tag to send an out-of-window message.');
+      toast.error(t('inbox.errors.selectTag'));
       return;
     }
     try {
@@ -160,8 +229,8 @@ export default function UnifiedInbox() {
       );
     } catch (err: any) {
       const errMsg = (err as any).isRateLimited
-        ? 'AI is busy — please reply manually or wait 30s.'
-        : err.response?.data?.error?.message || 'Failed to send message.';
+        ? t('inbox.errors.rateLimited')
+        : err.response?.data?.error?.message || t('inbox.errors.sendMessage');
       setSendError(errMsg);
       toast.error(errMsg);
     } finally {
@@ -174,9 +243,9 @@ export default function UnifiedInbox() {
     <div className="h-screen flex flex-col">
       {/* Header */}
       <div className="h-16 bg-white border-b border-gray-200 flex items-center px-8">
-        <h1 className="text-xl font-semibold text-gray-900">Unified Inbox</h1>
+        <h1 className="text-xl font-semibold text-gray-900">{t('inbox.title')}</h1>
         <span className="ml-4 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
-          {conversations.filter(c => c.status === 'active').length} Active
+          {t('inbox.active', { count: conversations.filter(c => c.status === 'active').length })}
         </span>
         {error && (
           <span className="ml-4 px-3 py-1 bg-red-100 text-red-700 rounded text-sm">
@@ -193,7 +262,7 @@ export default function UnifiedInbox() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search conversations..."
+                placeholder={t('inbox.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
@@ -206,7 +275,7 @@ export default function UnifiedInbox() {
                   filterTab === 'all' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'
                 }`}
               >
-                All
+                {t('inbox.tabAll')}
               </button>
               <button
                 onClick={() => setFilterTab('needs_review')}
@@ -214,7 +283,7 @@ export default function UnifiedInbox() {
                   filterTab === 'needs_review' ? 'bg-amber-100 text-amber-700' : 'text-gray-500 hover:bg-gray-100'
                 }`}
               >
-                Needs Review
+                {t('inbox.tabNeedsReview')}
                 {needsReviewCount > 0 && (
                   <span className="bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5 leading-none">
                     {needsReviewCount}
@@ -223,14 +292,14 @@ export default function UnifiedInbox() {
               </button>
             </div>
           </div>
-          
+
           {loadingConversations ? (
             <div className="flex-1 flex items-center justify-center">
               <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
             </div>
           ) : filteredConversations.length === 0 ? (
             <div className="flex-1 flex items-center justify-center text-gray-500">
-              <p>{searchQuery ? 'No results found' : 'No conversations yet'}</p>
+              <p>{searchQuery ? t('inbox.noResults') : t('inbox.noConversations')}</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-100 flex-1 overflow-y-auto">
@@ -251,7 +320,7 @@ export default function UnifiedInbox() {
                         <div className="flex items-center gap-1">
                           <h3 className="font-semibold text-gray-900 truncate">{conversation.customer?.name || 'Unknown'}</h3>
                           {conversation.hitl && (
-                            <span title="Human agent active">
+                            <span title={t('inbox.humanTooltip')}>
                               <UserCheck className="w-3 h-3 text-amber-500 flex-shrink-0" />
                             </span>
                           )}
@@ -306,7 +375,7 @@ export default function UnifiedInbox() {
                       <button
                         onClick={handleToggleHITL}
                         disabled={togglingHITL}
-                        title={selectedConversation.hitl ? 'AI paused — click to re-enable' : 'AI responding — click to take over'}
+                        title={selectedConversation.hitl ? t('inbox.humanTooltip') : t('inbox.aiTooltip')}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                           selectedConversation.hitl
                             ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
@@ -320,7 +389,7 @@ export default function UnifiedInbox() {
                         ) : (
                           <Bot className="w-4 h-4" />
                         )}
-                        {selectedConversation.hitl ? '👤 Agent Handling' : '🤖 AI Active'}
+                        {selectedConversation.hitl ? t('inbox.agentHandling') : t('inbox.aiActive')}
                       </button>
                     ) : (
                       <a
@@ -329,7 +398,7 @@ export default function UnifiedInbox() {
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
                       >
                         <Lock className="w-4 h-4" />
-                        Upgrade for AI
+                        {t('inbox.upgradeForAI')}
                       </a>
                     )}
                   </div>
@@ -340,20 +409,20 @@ export default function UnifiedInbox() {
               {selectedConversation.hitl && (
                 <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 flex items-center gap-2 text-sm text-amber-800">
                   <UserCheck className="w-4 h-4 flex-shrink-0" />
-                  <span>Human agent handling active — AI auto-replies are paused for this conversation.</span>
+                  <span>{t('inbox.agentBanner')}</span>
                 </div>
               )}
               {/* 24-hour messaging window banners */}
               {is24hWarning && (
                 <div className="bg-orange-50 border-b border-orange-200 px-6 py-2 flex items-center gap-2 text-sm text-orange-800">
                   <Clock className="w-4 h-4 flex-shrink-0" />
-                  <span>⚠ 24-hour messaging window closing soon — respond before it expires.</span>
+                  <span>{t('inbox.windowClosingSoon')}</span>
                 </div>
               )}
               {is24hExpired && (
                 <div className="bg-red-50 border-b border-red-200 px-6 py-2 flex items-center gap-2 text-sm text-red-800">
                   <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                  <span>Messaging window expired — select a Message Tag below to continue.</span>
+                  <span>{t('inbox.windowExpired')}</span>
                 </div>
               )}
               {/* Messages */}
@@ -364,14 +433,29 @@ export default function UnifiedInbox() {
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-gray-500">
-                    <p>No messages in this conversation</p>
+                    <p>{t('inbox.noMessages')}</p>
                   </div>
                 ) : (
-                  messages.map((message) => (
+                  <>
+                  {hasMoreMessages && (
+                    <div className="flex justify-center">
+                      <button
+                        onClick={loadOlderMessages}
+                        disabled={loadingMoreMessages}
+                        className="flex items-center gap-1.5 px-4 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-full hover:bg-gray-50 disabled:opacity-60"
+                      >
+                        {loadingMoreMessages
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : <ChevronUp className="w-3 h-3" />}
+                        {t('inbox.loadOlder')}
+                      </button>
+                    </div>
+                  )}
+                  {messages.map((message) => (
                     <div key={message.id} className={`flex ${message.sender === 'customer' ? 'justify-start' : 'justify-end'}`}>
                       <div className={`max-w-lg ${
-                        message.sender === 'customer' 
-                          ? 'bg-white' 
+                        message.sender === 'customer'
+                          ? 'bg-white'
                           : message.sender === 'ai'
                           ? 'bg-purple-100'
                           : 'bg-blue-600 text-white'
@@ -395,11 +479,11 @@ export default function UnifiedInbox() {
                             )}
                             {message.metadata?.vision_processed === true && (
                               <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Image processed ✓
+                                <CheckCircle2 className="w-3 h-3" /> {t('inbox.imageProcessed')}
                               </p>
                             )}
                             {message.metadata?.vision_processed === false && (
-                              <p className="mt-1 text-xs text-gray-400">Image skipped (limit reached)</p>
+                              <p className="mt-1 text-xs text-gray-400">{t('inbox.imageSkipped')}</p>
                             )}
                           </div>
                         ) : (
@@ -407,7 +491,8 @@ export default function UnifiedInbox() {
                         )}
                       </div>
                     </div>
-                  ))
+                  ))}
+                  </>
                 )}
               </div>
 
@@ -419,18 +504,18 @@ export default function UnifiedInbox() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <Bot className="w-4 h-4 text-purple-600" />
-                      <span className="text-sm font-semibold text-purple-900">AI Suggestion</span>
+                      <span className="text-sm font-semibold text-purple-900">{t('inbox.aiSuggestion')}</span>
                     </div>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                       isLowConfidence ? 'bg-amber-200 text-amber-800' : 'bg-purple-200 text-purple-800'
                     }`}>
-                      Confidence: {Math.round((aiConfidence ?? 0) * 100)}%
+                      {t('inbox.confidence', { percent: Math.round((aiConfidence ?? 0) * 100) })}
                     </span>
                   </div>
                   <p className="text-sm text-gray-800 mb-2 italic">"{aiSuggestion}"</p>
                   {isLowConfidence && (
                     <p className="text-xs text-amber-700 mb-2 flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" /> Low confidence — verify before sending
+                      <AlertTriangle className="w-3 h-3" /> {t('inbox.lowConfidence')}
                     </p>
                   )}
                   <div className="flex gap-2">
@@ -439,19 +524,19 @@ export default function UnifiedInbox() {
                       disabled={isSending}
                       className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-purple-600 text-white text-xs font-medium rounded-lg hover:bg-purple-700 disabled:opacity-60"
                     >
-                      <CheckCircle2 className="w-3 h-3" /> Use This
+                      <CheckCircle2 className="w-3 h-3" /> {t('inbox.useThis')}
                     </button>
                     <button
                       onClick={() => handleUseAiSuggestion(true)}
                       className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white border border-purple-300 text-purple-700 text-xs font-medium rounded-lg hover:bg-purple-50"
                     >
-                      <Edit3 className="w-3 h-3" /> Edit & Use
+                      <Edit3 className="w-3 h-3" /> {t('inbox.editAndUse')}
                     </button>
                     <button
-                      onClick={() => lastMsg && setDismissedSuggestionId(lastMsg.id)}
+                      onClick={() => lastAiMsg && setDismissedSuggestionId(lastAiMsg.id)}
                       className="py-1.5 px-3 bg-white border border-gray-300 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-50"
                     >
-                      Ignore
+                      {t('inbox.ignore')}
                     </button>
                   </div>
                 </div>
@@ -469,7 +554,7 @@ export default function UnifiedInbox() {
                       onChange={(e) => setSelectedMessageTag(e.target.value)}
                       className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">{is24hExpired ? 'Required: Select a Message Tag' : 'Optional: Message Tag'}</option>
+                      <option value="">{is24hExpired ? t('inbox.messageTagRequired') : t('inbox.messageTagOptional')}</option>
                       <option value="CONFIRMED_EVENT_UPDATE">Confirmed Event Update</option>
                       <option value="POST_PURCHASE_UPDATE">Post-Purchase Update</option>
                       <option value="ACCOUNT_UPDATE">Account Update</option>
@@ -482,7 +567,7 @@ export default function UnifiedInbox() {
                     type="text"
                     value={editingMessage}
                     onChange={(e) => setEditingMessage(e.target.value)}
-                    placeholder={is24hExpired && !selectedMessageTag ? 'Select a Message Tag above to continue...' : 'Type a message...'}
+                    placeholder={is24hExpired && !selectedMessageTag ? t('inbox.messageTagPlaceholder') : t('inbox.messagePlaceholder')}
                     disabled={is24hExpired && !selectedMessageTag}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
@@ -504,14 +589,14 @@ export default function UnifiedInbox() {
                     }`}
                   >
                     {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                    {isSending ? 'Sending...' : 'Send'}
+                    {isSending ? t('inbox.sending') : t('inbox.send')}
                   </button>
                 </div>
               </div>
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-gray-500">
-              <p>Select a conversation to view messages</p>
+              <p>{t('inbox.selectConversation')}</p>
             </div>
           )}
         </div>
@@ -545,6 +630,6 @@ const formatDate = (dateString: string): string => {
   if (minutes < 60) return `${minutes}m ago`;
   if (hours < 24) return `${hours}h ago`;
   if (days < 7) return `${days}d ago`;
-  
+
   return date.toLocaleDateString();
 };
