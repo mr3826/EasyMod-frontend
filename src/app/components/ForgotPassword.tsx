@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { apiClient } from '@/app/lib/api';
 
 export default function ForgotPassword() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -16,7 +18,7 @@ export default function ForgotPassword() {
     setSuccess('');
 
     if (!email.trim()) {
-      setError('Please enter your email');
+      setError(t('auth.forgotPassword.errors.emailRequired'));
       return;
     }
 
@@ -24,7 +26,7 @@ export default function ForgotPassword() {
 
     try {
       const result = await apiClient.forgotPassword(email.trim());
-      setSuccess(result.message || 'If an account exists, a reset link has been sent.');
+      setSuccess(result.message || t('auth.forgotPassword.successMessage'));
     } catch (error: any) {
       setError(
         error.response?.data?.error?.message ||
@@ -44,11 +46,11 @@ export default function ForgotPassword() {
             <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl"></div>
             <span className="text-3xl font-bold text-gray-900">Easy Moderator</span>
           </div>
-          <p className="text-gray-600">Reset your password</p>
+          <p className="text-gray-600">{t('auth.forgotPassword.subtitle')}</p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Forgot Password</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">{t('auth.forgotPassword.title')}</h1>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
@@ -64,14 +66,14 @@ export default function ForgotPassword() {
 
             <div className="space-y-2">
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email
+                {t('auth.forgotPassword.emailLabel')}
               </label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
+                placeholder={t('auth.forgotPassword.emailPlaceholder')}
                 autoComplete="email"
                 autoFocus
                 disabled={isLoading}
@@ -83,7 +85,7 @@ export default function ForgotPassword() {
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
               disabled={isLoading}
             >
-              {isLoading ? 'Sending...' : 'Send Reset Link'}
+              {isLoading ? t('auth.forgotPassword.sending') : t('auth.forgotPassword.sendButton')}
             </Button>
           </form>
 
@@ -92,7 +94,7 @@ export default function ForgotPassword() {
               to="/signin"
               className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
             >
-              Back to Sign In
+              {t('auth.forgotPassword.backToSignIn')}
             </Link>
           </div>
         </div>

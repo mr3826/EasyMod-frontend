@@ -1,45 +1,34 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import Reports from '@/app/components/Reports'
+import Reports from '../app/components/Reports'
 
-// Mock recharts
-vi.mock('recharts', () => ({
-  BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
-  Bar: () => <div data-testid="bar" />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  CartesianGrid: () => <div data-testid="cartesian-grid" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-  ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
-  PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
-  Pie: () => <div data-testid="pie" />,
-  Cell: () => <div data-testid="cell" />,
-  Legend: () => <div data-testid="legend" />
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+  },
 }))
 
-// Mock lucide-react icons
-vi.mock('lucide-react', () => ({
-  TrendingUp: () => <div data-testid="trending-up-icon" />,
-  Users: () => <div data-testid="users-icon" />,
-  DollarSign: () => <div data-testid="dollar-sign-icon" />,
-  ShoppingCart: () => <div data-testid="shopping-cart-icon" />,
-  Bot: () => <div data-testid="bot-icon" />,
-  Brain: () => <div data-testid="brain-icon" />,
-  AlertCircle: () => <div data-testid="alert-circle-icon" />
-}))
-
-// Mock data imports
-vi.mock('@/app/lib/mockData', () => ({
-  mockInsights: []
-}))
-
-vi.mock('@/app/lib/knowledgeTypes', () => ({
-  mockFAQs: [
-    { category: 'General', usageCount: 10, confidence: 0.8 },
-    { category: 'Products', usageCount: 5, confidence: 0.9 }
-  ],
-  mockKnowledgeGaps: []
+vi.mock('../app/lib/api', () => ({
+  apiClient: {
+    getChannels: vi.fn().mockResolvedValue([
+      { id: 'ch-1', type: 'facebook', name: 'Facebook Inbox', message_count: 20 },
+      { id: 'ch-2', type: 'whatsapp', name: 'WhatsApp Inbox', message_count: 10 },
+    ]),
+    getDashboardMetrics: vi.fn().mockResolvedValue({
+      metrics: {
+        totalMessages: 30,
+        activeProducts: 12,
+        ordersToday: 7,
+        conversionRate: 6.5,
+      },
+      channels: {
+        active: 2,
+        total: 3,
+      },
+      chartData: [],
+    }),
+  },
 }))
 
 const renderWithRouter = (component: React.ReactElement) => {
@@ -47,14 +36,17 @@ const renderWithRouter = (component: React.ReactElement) => {
 }
 
 describe('Reports', () => {
-  it('renders reports page with charts and metrics', () => {
+  it('renders metrics and channel performance from API data', async () => {
     renderWithRouter(<Reports />)
 
-    expect(screen.getByText('Reports & Analytics')).toBeInTheDocument()
-    expect(screen.getByText('AI-powered insights and business intelligence')).toBeInTheDocument()
-    expect(screen.getByText('Total Revenue')).toBeInTheDocument()
-    expect(screen.getByText('$4,725.90')).toBeInTheDocument()
-    expect(screen.getAllByTestId('bar-chart')).toHaveLength(1) // Assuming 1 bar chart
-    expect(screen.getByTestId('pie-chart')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: '30' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('heading', { name: '12' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '7' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '6.5%' })).toBeInTheDocument()
+    expect(screen.getByText('Facebook Inbox')).toBeInTheDocument()
+    expect(screen.getByText('WhatsApp Inbox')).toBeInTheDocument()
   })
 })

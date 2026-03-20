@@ -1,75 +1,6 @@
 import { Link } from "react-router-dom";
-
-const features = [
-  { icon: "🤖", title: "AI চ্যাট", desc: "কাস্টমারের প্রশ্নের স্বয়ংক্রিয় উত্তর", colorClass: "bg-blue-500/15 text-blue-400" },
-  { icon: "📦", title: "অর্ডার ম্যানেজমেন্ট", desc: "চ্যাট থেকে সরাসরি অর্ডার তৈরি করুন", colorClass: "bg-emerald-500/15 text-emerald-400" },
-  { icon: "🛡️", title: "RTO Shield", desc: "ভুয়া অর্ডার ফিল্টার করুন, ক্ষতি কমান", colorClass: "bg-orange-500/15 text-orange-400" },
-  { icon: "🚚", title: "Pathao ইন্টিগ্রেশন", desc: "এক ক্লিকে ডেলিভারি বুক করুন", colorClass: "bg-purple-500/15 text-purple-400" },
-  { icon: "📊", title: "Analytics", desc: "বিক্রয় ও কথোপকথনের বিস্তারিত রিপোর্ট", colorClass: "bg-cyan-500/15 text-cyan-400" },
-  { icon: "📱", title: "সব চ্যানেল", desc: "Facebook, Instagram, WhatsApp একসাথে", colorClass: "bg-pink-500/15 text-pink-400" },
-];
-
-const plans = [
-  {
-    id: "free",
-    name: "Free",
-    price: "৳০",
-    keyFeature: "বেসিক AI চ্যাট",
-    popular: false,
-    features: ["১০০ AI কথোপকথন/মাস", "৫০ অর্ডার/মাস", "বেসিক AI চ্যাট", "১টি চ্যানেল"],
-  },
-  {
-    id: "growth",
-    name: "Growth",
-    price: "৳৯৯৯",
-    keyFeature: "RTO Shield + Pathao",
-    popular: true,
-    features: ["১,০০০ AI কথোপকথন/মাস", "৫০০ অর্ডার/মাস", "RTO Shield সুরক্ষা", "Pathao ইন্টিগ্রেশন", "ইমেজ আন্ডারস্ট্যান্ডিং"],
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: "৳২,৪৯৯",
-    keyFeature: "সব চ্যানেল + Analytics",
-    popular: false,
-    features: ["৫,০০০ AI কথোপকথন/মাস", "২,০০০ অর্ডার/মাস", "সব চ্যানেল (FB, IG, WA)", "অ্যাডভান্সড Analytics", "প্রায়রিটি সাপোর্ট"],
-  },
-  {
-    id: "business",
-    name: "Business",
-    price: "৳৫,৯৯৯",
-    keyFeature: "White-label + API",
-    popular: false,
-    features: ["আনলিমিটেড কথোপকথন", "আনলিমিটেড অর্ডার", "White-label ব্র্যান্ডিং", "API অ্যাক্সেস", "ডেডিকেটেড সাপোর্ট ম্যানেজার"],
-  },
-];
-
-const testimonials = [
-  {
-    quote: "EasyModerator ব্যবহার করার পর থেকে আমার শপের অর্ডার ৪০% বেড়েছে। কাস্টমাররা রাতেও উত্তর পায়!",
-    name: "রাহেলা বেগম",
-    location: "ঢাকা",
-    shop: "Rahela Fashion House",
-    avatar: "র",
-    avatarColor: "bg-pink-500",
-  },
-  {
-    quote: "RTO Shield আমার ব্যবসার সবচেয়ে বড় সমস্যা সমাধান করেছে। নকল অর্ডার এখন আর নেই বললেই চলে।",
-    name: "করিম ভাই",
-    location: "চট্টগ্রাম",
-    shop: "Karim Electronics BD",
-    avatar: "ক",
-    avatarColor: "bg-blue-500",
-  },
-  {
-    quote: "Pathao ইন্টিগ্রেশন দিয়ে ডেলিভারি বুকিং এখন অনেক সহজ। আগে ১ ঘন্টা লাগত, এখন ৫ মিনিট।",
-    name: "সুমাইয়া আক্তার",
-    location: "সিলেট",
-    shop: "Sumaiya Lifestyle",
-    avatar: "স",
-    avatarColor: "bg-emerald-500",
-  },
-];
+import { useTranslation } from "react-i18next";
+import LanguageToggle from "./LanguageToggle";
 
 const gradientText: React.CSSProperties = {
   background: "linear-gradient(135deg, #60A5FA 0%, #34D399 100%)",
@@ -79,6 +10,20 @@ const gradientText: React.CSSProperties = {
 };
 
 export default function LandingPage() {
+  const { t } = useTranslation();
+
+  const features = t('landing.features.items', { returnObjects: true }) as {
+    icon: string; title: string; desc: string; colorClass: string;
+  }[];
+
+  const plans = t('landing.pricing.plans', { returnObjects: true }) as {
+    id: string; name: string; price: string; keyFeature: string; popular: boolean; features: string[];
+  }[];
+
+  const testimonials = t('landing.testimonials.items', { returnObjects: true }) as {
+    quote: string; name: string; location: string; shop: string; avatar: string; avatarColor: string;
+  }[];
+
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   };
@@ -122,11 +67,11 @@ export default function LandingPage() {
             <span className="text-2xl">🤖</span>
             <span className="text-xl font-bold text-gray-900">EasyModerator</span>
           </div>
-          <div className="hidden items-center gap-8 md:flex">
+          <div className="hidden items-center gap-6 md:flex">
             {[
-              { label: "Features", id: "features" },
-              { label: "Pricing",  id: "pricing"  },
-              { label: "Contact",  id: "contact"  },
+              { label: t('landing.nav.features'), id: "features" },
+              { label: t('landing.nav.pricing'),  id: "pricing"  },
+              { label: t('landing.nav.contact'),   id: "contact"  },
             ].map((item) => (
               <button
                 key={item.id}
@@ -136,19 +81,19 @@ export default function LandingPage() {
                 {item.label}
               </button>
             ))}
+            <LanguageToggle variant="dark" />
           </div>
           <Link
             to="/signup"
             className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors shadow-sm"
           >
-            ফ্রি শুরু করুন
+            {t('landing.nav.startFree')}
           </Link>
         </div>
       </nav>
 
       {/* ── Hero ───────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-[#0F172A] hero-grid px-6 py-28 md:py-40">
-        {/* Glowing orbs */}
         <div
           className="orb pointer-events-none absolute -left-40 -top-20 h-[500px] w-[500px] rounded-full"
           style={{ background: "radial-gradient(circle, rgba(37,99,235,0.32) 0%, transparent 70%)" }}
@@ -159,48 +104,42 @@ export default function LandingPage() {
         />
 
         <div className="relative mx-auto max-w-4xl text-center">
-          {/* Badge */}
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-1.5 text-sm text-blue-300">
             <span className="badge-dot h-2 w-2 rounded-full bg-blue-400" />
-            আপনার ফেসবুক শপের AI সহকারী
+            {t('landing.hero.badge')}
           </div>
 
-          {/* Headline */}
           <h1 className="mb-6 text-5xl font-bold leading-tight text-white md:text-6xl lg:text-7xl">
-            আপনার শপের{" "}
-            <span style={gradientText}>২৪/৭ AI</span>
+            {t('landing.hero.headline1')}{" "}
+            <span style={gradientText}>{t('landing.hero.headline2')}</span>
             <br />
-            সহকারী
+            {t('landing.hero.headline3')}
           </h1>
 
-          {/* Sub-headline */}
           <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-slate-300 md:text-xl">
-            ফেসবুক, ইনস্টাগ্রাম ও WhatsApp-এ কাস্টমারদের সাথে AI দিয়ে কথা বলুন,
-            অর্ডার নিন, ডেলিভারি ট্র্যাক করুন — সব এক জায়গায়।
+            {t('landing.hero.subheadline')}
           </p>
 
-          {/* CTAs */}
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               to="/signup"
               className="rounded-xl bg-blue-600 px-9 py-4 text-base font-semibold text-white shadow-lg shadow-blue-600/30 hover:bg-blue-500 hover:shadow-blue-500/40 transition-all"
             >
-              ফ্রি শুরু করুন →
+              {t('landing.hero.ctaStart')}
             </Link>
             <Link
               to="/signin"
               className="rounded-xl border border-white/20 bg-white/5 px-9 py-4 text-base font-semibold text-white hover:bg-white/10 transition-all"
             >
-              ডেমো দেখুন
+              {t('landing.hero.ctaDemo')}
             </Link>
           </div>
 
-          {/* Stats */}
           <div className="mt-16 flex flex-wrap items-center justify-center gap-12 border-t border-white/10 pt-10">
             {[
-              { value: "৫০০+", label: "শপ ব্যবহার করছে" },
-              { value: "৯৮%",  label: "গ্রাহক সন্তুষ্টি" },
-              { value: "২৪/৭", label: "সাপোর্ট উপলব্ধ" },
+              { value: t('landing.hero.stat1Value'), label: t('landing.hero.stat1Label') },
+              { value: t('landing.hero.stat2Value'), label: t('landing.hero.stat2Label') },
+              { value: t('landing.hero.stat3Value'), label: t('landing.hero.stat3Label') },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
                 <div className="text-4xl font-bold text-white">{stat.value}</div>
@@ -215,17 +154,16 @@ export default function LandingPage() {
       <section id="features" className="bg-white px-6 py-24">
         <div className="mx-auto max-w-7xl">
           <div className="mb-14 text-center">
-            <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-blue-600">Features</p>
-            <h2 className="text-3xl font-bold text-gray-900 md:text-4xl">কেন EasyModerator?</h2>
-            <p className="mt-3 text-gray-500">বাংলাদেশের শপ অওনারদের জন্য বিশেষভাবে তৈরি</p>
+            <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-blue-600">
+              {t('landing.features.label')}
+            </p>
+            <h2 className="text-3xl font-bold text-gray-900 md:text-4xl">{t('landing.features.heading')}</h2>
+            <p className="mt-3 text-gray-500">{t('landing.features.subheading')}</p>
           </div>
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((f) => (
-              <div
-                key={f.title}
-                className="feature-card rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
-              >
+              <div key={f.title} className="feature-card rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                 <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl text-2xl ${f.colorClass}`}>
                   {f.icon}
                 </div>
@@ -241,9 +179,11 @@ export default function LandingPage() {
       <section id="pricing" className="bg-slate-50 px-6 py-24">
         <div className="mx-auto max-w-7xl">
           <div className="mb-14 text-center">
-            <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-blue-600">Pricing</p>
-            <h2 className="text-3xl font-bold text-gray-900 md:text-4xl">সহজ মূল্য পরিকল্পনা</h2>
-            <p className="mt-3 text-gray-500">আপনার ব্যবসার আকার অনুযায়ী প্ল্যান বেছে নিন</p>
+            <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-blue-600">
+              {t('landing.pricing.label')}
+            </p>
+            <h2 className="text-3xl font-bold text-gray-900 md:text-4xl">{t('landing.pricing.heading')}</h2>
+            <p className="mt-3 text-gray-500">{t('landing.pricing.subheading')}</p>
           </div>
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -259,7 +199,7 @@ export default function LandingPage() {
                 {plan.popular && (
                   <div className="absolute -top-4 left-0 right-0 flex justify-center">
                     <span className="rounded-full bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-md">
-                      সবচেয়ে জনপ্রিয়
+                      {t('landing.pricing.mostPopular')}
                     </span>
                   </div>
                 )}
@@ -268,7 +208,7 @@ export default function LandingPage() {
                   <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
                   <div className="mt-2 flex items-end gap-1">
                     <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
-                    <span className="mb-1 text-sm text-gray-400">/মাস</span>
+                    <span className="mb-1 text-sm text-gray-400">{t('landing.pricing.perMonth')}</span>
                   </div>
                   <p className="mt-2 text-xs font-semibold text-blue-600">{plan.keyFeature}</p>
                 </div>
@@ -290,7 +230,7 @@ export default function LandingPage() {
                       : "border border-gray-200 text-gray-700 hover:border-blue-600 hover:text-blue-600"
                   }`}
                 >
-                  শুরু করুন
+                  {t('landing.pricing.getStarted')}
                 </Link>
               </div>
             ))}
@@ -302,25 +242,24 @@ export default function LandingPage() {
       <section className="bg-white px-6 py-24">
         <div className="mx-auto max-w-7xl">
           <div className="mb-14 text-center">
-            <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-blue-600">Testimonials</p>
-            <h2 className="text-3xl font-bold text-gray-900 md:text-4xl">শপ অওনাররা কী বলেন</h2>
+            <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-blue-600">
+              {t('landing.testimonials.label')}
+            </p>
+            <h2 className="text-3xl font-bold text-gray-900 md:text-4xl">{t('landing.testimonials.heading')}</h2>
           </div>
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {testimonials.map((t) => (
-              <div
-                key={t.name}
-                className="testimonial-card rounded-2xl border border-gray-100 bg-white p-7 shadow-sm"
-              >
+            {testimonials.map((t_) => (
+              <div key={t_.name} className="testimonial-card rounded-2xl border border-gray-100 bg-white p-7 shadow-sm">
                 <p className="mb-1 text-5xl font-bold leading-none text-blue-100">"</p>
-                <p className="mb-6 text-gray-700 leading-relaxed">{t.quote}</p>
+                <p className="mb-6 text-gray-700 leading-relaxed">{t_.quote}</p>
                 <div className="flex items-center gap-3">
-                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${t.avatarColor}`}>
-                    {t.avatar}
+                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${t_.avatarColor}`}>
+                    {t_.avatar}
                   </div>
                   <div>
-                    <div className="font-semibold text-gray-900">{t.name}</div>
-                    <div className="text-xs text-gray-400">{t.shop} · {t.location}</div>
+                    <div className="font-semibold text-gray-900">{t_.name}</div>
+                    <div className="text-xs text-gray-400">{t_.shop} · {t_.location}</div>
                   </div>
                 </div>
               </div>
@@ -337,17 +276,15 @@ export default function LandingPage() {
         />
         <div className="relative mx-auto max-w-3xl text-center">
           <h2 className="mb-4 text-4xl font-bold text-white md:text-5xl">
-            আজই শুরু করুন —{" "}
-            <span style={gradientText}>ফ্রিতে</span>
+            {t('landing.cta.heading1')}{" "}
+            <span style={gradientText}>{t('landing.cta.heading2')}</span>
           </h2>
-          <p className="mb-10 text-xl text-slate-300">
-            কোনো ক্রেডিট কার্ড লাগবে না। ৫ মিনিটে সেটআপ করুন।
-          </p>
+          <p className="mb-10 text-xl text-slate-300">{t('landing.cta.subheading')}</p>
           <Link
             to="/signup"
             className="inline-block rounded-xl bg-blue-600 px-12 py-4 text-lg font-semibold text-white shadow-xl shadow-blue-600/30 hover:bg-blue-500 transition-all hover:shadow-blue-500/40"
           >
-            ফ্রি অ্যাকাউন্ট খুলুন →
+            {t('landing.cta.button')}
           </Link>
         </div>
       </section>
@@ -361,19 +298,20 @@ export default function LandingPage() {
                 <span className="text-xl">🤖</span>
                 <span className="text-lg font-bold text-white">EasyModerator</span>
               </div>
-              <p className="mt-1 text-sm text-slate-400">আপনার ফেসবুক শপের AI সহকারী</p>
+              <p className="mt-1 text-sm text-slate-400">{t('landing.footer.tagline')}</p>
             </div>
             <div className="flex items-center gap-6 text-sm">
+              <LanguageToggle variant="light" />
               <Link to="/privacy-policy" className="text-slate-400 hover:text-white transition-colors">
-                Privacy Policy
+                {t('common.privacyPolicy')}
               </Link>
               <Link to="/signin" className="text-slate-400 hover:text-white transition-colors">
-                Sign In
+                {t('common.signIn')}
               </Link>
             </div>
           </div>
           <div className="mt-8 border-t border-slate-800 pt-6 text-center text-sm text-slate-500">
-            © 2025 EasyModerator. সর্বস্বত্ব সংরক্ষিত।
+            {t('common.copyright')}
           </div>
         </div>
       </footer>

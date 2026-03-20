@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, Upload, Loader2, Plus, Edit2, Trash2, X } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { apiClient } from "@/app/lib/api";
 
 interface Category {
@@ -25,10 +26,11 @@ interface Subcategory {
 
 export default function CategoryDetails() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { categoryId } = useParams();
-  
+
   const isCreateMode = !categoryId;
-  
+
   const [categoryName, setCategoryName] = useState("");
   const [description, setDescription] = useState("");
   const [categoryImage, setCategoryImage] = useState("");
@@ -160,23 +162,23 @@ export default function CategoryDetails() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-600 mb-6">
         <button onClick={() => navigate("/app/categories")} className="hover:text-gray-900">
-          Categories
+          {t('categories.detail.breadcrumb')}
         </button>
         <ChevronRight className="w-4 h-4" />
         <span className="text-gray-900">
-          {isCreateMode ? 'Create Category' : categoryName || 'Loading...'}
+          {isCreateMode ? t('categories.detail.createTitle') : categoryName || t('categories.detail.loading')}
         </span>
       </div>
 
       {/* Page Header */}
       <div className="mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-          {isCreateMode ? 'Create Category' : 'Category Details'}
+          {isCreateMode ? t('categories.detail.createTitle') : t('categories.detail.detailTitle')}
         </h1>
         <p className="text-sm md:text-base text-gray-600 mt-1">
-          {isCreateMode 
-            ? 'Add a new category to organize your products' 
-            : 'Update category information and manage subcategories'
+          {isCreateMode
+            ? t('categories.detail.createDesc')
+            : t('categories.detail.updateDesc')
           }
         </p>
       </div>
@@ -190,22 +192,22 @@ export default function CategoryDetails() {
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          <span className="ml-2 text-gray-600">Loading category...</span>
+          <span className="ml-2 text-gray-600">{t('categories.detail.loading')}</span>
         </div>
 ) : (
         <>
           {/* Two Column Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         {/* Left Panel - Category Form */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Category Information</h2>
-          
+          <h2 className="text-lg font-semibold text-gray-900 mb-6">{t('categories.detail.infoSection')}</h2>
+
           <div className="space-y-6">
             {/* Category Image */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category Image
+                {t('categories.detail.categoryImage')}
               </label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden">
                 {categoryImage ? (
@@ -217,7 +219,7 @@ export default function CategoryDetails() {
                     />
                     <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <label className="cursor-pointer px-4 py-2 bg-white text-gray-900 rounded-lg hover:bg-gray-100">
-                        Change Image
+                        {t('categories.detail.changeImage')}
                         <input
                           type="file"
                           accept="image/*"
@@ -230,7 +232,7 @@ export default function CategoryDetails() {
                 ) : (
                   <label className="flex flex-col items-center justify-center aspect-square cursor-pointer hover:bg-gray-50">
                     <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                    <span className="text-sm text-gray-600">Upload category image</span>
+                    <span className="text-sm text-gray-600">{t('categories.detail.uploadImage')}</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -240,35 +242,35 @@ export default function CategoryDetails() {
                   </label>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-2">Square image (1:1 ratio), max 4MB</p>
+              <p className="text-xs text-gray-500 mt-2">{t('categories.detail.imageHint')}</p>
             </div>
 
             {/* Category Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category Name <span className="text-red-500">*</span>
+                {t('categories.detail.categoryName')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={categoryName}
                 onChange={(e) => setCategoryName(e.target.value)}
                 maxLength={50}
-                placeholder="Enter category name"
+                placeholder={t('categories.detail.categoryNamePlaceholder')}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <p className="text-xs text-gray-500 mt-1">{categoryName.length}/50 characters</p>
+              <p className="text-xs text-gray-500 mt-1">{t('categories.detail.charCount', { count: categoryName.length })}</p>
             </div>
 
             {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Short Description
+                {t('categories.detail.shortDesc')}
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
-                placeholder="Brief description of this category"
+                placeholder={t('categories.detail.shortDescPlaceholder')}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -282,10 +284,10 @@ export default function CategoryDetails() {
               {saving ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  {isCreateMode ? 'Creating...' : 'Updating...'}
+                  {isCreateMode ? t('categories.detail.creating') : t('categories.detail.updating')}
                 </>
               ) : (
-                isCreateMode ? 'Create Category' : 'Update Category'
+                isCreateMode ? t('categories.detail.createButton') : t('categories.detail.updateButton')
               )}
             </button>
           </div>
@@ -294,13 +296,13 @@ export default function CategoryDetails() {
         {/* Right Panel - Subcategories */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Subcategories</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('categories.detail.subcategories')}</h2>
             <button
               onClick={handleAddSubcategory}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               <Plus className="w-4 h-4" />
-              Add Subcategory
+              {t('categories.detail.addSubcategory')}
             </button>
           </div>
 
@@ -309,14 +311,14 @@ export default function CategoryDetails() {
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Plus className="w-8 h-8 text-gray-400" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No subcategories yet</h3>
-              <p className="text-gray-600 mb-6">Start organizing your products by adding subcategories</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('categories.detail.noSubcategories')}</h3>
+              <p className="text-gray-600 mb-6">{t('categories.detail.noSubcategoriesHint')}</p>
               <button
                 onClick={handleAddSubcategory}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 <Plus className="w-4 h-4" />
-                Add First Subcategory
+                {t('categories.detail.addFirstSubcategory')}
               </button>
             </div>
           ) : (
@@ -343,14 +345,14 @@ export default function CategoryDetails() {
                     <button
                       onClick={() => handleEditSubcategory(subcategory, index)}
                       className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                      title="Edit"
+                      title={t('common.edit')}
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDeleteSubcategory(subcategory, index)}
                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                      title="Delete"
+                      title={t('common.delete')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -381,9 +383,9 @@ export default function CategoryDetails() {
       {showDeleteModal && subcategoryToDelete && (
         <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Subcategory</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">{t('categories.detail.deleteSubcategoryTitle')}</h3>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to delete "<strong>{subcategoryToDelete.subcategory.name}</strong>"?
+              {t('categories.detail.deleteSubcategoryMsg', { name: subcategoryToDelete.subcategory.name })}
             </p>
             <div className="flex gap-3">
               <button
@@ -393,13 +395,13 @@ export default function CategoryDetails() {
                 }}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={confirmDeleteSubcategory}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           </div>
@@ -410,15 +412,16 @@ export default function CategoryDetails() {
 }
 
 // Subcategory Modal Component
-function SubcategoryModal({ 
-  subcategory, 
-  onClose, 
-  onSave 
-}: { 
-  subcategory: Subcategory | null; 
-  onClose: () => void; 
+function SubcategoryModal({
+  subcategory,
+  onClose,
+  onSave
+}: {
+  subcategory: Subcategory | null;
+  onClose: () => void;
   onSave: (data: Subcategory) => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(subcategory?.name || "");
   const [description, setDescription] = useState(subcategory?.description || "");
   const [image, setImage] = useState(subcategory?.image || "");
@@ -432,18 +435,18 @@ function SubcategoryModal({
 
   const handleSubmit = () => {
     if (!name.trim()) return;
-    
+
     const data: Subcategory = {
       name: name.trim(),
       description: description.trim() || undefined,
       image: image || undefined,
     };
-    
+
     // Preserve ID if editing existing subcategory
     if (subcategory?.id) {
       data.id = subcategory.id;
     }
-    
+
     onSave(data);
   };
 
@@ -452,7 +455,7 @@ function SubcategoryModal({
       <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-gray-900">
-            {subcategory ? "Edit Subcategory" : "Add Subcategory"}
+            {subcategory ? t('categories.detail.editSubcategory') : t('categories.detail.addSubcategory')}
           </h3>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
             <X className="w-5 h-5" />
@@ -463,7 +466,7 @@ function SubcategoryModal({
           {/* Category Image */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Subcategory Image (Optional)
+              {t('categories.detail.subcategoryImageLabel')}
             </label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden max-w-xs">
               {image ? (
@@ -489,13 +492,13 @@ function SubcategoryModal({
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Subcategory Name <span className="text-red-500">*</span>
+              {t('categories.detail.subcategoryNameLabel')} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter subcategory name"
+              placeholder={t('categories.detail.subcategoryNamePlaceholder')}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -503,13 +506,13 @@ function SubcategoryModal({
           {/* Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description (Optional)
+              {t('categories.detail.descriptionOptional')}
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              placeholder="Brief description"
+              placeholder={t('categories.detail.briefDescription')}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -520,14 +523,14 @@ function SubcategoryModal({
             onClick={onClose}
             className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSubmit}
             disabled={!name.trim()}
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {subcategory ? "Update" : "Add"}
+            {subcategory ? t('common.update') : t('common.add')}
           </button>
         </div>
       </div>

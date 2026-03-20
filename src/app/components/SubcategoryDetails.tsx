@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, Upload, Plus, Eye, Edit2, Trash2, X } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { apiClient } from "../lib/api";
 
 interface SubSubcategory {
@@ -12,8 +13,9 @@ interface SubSubcategory {
 
 export default function SubcategoryDetails() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { categoryId, subcategoryId } = useParams();
-  
+
   const [subcategoryName, setSubcategoryName] = useState("");
   const [description, setDescription] = useState("");
   const [categoryImage, setCategoryImage] = useState("");
@@ -131,7 +133,7 @@ export default function SubcategoryDetails() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-600 mb-6 flex-wrap">
         <button onClick={() => navigate("/app/categories")} className="hover:text-gray-900">
-          Categories
+          {t('categories.subcategoryDetail.breadcrumb')}
         </button>
         <ChevronRight className="w-4 h-4" />
         <button onClick={() => navigate(`/categories/${categoryId}`)} className="hover:text-gray-900">
@@ -142,7 +144,7 @@ export default function SubcategoryDetails() {
       </div>
 
       {isLoading && (
-        <div className="mb-6 text-gray-500">Loading subcategory details...</div>
+        <div className="mb-6 text-gray-500">{t('categories.subcategoryDetail.loading')}</div>
       )}
       {loadError && (
         <div className="mb-6 text-red-600">{loadError}</div>
@@ -156,22 +158,22 @@ export default function SubcategoryDetails() {
 
       {/* Page Header */}
       <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Subcategory Details</h1>
-        <p className="text-sm md:text-base text-gray-600 mt-1">Manage subcategory and nested levels</p>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t('categories.subcategoryDetail.title')}</h1>
+        <p className="text-sm md:text-base text-gray-600 mt-1">{t('categories.subcategoryDetail.subtitle')}</p>
       </div>
 
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         {/* Left Panel - Subcategory Form */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Subcategory Information</h2>
-          
+          <h2 className="text-lg font-semibold text-gray-900 mb-6">{t('categories.subcategoryDetail.infoSection')}</h2>
+
           <div className="space-y-6">
             {/* Banner Image */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Banner / Cover Image
+                {t('categories.subcategoryDetail.bannerImage')}
               </label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden">
                 {bannerImage ? (
@@ -183,7 +185,7 @@ export default function SubcategoryDetails() {
                     />
                     <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <label className="cursor-pointer px-4 py-2 bg-white text-gray-900 rounded-lg hover:bg-gray-100">
-                        Change Image
+                        {t('categories.subcategoryDetail.changeImage')}
                         <input
                           type="file"
                           accept="image/*"
@@ -196,7 +198,7 @@ export default function SubcategoryDetails() {
                 ) : (
                   <label className="flex flex-col items-center justify-center h-48 cursor-pointer hover:bg-gray-50">
                     <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                    <span className="text-sm text-gray-600">Upload banner image</span>
+                    <span className="text-sm text-gray-600">{t('categories.subcategoryDetail.uploadBanner')}</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -206,13 +208,13 @@ export default function SubcategoryDetails() {
                   </label>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-2">Recommended: 1300 × 380 pixels, max 4MB</p>
+              <p className="text-xs text-gray-500 mt-2">{t('categories.subcategoryDetail.bannerHint')}</p>
             </div>
 
             {/* Category Image */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Subcategory Image
+                {t('categories.subcategoryDetail.subcategoryImage')}
               </label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden">
                 {categoryImage ? (
@@ -224,7 +226,7 @@ export default function SubcategoryDetails() {
                     />
                     <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <label className="cursor-pointer px-4 py-2 bg-white text-gray-900 rounded-lg hover:bg-gray-100">
-                        Change Image
+                        {t('categories.subcategoryDetail.changeImage')}
                         <input
                           type="file"
                           accept="image/*"
@@ -237,7 +239,7 @@ export default function SubcategoryDetails() {
                 ) : (
                   <label className="flex flex-col items-center justify-center aspect-square cursor-pointer hover:bg-gray-50">
                     <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                    <span className="text-sm text-gray-600">Upload image</span>
+                    <span className="text-sm text-gray-600">{t('categories.subcategoryDetail.uploadImage')}</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -247,35 +249,35 @@ export default function SubcategoryDetails() {
                   </label>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-2">Square image (1:1 ratio), max 4MB</p>
+              <p className="text-xs text-gray-500 mt-2">{t('categories.subcategoryDetail.imageHint')}</p>
             </div>
 
             {/* Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Subcategory Name <span className="text-red-500">*</span>
+                {t('categories.subcategoryDetail.nameLabel')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={subcategoryName}
                 onChange={(e) => setSubcategoryName(e.target.value)}
                 maxLength={50}
-                placeholder="Enter subcategory name"
+                placeholder={t('categories.subcategoryDetail.namePlaceholder')}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <p className="text-xs text-gray-500 mt-1">{subcategoryName.length}/50 characters</p>
+              <p className="text-xs text-gray-500 mt-1">{t('categories.subcategoryDetail.charCount', { count: subcategoryName.length })}</p>
             </div>
 
             {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Short Description
+                {t('categories.subcategoryDetail.shortDesc')}
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
-                placeholder="Brief description"
+                placeholder={t('categories.subcategoryDetail.shortDescPlaceholder')}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -286,7 +288,7 @@ export default function SubcategoryDetails() {
               disabled={isSaving}
               className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isSaving ? 'Saving...' : 'Update Subcategory'}
+              {isSaving ? t('common.saving') : t('categories.subcategoryDetail.updateButton')}
             </button>
           </div>
         </div>
@@ -294,13 +296,13 @@ export default function SubcategoryDetails() {
         {/* Right Panel - Nested Subcategories */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Nested Subcategories</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('categories.subcategoryDetail.nestedSection')}</h2>
             <button
               onClick={handleAdd}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               <Plus className="w-4 h-4" />
-              Add Subcategory
+              {t('categories.subcategoryDetail.addNested')}
             </button>
           </div>
 
@@ -309,14 +311,14 @@ export default function SubcategoryDetails() {
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Plus className="w-8 h-8 text-gray-400" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No nested subcategories</h3>
-              <p className="text-gray-600 mb-6">Further organize this category by adding nested levels</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('categories.subcategoryDetail.noNested')}</h3>
+              <p className="text-gray-600 mb-6">{t('categories.subcategoryDetail.noNestedHint')}</p>
               <button
                 onClick={handleAdd}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 <Plus className="w-4 h-4" />
-                Add Nested Level
+                {t('categories.subcategoryDetail.addNestedButton')}
               </button>
             </div>
           ) : (
@@ -341,21 +343,21 @@ export default function SubcategoryDetails() {
                     <button
                       onClick={() => navigate(`/categories/${categoryId}/${subcategoryId}/${item.id}`)}
                       className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                      title="View Details"
+                      title={t('categories.subcategoryDetail.viewDetails')}
                     >
                       <Eye className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleEdit(item)}
                       className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                      title="Edit"
+                      title={t('common.edit')}
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(item)}
                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                      title="Delete"
+                      title={t('common.delete')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -374,7 +376,7 @@ export default function SubcategoryDetails() {
           onClose={() => setShowModal(false)}
           onSave={(data) => {
             if (editingItem) {
-              setSubSubcategories(subSubcategories.map(s => 
+              setSubSubcategories(subSubcategories.map(s =>
                 s.id === editingItem.id ? { ...s, ...data } : s
               ));
             } else {
@@ -392,22 +394,22 @@ export default function SubcategoryDetails() {
       {showDeleteModal && itemToDelete && (
         <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Subcategory</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">{t('categories.subcategoryDetail.deleteTitle')}</h3>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to delete "<strong>{itemToDelete.name}</strong>"?
+              {t('categories.subcategoryDetail.deleteMsg', { name: itemToDelete.name })}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteModal(false)}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={confirmDelete}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           </div>
@@ -418,15 +420,16 @@ export default function SubcategoryDetails() {
 }
 
 // Nested Modal Component
-function NestedModal({ 
-  item, 
-  onClose, 
-  onSave 
-}: { 
-  item: SubSubcategory | null; 
-  onClose: () => void; 
+function NestedModal({
+  item,
+  onClose,
+  onSave
+}: {
+  item: SubSubcategory | null;
+  onClose: () => void;
   onSave: (data: any) => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(item?.name || "");
   const [description, setDescription] = useState(item?.description || "");
   const [image, setImage] = useState(item?.image || "");
@@ -455,7 +458,7 @@ function NestedModal({
       <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-gray-900">
-            {item ? "Edit Subcategory" : "Create Subcategory"}
+            {item ? t('common.edit') : t('categories.subcategoryDetail.addNested')}
           </h3>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
             <X className="w-5 h-5" />
@@ -466,7 +469,7 @@ function NestedModal({
           {/* Banner Image */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Banner / Cover Image
+              {t('categories.subcategoryDetail.bannerImage')}
             </label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden">
               {banner ? (
@@ -493,7 +496,7 @@ function NestedModal({
           {/* Category Image */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Category Image
+              {t('categories.subcategoryDetail.subcategoryImage')}
             </label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden max-w-xs">
               {image ? (
@@ -509,7 +512,7 @@ function NestedModal({
               ) : (
                 <label className="flex flex-col items-center justify-center aspect-square cursor-pointer hover:bg-gray-50">
                   <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                  <span className="text-sm text-gray-600">Upload image</span>
+                  <span className="text-sm text-gray-600">{t('categories.subcategoryDetail.uploadImage')}</span>
                   <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                 </label>
               )}
@@ -519,7 +522,7 @@ function NestedModal({
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Subcategory Name <span className="text-red-500">*</span>
+              {t('categories.subcategoryDetail.nameLabel')} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -533,13 +536,13 @@ function NestedModal({
           {/* Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Short Description
+              {t('categories.subcategoryDetail.shortDesc')}
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              placeholder="Brief description"
+              placeholder={t('categories.subcategoryDetail.shortDescPlaceholder')}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -550,13 +553,13 @@ function NestedModal({
             onClick={onClose}
             className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSubmit}
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            {item ? "Update" : "Create"}
+            {item ? t('common.update') : t('common.add')}
           </button>
         </div>
       </div>

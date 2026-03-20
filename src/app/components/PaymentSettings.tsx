@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from 'react-i18next';
 import { CreditCard, Wallet, DollarSign, Upload, ChevronDown, ChevronUp, TestTube, X } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/app/lib/api";
@@ -14,19 +15,20 @@ interface PaymentGateway {
 }
 
 export default function PaymentSettings() {
+  const { t } = useTranslation();
   const [gateways, setGateways] = useState<PaymentGateway[]>([
     {
       id: 'cod',
-      name: 'Cash on Delivery',
+      name: t('manageShop.paymentSettings.codName'),
       logo: <DollarSign className="w-6 h-6 text-green-600" />,
-      description: 'Accept cash payment on delivery',
+      description: t('manageShop.paymentSettings.codDesc'),
       enabled: true,
     },
     {
       id: 'aamarpay',
-      name: 'AamarPay',
+      name: t('manageShop.paymentSettings.aamarName'),
       logo: <CreditCard className="w-6 h-6 text-orange-600" />,
-      description: 'Accept card payments, mobile banking & more',
+      description: t('manageShop.paymentSettings.aamarDesc'),
       enabled: false,
       config: { storeId: '', secretKey: '', environment: 'sandbox' },
     },
@@ -313,8 +315,8 @@ export default function PaymentSettings() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Payment Settings</h1>
-        <p className="text-gray-600 mt-1">Configure payment methods and advance payment rules</p>
+        <h1 className="text-3xl font-bold text-gray-900">{t('manageShop.paymentSettings.title')}</h1>
+        <p className="text-gray-600 mt-1">{t('manageShop.paymentSettings.subtitle')}</p>
       </div>
 
       {/* Success/Error Messages */}
@@ -332,9 +334,9 @@ export default function PaymentSettings() {
       <div className="max-w-4xl space-y-6">
         {/* Payment Gateways */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Payment Gateways</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('manageShop.paymentSettings.gatewaysTitle')}</h2>
           <p className="text-sm text-gray-600 mb-4">
-            Enable and configure payment methods for your customers
+            {t('manageShop.paymentSettings.gatewaysSubtitle')}
           </p>
 
           <div className="space-y-3">
@@ -386,7 +388,7 @@ export default function PaymentSettings() {
                       <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Store ID
+                            {t('manageShop.paymentSettings.storeId')}
                           </label>
                           <input
                             type="text"
@@ -398,7 +400,7 @@ export default function PaymentSettings() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Secret Key
+                            {t('manageShop.paymentSettings.secretKey')}
                           </label>
                           <input
                             type="password"
@@ -417,10 +419,10 @@ export default function PaymentSettings() {
                             onChange={(e) => updateGatewayConfig(gateway.id, 'environment', e.target.value)}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
-                            <option value="sandbox">Sandbox (Testing)</option>
-                            <option value="live">Live (Production)</option>
+                            <option value="sandbox">{t('manageShop.paymentSettings.sandbox')}</option>
+                            <option value="live">{t('manageShop.paymentSettings.live')}</option>
                           </select>
-                          <p className="text-xs text-gray-500 mt-1">Use Sandbox for testing, Live for real transactions</p>
+                          <p className="text-xs text-gray-500 mt-1">{t('manageShop.paymentSettings.environmentHint')}</p>
                         </div>
                         <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                           <p className="text-sm text-blue-900">
@@ -434,11 +436,11 @@ export default function PaymentSettings() {
                             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                           >
                             {savingGateway === 'aamarpay' ? (
-                              <>Saving...</>
+                              <>{t('manageShop.paymentSettings.saving')}</>
                             ) : (
                               <>
                                 <TestTube className="w-4 h-4" />
-                                Test & Save Configuration
+                                {t('manageShop.paymentSettings.testSave')}
                               </>
                             )}
                           </button>
@@ -449,11 +451,11 @@ export default function PaymentSettings() {
                               className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 disabled:bg-gray-100 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                               {disconnectingGateway === 'aamarpay' ? (
-                                <>Disconnecting...</>
+                                <>{t('manageShop.paymentSettings.disconnecting')}</>
                               ) : (
                                 <>
                                   <X className="w-4 h-4" />
-                                  Disconnect
+                                  {t('manageShop.paymentSettings.disconnect')}
                                 </>
                               )}
                             </button>
@@ -467,7 +469,7 @@ export default function PaymentSettings() {
                       <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Store ID
+                            {t('manageShop.paymentSettings.storeId')}
                           </label>
                           <input
                             type="text"
@@ -479,7 +481,7 @@ export default function PaymentSettings() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Store Password
+                            {t('manageShop.paymentSettings.storePassword')}
                           </label>
                           <input
                             type="password"
@@ -498,16 +500,16 @@ export default function PaymentSettings() {
                             onChange={(e) => updateGatewayConfig(gateway.id, 'environment', e.target.value)}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
-                            <option value="sandbox">Sandbox (Testing)</option>
-                            <option value="live">Live (Production)</option>
+                            <option value="sandbox">{t('manageShop.paymentSettings.sandbox')}</option>
+                            <option value="live">{t('manageShop.paymentSettings.live')}</option>
                           </select>
                         </div>
-                        <button 
+                        <button
                           onClick={() => saveGatewayConfig('sslcommerz')}
                           disabled={savingGateway === 'sslcommerz'}
                           className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                         >
-                          {savingGateway === 'sslcommerz' ? 'Saving...' : 'Save Configuration'}
+                          {savingGateway === 'sslcommerz' ? t('manageShop.paymentSettings.saving') : t('manageShop.paymentSettings.testSave')}
                         </button>
                       </div>
                     )}
@@ -518,7 +520,7 @@ export default function PaymentSettings() {
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              MFS Type
+                              {t('manageShop.paymentSettings.mfsType')}
                             </label>
                             <select
                               value={gateway.config.type}
@@ -533,23 +535,23 @@ export default function PaymentSettings() {
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Account Type
+                              {t('manageShop.paymentSettings.accountType')}
                             </label>
                             <select
                               value={gateway.config.accountType}
                               onChange={(e) => updateGatewayConfig(gateway.id, 'accountType', e.target.value)}
                               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                              <option value="personal">Personal</option>
-                              <option value="agent">Agent</option>
-                              <option value="merchant">Merchant</option>
+                              <option value="personal">{t('manageShop.paymentSettings.personal')}</option>
+                              <option value="agent">{t('manageShop.paymentSettings.agent')}</option>
+                              <option value="merchant">{t('manageShop.paymentSettings.merchant')}</option>
                             </select>
                           </div>
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Phone Number
+                            {t('manageShop.paymentSettings.phoneNumber')}
                           </label>
                           <input
                             type="tel"
@@ -562,7 +564,7 @@ export default function PaymentSettings() {
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            QR Code (Optional)
+                            {t('manageShop.paymentSettings.qrCode')}
                           </label>
                           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                             {gateway.config.qrPreview ? (
@@ -573,7 +575,7 @@ export default function PaymentSettings() {
                               <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                             )}
                             <p className="text-sm text-gray-600 mb-2">
-                              {gateway.config.qrPreview ? 'QR code uploaded' : 'Upload QR code for easy payments'}
+                              {gateway.config.qrPreview ? t('manageShop.paymentSettings.qrUploaded') : t('manageShop.paymentSettings.qrUploadHint')}
                             </p>
                             <input
                               type="file"
@@ -596,24 +598,24 @@ export default function PaymentSettings() {
                               htmlFor="qr-upload"
                               className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer text-sm"
                             >
-                              {gateway.config.qrPreview ? 'Change File' : 'Choose File'}
+                              {gateway.config.qrPreview ? t('manageShop.paymentSettings.changeFile') : t('manageShop.paymentSettings.chooseFile')}
                             </label>
                           </div>
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Payment Instructions
+                            {t('manageShop.paymentSettings.paymentInstructions')}
                           </label>
                           <textarea
                             value={gateway.config.instructions}
                             onChange={(e) => updateGatewayConfig(gateway.id, 'instructions', e.target.value)}
-                            placeholder="Enter instructions for customers on how to make payment..."
+                            placeholder={t('manageShop.paymentSettings.paymentInstructionsPlaceholder')}
                             rows={4}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                           <p className="text-xs text-gray-500 mt-1">
-                            These instructions will be shown to customers after order confirmation
+                            {t('manageShop.paymentSettings.paymentInstructionsHint')}
                           </p>
                         </div>
 
@@ -628,7 +630,7 @@ export default function PaymentSettings() {
                           disabled={savingGateway === 'self-mfs'}
                           className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                          {savingGateway === 'self-mfs' ? 'Saving...' : 'Save Self MFS'}
+                          {savingGateway === 'self-mfs' ? t('manageShop.paymentSettings.saving') : t('manageShop.paymentSettings.saveMFS')}
                         </button>
                       </div>
                     )}
@@ -641,9 +643,9 @@ export default function PaymentSettings() {
 
         {/* Advance Payment Rules */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Advance Payment Rules</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('manageShop.paymentSettings.advanceTitle')}</h2>
           <p className="text-sm text-gray-600 mb-4">
-            Set how much customers need to pay in advance
+            {t('manageShop.paymentSettings.advanceSubtitle')}
           </p>
 
           <div className="space-y-3">
@@ -657,8 +659,8 @@ export default function PaymentSettings() {
                 className="w-4 h-4 text-blue-600"
               />
               <div className="flex-1">
-                <div className="font-medium text-gray-900">No Payment</div>
-                <div className="text-sm text-gray-600">No advance payment required</div>
+                <div className="font-medium text-gray-900">{t('manageShop.paymentSettings.noPayment')}</div>
+                <div className="text-sm text-gray-600">{t('manageShop.paymentSettings.noPaymentDesc')}</div>
               </div>
             </label>
 
@@ -672,8 +674,8 @@ export default function PaymentSettings() {
                 className="w-4 h-4 text-blue-600"
               />
               <div className="flex-1">
-                <div className="font-medium text-gray-900">Full Payment</div>
-                <div className="text-sm text-gray-600">Customer pays the full order amount</div>
+                <div className="font-medium text-gray-900">{t('manageShop.paymentSettings.fullPayment')}</div>
+                <div className="text-sm text-gray-600">{t('manageShop.paymentSettings.fullPaymentDesc')}</div>
               </div>
             </label>
 
@@ -687,8 +689,8 @@ export default function PaymentSettings() {
                 className="w-4 h-4 text-blue-600"
               />
               <div className="flex-1">
-                <div className="font-medium text-gray-900">Delivery Charge Only</div>
-                <div className="text-sm text-gray-600">Customer pays only the delivery charge upfront</div>
+                <div className="font-medium text-gray-900">{t('manageShop.paymentSettings.deliveryOnly')}</div>
+                <div className="text-sm text-gray-600">{t('manageShop.paymentSettings.deliveryOnlyDesc')}</div>
               </div>
             </label>
 
@@ -702,7 +704,7 @@ export default function PaymentSettings() {
                 className="w-4 h-4 text-blue-600 mt-1"
               />
               <div className="flex-1">
-                <div className="font-medium text-gray-900 mb-2">Percentage</div>
+                <div className="font-medium text-gray-900 mb-2">{t('manageShop.paymentSettings.percentage')}</div>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
@@ -713,7 +715,7 @@ export default function PaymentSettings() {
                     min="0"
                     max="100"
                   />
-                  <span className="text-gray-600">% of total order amount</span>
+                  <span className="text-gray-600">{t('manageShop.paymentSettings.percentageSuffix')}</span>
                 </div>
               </div>
             </label>
@@ -728,7 +730,7 @@ export default function PaymentSettings() {
                 className="w-4 h-4 text-blue-600 mt-1"
               />
               <div className="flex-1">
-                <div className="font-medium text-gray-900 mb-2">Fixed Amount</div>
+                <div className="font-medium text-gray-900 mb-2">{t('manageShop.paymentSettings.fixedAmount')}</div>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-600">৳</span>
                   <input
@@ -740,7 +742,7 @@ export default function PaymentSettings() {
                     min="0"
                     step="10"
                   />
-                  <span className="text-gray-600">fixed advance amount</span>
+                  <span className="text-gray-600">{t('manageShop.paymentSettings.fixedSuffix')}</span>
                 </div>
               </div>
             </label>
@@ -749,25 +751,25 @@ export default function PaymentSettings() {
 
         {/* Payment Process Message */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Payment Process Message</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('manageShop.paymentSettings.paymentMessage')}</h2>
           <p className="text-sm text-gray-600 mb-4">
-            Customize the payment instructions shown to customers
+            {t('manageShop.paymentSettings.paymentMessageSubtitle')}
           </p>
 
           <textarea
             value={paymentMessage}
             onChange={(e) => setPaymentMessage(e.target.value)}
-            placeholder="Enter payment instructions for customers..."
+            placeholder={t('manageShop.paymentSettings.paymentMessagePlaceholder')}
             rows={5}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
           />
 
-          <button 
+          <button
             onClick={savePaymentSettings}
             disabled={savingSettings}
             className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
-            {savingSettings ? 'Saving...' : 'Update Payment Info'}
+            {savingSettings ? t('manageShop.paymentSettings.saving') : t('manageShop.paymentSettings.updatePayment')}
           </button>
         </div>
       </div>

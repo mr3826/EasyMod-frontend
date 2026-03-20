@@ -4,6 +4,7 @@ import { Plus, Upload, Bot, CheckCircle, Edit2, Trash2, AlertCircle, Search, Fil
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogOverlay } from "./ui/dialog";
 import { Product, apiClient } from "../lib/api";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { authService } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
 
@@ -13,6 +14,7 @@ interface Category {
 }
 
 export default function Products() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
@@ -139,17 +141,17 @@ export default function Products() {
           onClick={() => setPage((p) => Math.max(1, p - 1))}
           disabled={page === 1}
         >
-          Previous
+          {t('products.pagination.previous')}
         </button>
         <span className="text-sm text-gray-700">
-          Page {page} of {totalPages}
+          {t('products.pagination.pageOf', { current: page, total: totalPages })}
         </span>
         <button
           className="px-3 py-1 rounded border bg-white disabled:opacity-50 text-sm hover:bg-gray-50"
           onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           disabled={page === totalPages}
         >
-          Next
+          {t('products.pagination.next')}
         </button>
       </div>
     );
@@ -323,9 +325,9 @@ export default function Products() {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       setShowDeleteConfirm(false);
       setProductToDelete(null);
-      toast.success('Product deleted');
+      toast.success(t('products.deleteModal.success'));
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete product');
+      toast.error(error.response?.data?.message || t('products.deleteModal.failed'));
       setShowDeleteConfirm(false);
       setProductToDelete(null);
     }
@@ -394,14 +396,14 @@ export default function Products() {
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-2 text-gray-600">Loading products...</span>
+          <span className="ml-2 text-gray-600">{t('products.loading')}</span>
         </div>
       ) : (
         <>
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Products & Inventory</h1>
-              <p className="text-gray-600 mt-1">Manage your product catalog with AI assistance</p>
+              <h1 className="text-3xl font-bold text-gray-900">{t('products.title')}</h1>
+              <p className="text-gray-600 mt-1">{t('products.subtitle')}</p>
             </div>
             <div className="flex gap-3">
               <div className="relative">
@@ -410,13 +412,13 @@ export default function Products() {
                   className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
                 >
                   <Upload className="w-5 h-5" />
-                  Upload File for AI
+                  {t('products.uploadFile')}
                 </button>
                 <button
                   onClick={handleDownloadTemplate}
                   className="absolute -bottom-6 right-0 text-xs text-purple-600 hover:text-purple-700 hover:underline whitespace-nowrap"
                 >
-                  Download Upload Template
+                  {t('products.downloadTemplate')}
                 </button>
               </div>
               <button
@@ -424,7 +426,7 @@ export default function Products() {
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 <Plus className="w-5 h-5" />
-                Add Manually
+                {t('products.addManually')}
               </button>
             </div>
 
@@ -440,7 +442,7 @@ export default function Products() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by product name, SKU"
+                placeholder={t('products.searchPlaceholder')}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -452,7 +454,7 @@ export default function Products() {
                 className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 <Filter className="w-5 h-5" />
-                Filter
+                {t('products.filter')}
                 {(appliedFilters.category_id || appliedFilters.is_active || appliedFilters.source || appliedFilters.minPrice || appliedFilters.maxPrice) && (
                   <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
                 )}
@@ -462,7 +464,7 @@ export default function Products() {
               {showFilterPanel && (
                 <div className="absolute top-full mt-2 right-0 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-4">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-900">Filter Products</h3>
+                    <h3 className="font-semibold text-gray-900">{t('products.filterTitle')}</h3>
                     <button
                       onClick={() => setShowFilterPanel(false)}
                       className="text-gray-500 hover:text-gray-700"
@@ -475,14 +477,14 @@ export default function Products() {
                     {/* Category Filter */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Category
+                        {t('products.filterCategory')}
                       </label>
                       <select
                         value={filters.category_id}
                         onChange={(e) => setFilters({ ...filters, category_id: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="">All Categories</option>
+                        <option value="">{t('products.allCategories')}</option>
                         {categoriesList.map(catName => (
                           <option key={categoryMap[catName]} value={categoryMap[catName]}>{catName}</option>
                         ))}
@@ -492,46 +494,46 @@ export default function Products() {
                     {/* Status Filter */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Status
+                        {t('products.filterStatus')}
                       </label>
                       <select
                         value={filters.is_active}
                         onChange={(e) => setFilters({ ...filters, is_active: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
+                        <option value="">{t('products.allStatus')}</option>
+                        <option value="active">{t('products.statusActive')}</option>
+                        <option value="inactive">{t('products.statusInactive')}</option>
                       </select>
                     </div>
 
                     {/* Source Filter */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Source
+                        {t('products.filterSource')}
                       </label>
                       <select
                         value={filters.source}
                         onChange={(e) => setFilters({ ...filters, source: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="">All Sources</option>
-                        <option value="ai">AI Generated</option>
-                        <option value="manual">Manual</option>
+                        <option value="">{t('products.allSources')}</option>
+                        <option value="ai">{t('products.sourceAI')}</option>
+                        <option value="manual">{t('products.sourceManual')}</option>
                       </select>
                     </div>
 
                     {/* Price Range Filter */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Price Range
+                        {t('products.filterPrice')}
                       </label>
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
                           value={filters.minPrice}
                           onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
-                          placeholder="Min"
+                          placeholder={t('products.priceMin')}
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           step="0.01"
                           min="0"
@@ -541,7 +543,7 @@ export default function Products() {
                           type="number"
                           value={filters.maxPrice}
                           onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
-                          placeholder="Max"
+                          placeholder={t('products.priceMax')}
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           step="0.01"
                           min="0"
@@ -555,13 +557,13 @@ export default function Products() {
                       onClick={clearFilters}
                       className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                     >
-                      Clear
+                      {t('common.clear')}
                     </button>
                     <button
                       onClick={applyFilters}
                       className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
-                      Apply
+                      {t('common.apply')}
                     </button>
                   </div>
                 </div>
@@ -574,15 +576,15 @@ export default function Products() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Variants</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('products.columns.product')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('products.columns.sku')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('products.columns.price')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('products.columns.quantity')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('products.columns.category')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('products.columns.variants')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('products.columns.status')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('products.columns.source')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t('products.columns.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -607,7 +609,7 @@ export default function Products() {
                           ))}
                         </div>
                       ) : (
-                        <span className="text-gray-400">No variants</span>
+                        <span className="text-gray-400">{t('products.noVariants')}</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
@@ -624,10 +626,10 @@ export default function Products() {
                       {product.aiGenerated ? (
                         <div className="flex items-center gap-1 text-sm text-purple-600">
                           <Bot className="w-4 h-4" />
-                          <span>AI ({Math.round((product.confidence || 0) * 100)}%)</span>
+                          <span>{t('products.aiSource', { confidence: Math.round((product.confidence || 0) * 100) })}</span>
                         </div>
                       ) : (
-                        <span className="text-sm text-gray-500">Manual</span>
+                        <span className="text-sm text-gray-500">{t('products.sourceManual')}</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -656,13 +658,13 @@ export default function Products() {
           {showUploadModal && (
             <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
               <div className="bg-white rounded-xl p-8 max-w-lg w-full mx-4">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Product File</h2>
-                <p className="text-gray-600 mb-6">Upload CSV, TSV, or text files for AI processing</p>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('products.uploadModal.title')}</h2>
+                <p className="text-gray-600 mb-6">{t('products.uploadModal.description')}</p>
 
                 {uploadProgress === 0 ? (
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
                     <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-4">Drag and drop or click to upload</p>
+                    <p className="text-gray-600 mb-4">{t('products.uploadModal.dragDrop')}</p>
                     <input
                       type="file"
                       onChange={handleFileUpload}
@@ -674,15 +676,15 @@ export default function Products() {
                       htmlFor="file-upload"
                       className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
                     >
-                      Choose File
+                      {t('products.uploadModal.chooseFile')}
                     </label>
-                    <p className="text-sm text-gray-500 mt-4">Supported: CSV, TSV, TXT</p>
+                    <p className="text-sm text-gray-500 mt-4">{t('products.uploadModal.supported')}</p>
                   </div>
                 ) : (
                   <div>
                     <div className="mb-4">
                       <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                        <span>Processing with AI...</span>
+                        <span>{t('products.uploadModal.processing')}</span>
                         <span>{uploadProgress}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
@@ -693,7 +695,7 @@ export default function Products() {
                       </div>
                     </div>
                     <p className="text-sm text-gray-500 text-center">
-                      AI is extracting product information...
+                      {t('products.uploadModal.extracting')}
                     </p>
                   </div>
                 )}
@@ -706,7 +708,7 @@ export default function Products() {
                     }}
                     className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                 </div>
               </div>
@@ -720,8 +722,8 @@ export default function Products() {
                 <div className="flex items-center gap-3 mb-6">
                   <Bot className="w-8 h-8 text-purple-600" />
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Review AI-Generated Products</h2>
-                    <p className="text-gray-600">Review and approve products extracted by AI</p>
+                    <h2 className="text-2xl font-bold text-gray-900">{t('products.reviewModal.title')}</h2>
+                    <p className="text-gray-600">{t('products.reviewModal.description')}</p>
                   </div>
                 </div>
 
@@ -775,7 +777,7 @@ export default function Products() {
                           className="flex items-center gap-1 px-3 py-2 bg-white border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-100 text-sm"
                         >
                           <Edit2 className="w-4 h-4" />
-                          Edit
+                          {t('common.edit')}
                         </button>
                         <button
                           onClick={() => handleApproveProduct(product)}
@@ -783,14 +785,14 @@ export default function Products() {
                           className="flex items-center gap-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
                         >
                           <CheckCircle className="w-4 h-4" />
-                          {approvingIds.includes(product.id) ? 'Approving...' : 'Approve'}
+                          {approvingIds.includes(product.id) ? t('common.approving') : t('common.approve')}
                         </button>
                         <button
                           onClick={() => handleRejectProduct(product.id)}
                           className="flex items-center gap-1 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
                         >
                           <AlertCircle className="w-4 h-4" />
-                          Reject
+                          {t('common.reject')}
                         </button>
                       </div>
                     </div>
@@ -802,14 +804,14 @@ export default function Products() {
                     onClick={() => setShowReviewModal(false)}
                     className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                   >
-                    Close
+                    {t('common.close')}
                   </button>
                   <button
                     onClick={handleApproveAll}
                     disabled={bulkApproving}
                     className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    {bulkApproving ? 'Approving...' : 'Approve All'}
+                    {bulkApproving ? t('common.approving') : t('products.reviewModal.approveAll')}
                   </button>
                 </div>
               </div>
@@ -821,14 +823,14 @@ export default function Products() {
             <DialogOverlay />
             <DialogContent className="max-w-sm w-full mx-4">
               <DialogHeader>
-                <DialogTitle>Delete Product</DialogTitle>
+                <DialogTitle>{t('products.deleteModal.title')}</DialogTitle>
                 <DialogDescription>
-                  Are you sure you want to delete <span className="font-semibold">"{productToDelete?.name}"</span>? This action cannot be undone.
+                  {t('products.deleteModal.description', { name: productToDelete?.name })}
                 </DialogDescription>
               </DialogHeader>
               <div className="flex gap-3 mt-6">
-                <button onClick={cancelDelete} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
-                <button onClick={confirmDelete} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button>
+                <button onClick={cancelDelete} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">{t('common.cancel')}</button>
+                <button onClick={confirmDelete} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">{t('common.delete')}</button>
               </div>
             </DialogContent>
           </Dialog>

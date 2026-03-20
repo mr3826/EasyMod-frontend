@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from 'react-i18next';
 import { 
   Users, 
   Search,
@@ -38,6 +39,7 @@ const channels = [
 ];
 
 export default function Customers() {
+  const { t } = useTranslation();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +73,7 @@ export default function Customers() {
       const data = await apiClient.getCustomers();
       setCustomers(data);
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch customers');
+      setError(err.message || t('customers.errors.fetchFailed'));
       console.error('Error fetching customers:', err);
     } finally {
       setIsLoading(false);
@@ -80,7 +82,7 @@ export default function Customers() {
 
   const handleCreateCustomer = async () => {
     if (!newCustomer.name || !newCustomer.number || !newCustomer.channel) {
-      setError('Please fill in all required fields');
+      setError(t('customers.errors.requiredFields'));
       return;
     }
 
@@ -97,10 +99,10 @@ export default function Customers() {
       setShowCreateCustomer(false);
       setNewCustomer({ name: "", number: "", email: "", channel: "" as const });
       setError(null);
-      toast.success('Customer created successfully');
+      toast.success(t('customers.success.created'));
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to create customer');
-      setError(err.response?.data?.message || 'Failed to create customer');
+      toast.error(err.response?.data?.message || t('customers.errors.createFailed'));
+      setError(err.response?.data?.message || t('customers.errors.createFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -115,9 +117,9 @@ export default function Customers() {
       if (selectedCustomer?.id === customerId) {
         setSelectedCustomer(null);
       }
-      toast.success('Customer deleted');
+      toast.success(t('customers.success.deleted'));
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to delete customer');
+      toast.error(err.response?.data?.message || t('customers.errors.deleteFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -131,9 +133,9 @@ export default function Customers() {
         : await apiClient.blacklistCustomer(customer.id);
       setCustomers(customers.map(c => c.id === customer.id ? updated : c));
       setSelectedCustomer(updated);
-      toast.success(updated.blacklisted ? 'Customer blacklisted' : 'Customer removed from blacklist');
+      toast.success(updated.blacklisted ? t('customers.success.blacklisted') : t('customers.success.unblacklisted'));
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update blacklist status');
+      toast.error(err.response?.data?.message || t('customers.errors.blacklistFailed'));
     } finally {
       setTogglingBlacklist(false);
     }
@@ -145,9 +147,9 @@ export default function Customers() {
       const updated = await apiClient.updateCustomer(customerId, updates);
       setCustomers(customers.map(c => c.id === customerId ? updated : c));
       setSelectedCustomer(updated);
-      toast.success('Customer updated');
+      toast.success(t('customers.success.updated'));
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update customer');
+      toast.error(err.response?.data?.message || t('customers.errors.updateFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -182,8 +184,8 @@ export default function Customers() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Customer Management</h1>
-          <p className="text-gray-600">Manage and track all your customers in one place</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('customers.title')}</h1>
+          <p className="text-gray-600">{t('customers.subtitle')}</p>
         </div>
 
         {/* Summary Cards - Only 3 boxes as requested */}
@@ -192,7 +194,7 @@ export default function Customers() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Total Customers</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">{t('customers.totalCustomers')}</p>
                 <p className="text-3xl font-bold text-gray-900">{customers.length}</p>
               </div>
               <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center">
@@ -205,9 +207,9 @@ export default function Customers() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Channel Customers</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">{t('customers.channelCustomers')}</p>
                 <p className="text-3xl font-bold text-gray-900">{channelCustomers}</p>
-                <p className="text-xs text-gray-500 mt-1">WhatsApp, Facebook, etc.</p>
+                <p className="text-xs text-gray-500 mt-1">{t('customers.channelCustomersHelper')}</p>
               </div>
               <div className="w-14 h-14 bg-green-50 rounded-xl flex items-center justify-center">
                 <MessageSquare className="w-7 h-7 text-green-600" />
@@ -219,9 +221,9 @@ export default function Customers() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Manual Customers</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">{t('customers.manualCustomers')}</p>
                 <p className="text-3xl font-bold text-gray-900">{customers.filter(c => c.channel === 'manual').length}</p>
-                <p className="text-xs text-gray-500 mt-1">Manually added</p>
+                <p className="text-xs text-gray-500 mt-1">{t('customers.manualCustomersHelper')}</p>
               </div>
               <div className="w-14 h-14 bg-purple-50 rounded-xl flex items-center justify-center">
                 <UserPlus className="w-7 h-7 text-purple-600" />
@@ -256,7 +258,7 @@ export default function Customers() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by name, phone, or email..."
+                placeholder={t('customers.searchPlaceholder')}
                 className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -268,7 +270,8 @@ export default function Customers() {
                 onChange={(e) => setChannelFilter(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
               >
-                {channels.map((channel) => (
+                <option value="all">{t('customers.allChannels')}</option>
+                {channels.filter(c => c.value !== 'all').map((channel) => (
                   <option key={channel.value} value={channel.value}>
                     {channel.label}
                   </option>
@@ -282,7 +285,7 @@ export default function Customers() {
               className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors whitespace-nowrap"
             >
               <UserPlus className="w-5 h-5" />
-              Add Customer
+              {t('customers.addCustomer')}
             </button>
           </div>
         </div>
@@ -291,7 +294,7 @@ export default function Customers() {
         {isLoading && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
             <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent mb-4"></div>
-            <p className="text-gray-600">Loading customers...</p>
+            <p className="text-gray-600">{t('customers.loading')}</p>
           </div>
         )}
 
@@ -301,8 +304,8 @@ export default function Customers() {
             {filteredCustomers.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
                 <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No customers found</h3>
-                <p className="text-gray-600">Try adjusting your search or filters</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('customers.noCustomers')}</h3>
+                <p className="text-gray-600">{t('customers.noCustomersHint')}</p>
               </div>
             ) : (
               <>
@@ -311,12 +314,12 @@ export default function Customers() {
                     <table className="w-full">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer</th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Contact</th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Channel</th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">RTO Risk</th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
-                          <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('customers.columns.customer')}</th>
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('customers.columns.contact')}</th>
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('customers.columns.channel')}</th>
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('customers.columns.rtoRisk')}</th>
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('customers.columns.created')}</th>
+                          <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('customers.columns.actions')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -360,19 +363,19 @@ export default function Customers() {
                               <td className="px-6 py-4">
                                 {customer.blacklisted ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-gray-900 text-white">
-                                    <ShieldOff className="w-3 h-3" /> Blacklisted
+                                    <ShieldOff className="w-3 h-3" /> {t('customers.blacklisted')}
                                   </span>
                                 ) : customer.rto_risk === 'high' ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-                                    <ShieldAlert className="w-3 h-3" /> High
+                                    <ShieldAlert className="w-3 h-3" /> {t('customers.rtoHigh')}
                                   </span>
                                 ) : customer.rto_risk === 'medium' ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-                                    <ShieldAlert className="w-3 h-3" /> Medium
+                                    <ShieldAlert className="w-3 h-3" /> {t('customers.rtoMedium')}
                                   </span>
                                 ) : customer.rto_risk === 'low' ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                                    <ShieldAlert className="w-3 h-3" /> Low
+                                    <ShieldAlert className="w-3 h-3" /> {t('customers.rtoLow')}
                                   </span>
                                 ) : (
                                   <span className="text-sm text-gray-400">—</span>
@@ -420,7 +423,7 @@ export default function Customers() {
                 {totalPages > 1 && (
                   <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center justify-between">
                     <p className="text-sm text-gray-600">
-                      Showing {startIndex + 1} to {Math.min(endIndex, filteredCustomers.length)} of {filteredCustomers.length} customers
+                      {t('customers.pagination', { start: startIndex + 1, end: Math.min(endIndex, filteredCustomers.length), total: filteredCustomers.length })}
                     </p>
                     <div className="flex items-center gap-2">
                       <button
@@ -454,7 +457,7 @@ export default function Customers() {
         <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between rounded-t-2xl">
-              <h2 className="text-2xl font-bold text-gray-900">Customer Details</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{t('customers.detail.title')}</h2>
               <button
                 onClick={() => setSelectedCustomer(null)}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -471,10 +474,10 @@ export default function Customers() {
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">{selectedCustomer.name}</h3>
-                  <p className="text-sm text-gray-500">Customer ID: {selectedCustomer.id.slice(0, 8)}</p>
+                  <p className="text-sm text-gray-500">{t('customers.detail.id', { id: selectedCustomer.id.slice(0, 8) })}</p>
                   {selectedCustomer.blacklisted && (
                     <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-900 text-white">
-                      <ShieldOff className="w-3 h-3" /> Blacklisted
+                      <ShieldOff className="w-3 h-3" /> {t('customers.blacklisted')}
                     </span>
                   )}
                   {!selectedCustomer.blacklisted && selectedCustomer.rto_risk && (
@@ -494,7 +497,7 @@ export default function Customers() {
                 <div>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-2">
                     <Phone className="w-4 h-4" />
-                    Phone Number
+                    {t('customers.detail.phoneNumber')}
                   </label>
                   <p className="text-lg text-gray-900 pl-6">{selectedCustomer.number}</p>
                 </div>
@@ -502,9 +505,9 @@ export default function Customers() {
                 <div>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-2">
                     <Mail className="w-4 h-4" />
-                    Email
+                    {t('customers.detail.email')}
                   </label>
-                  <p className="text-lg text-gray-900 pl-6">{selectedCustomer.email || 'Not provided'}</p>
+                  <p className="text-lg text-gray-900 pl-6">{selectedCustomer.email || t('customers.detail.notProvided')}</p>
                 </div>
 
                 <div>
@@ -572,22 +575,22 @@ export default function Customers() {
                   <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
                     <div className="flex items-center gap-2 mb-3">
                       <ShieldAlert className="w-4 h-4 text-gray-600" />
-                      <span className="text-sm font-semibold text-gray-700">RTO Shield</span>
+                      <span className="text-sm font-semibold text-gray-700">{t('customers.detail.rtoSection')}</span>
                     </div>
                     <div className="flex flex-wrap gap-3 text-sm">
                       {selectedCustomer.rto_risk && (
                         <div>
-                          <span className="text-gray-500">Risk Level: </span>
+                          <span className="text-gray-500">{t('customers.detail.rtoRisk')} </span>
                           <span className={`font-semibold ${
                             selectedCustomer.rto_risk === 'high' ? 'text-red-600' :
                             selectedCustomer.rto_risk === 'medium' ? 'text-amber-600' :
                             'text-green-600'
-                          }`}>{selectedCustomer.rto_risk.charAt(0).toUpperCase() + selectedCustomer.rto_risk.slice(1)}</span>
+                          }`}>{selectedCustomer.rto_risk === 'high' ? t('customers.rtoHigh') : selectedCustomer.rto_risk === 'medium' ? t('customers.rtoMedium') : t('customers.rtoLow')}</span>
                         </div>
                       )}
                       {selectedCustomer.rto_count !== undefined && (
                         <div>
-                          <span className="text-gray-500">RTO Count: </span>
+                          <span className="text-gray-500">{t('customers.detail.rtoCount')} </span>
                           <span className="font-semibold text-gray-900">{selectedCustomer.rto_count}</span>
                         </div>
                       )}
@@ -607,9 +610,9 @@ export default function Customers() {
                     }`}
                   >
                     {selectedCustomer.blacklisted ? (
-                      <><ShieldOff className="w-4 h-4" /> Remove from Blacklist</>
+                      <><ShieldOff className="w-4 h-4" /> {t('customers.detail.removeBlacklist')}</>
                     ) : (
-                      <><ShieldAlert className="w-4 h-4" /> Blacklist Customer</>
+                      <><ShieldAlert className="w-4 h-4" /> {t('customers.detail.addBlacklist')}</>
                     )}
                   </button>
                 </div>
@@ -624,7 +627,7 @@ export default function Customers() {
         <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">Add Customer</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{t('customers.addModal.title')}</h2>
               <button
                 onClick={() => {
                   setShowCreateCustomer(false);
@@ -640,51 +643,51 @@ export default function Customers() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Name <span className="text-red-500">*</span>
+                  {t('customers.addModal.name')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={newCustomer.name}
                   onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter customer name"
+                  placeholder={t('customers.addModal.namePlaceholder')}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Phone Number <span className="text-red-500">*</span>
+                  {t('customers.addModal.phone')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="tel"
                   value={newCustomer.number}
                   onChange={(e) => setNewCustomer({ ...newCustomer, number: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="+1234567890"
+                  placeholder={t('customers.addModal.phonePlaceholder')}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Email (Optional)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('customers.addModal.email')}</label>
                 <input
                   type="email"
                   value={newCustomer.email}
                   onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="customer@example.com"
+                  placeholder={t('customers.addModal.emailPlaceholder')}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Channel <span className="text-red-500">*</span>
+                  {t('customers.addModal.channel')} <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={newCustomer.channel}
                   onChange={(e) => setNewCustomer({ ...newCustomer, channel: e.target.value as any })}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
                 >
-                  <option value="">Select a channel</option>
+                  <option value="">{t('customers.addModal.channelPlaceholder')}</option>
                   {channels.filter(c => c.value !== 'all').map((channel) => (
                     <option key={channel.value} value={channel.value}>
                       {channel.label}
@@ -702,14 +705,14 @@ export default function Customers() {
                   }}
                   className="flex-1 px-6 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleCreateCustomer}
                   disabled={isSubmitting || !newCustomer.name || !newCustomer.number || !newCustomer.channel}
                   className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                 >
-                  {isSubmitting ? 'Creating...' : 'Create'}
+                  {isSubmitting ? t('customers.addModal.creating') : t('customers.addModal.createButton')}
                 </button>
               </div>
             </div>
@@ -724,23 +727,23 @@ export default function Customers() {
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Trash2 className="w-6 h-6 text-red-600" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2 text-center">Delete Customer</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-2 text-center">{t('customers.deleteModal.title')}</h2>
             <p className="text-gray-600 mb-6 text-center">
-              Are you sure you want to delete this customer? This action cannot be undone.
+              {t('customers.deleteModal.message')}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(null)}
                 className="flex-1 px-6 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => handleDeleteCustomer(showDeleteConfirm)}
                 disabled={isSubmitting}
                 className="flex-1 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 font-medium transition-colors"
               >
-                {isSubmitting ? 'Deleting...' : 'Delete'}
+                {isSubmitting ? t('customers.deleteModal.deleting') : t('customers.deleteModal.deleteButton')}
               </button>
             </div>
           </div>

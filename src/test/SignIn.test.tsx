@@ -3,12 +3,13 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import SignIn from '@/app/components/SignIn'
 
-// Mock the auth service
-vi.mock('@/app/lib/auth', () => ({
-  authService: {
-    signin: vi.fn().mockResolvedValue({}),
-    isAuthenticated: vi.fn().mockReturnValue(false)
-  }
+const mockSignin = vi.fn().mockResolvedValue({})
+
+// SignIn relies on AuthProvider context via useAuth().
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({
+    signin: mockSignin,
+  }),
 }))
 
 const renderWithRouter = (component: React.ReactElement) => {
@@ -19,7 +20,7 @@ describe('SignIn', () => {
   it('renders signin form', () => {
     renderWithRouter(<SignIn />)
 
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/email|mobile/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
   })
@@ -27,7 +28,7 @@ describe('SignIn', () => {
   it('handles form submission', async () => {
     renderWithRouter(<SignIn />)
 
-    const emailInput = screen.getByLabelText(/email/i)
+    const emailInput = screen.getByLabelText(/email|mobile/i)
     const passwordInput = screen.getByLabelText(/password/i)
     const submitButton = screen.getByRole('button', { name: /sign in/i })
 
@@ -36,7 +37,10 @@ describe('SignIn', () => {
     fireEvent.click(submitButton)
 
     await waitFor(() => {
-      expect(screen.getByText('Sign In')).toBeInTheDocument()
+      expect(mockSignin).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'password123',
+      })
     })
   })
 })

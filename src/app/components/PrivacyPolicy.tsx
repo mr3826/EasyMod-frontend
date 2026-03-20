@@ -100,7 +100,18 @@ export default function PrivacyPolicy() {
             <p className="mb-3 leading-relaxed">
               {APP_NAME} integrates with Meta platforms (WhatsApp Business API, Facebook Messenger, and Instagram
               Direct Messages) to allow businesses to manage customer conversations. This section describes how
-              we handle data received from Meta in compliance with Meta's Platform Terms and Developer Policies.
+              we handle data received from Meta in compliance with{" "}
+              <strong>Meta's Platform Terms, Developer Policies, and Business Tools Terms</strong>.
+            </p>
+
+            <h3 className="text-base font-semibold text-gray-800 mb-2">Data Controller / Data Processor</h3>
+            <p className="mb-3 text-sm leading-relaxed">
+              When a business connects their Meta account to {APP_NAME}, the business acts as the{" "}
+              <strong>data controller</strong> for the end-customer data received through Meta channels.{" "}
+              {APP_NAME} acts solely as a <strong>data processor</strong>, processing that data only on the
+              business's documented instructions and only for the purposes described in this policy. Businesses
+              are responsible for obtaining any consents required by applicable law before using {APP_NAME} to
+              interact with their customers.
             </p>
 
             <h3 className="text-base font-semibold text-gray-800 mb-2">Data Received from Meta</h3>
@@ -111,6 +122,7 @@ export default function PrivacyPolicy() {
               <li>Message delivery status and read receipts</li>
               <li>Messaging opt-in events</li>
               <li>Post-back payloads from interactive message buttons</li>
+              <li>Message echo events (copies of messages sent by the Page itself, for conversation sync)</li>
             </ul>
 
             <h3 className="text-base font-semibold text-gray-800 mt-5 mb-2">How We Use Meta Data</h3>
@@ -128,6 +140,7 @@ export default function PrivacyPolicy() {
               <li>We do <strong>not</strong> sell or share Meta platform data with data brokers or advertisers</li>
               <li>We do <strong>not</strong> use Meta data for any purpose beyond providing and improving the {APP_NAME} service</li>
               <li>We do <strong>not</strong> transfer Meta data to unauthorized third parties</li>
+              <li>We do <strong>not</strong> retain Meta platform data after a business disconnects their account, except where required by law or for financial compliance purposes</li>
             </ul>
 
             <h3 className="text-base font-semibold text-gray-800 mt-5 mb-2">Meta Permissions Used</h3>
@@ -159,6 +172,20 @@ export default function PrivacyPolicy() {
                 </tbody>
               </table>
             </div>
+
+            <h3 className="text-base font-semibold text-gray-800 mt-5 mb-2">Facebook Data Deletion</h3>
+            <p className="mb-2 text-sm leading-relaxed">
+              In compliance with Meta's Platform Terms, {APP_NAME} provides a{" "}
+              <strong>Data Deletion Request Callback</strong>. When a user removes our app from their Facebook
+              settings (Settings &rarr; Apps and Websites), Meta notifies us and we delete all data associated
+              with that user's Facebook account within 30 days.
+            </p>
+            <p className="text-sm leading-relaxed">
+              You can also submit a manual deletion request by emailing{" "}
+              <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">{CONTACT_EMAIL}</a>{" "}
+              with subject <em>"Facebook Data Deletion Request"</em>. We will confirm deletion and provide a
+              confirmation code within 30 days.
+            </p>
           </section>
 
           {/* 4 — Third-Party Service Providers */}
@@ -393,7 +420,7 @@ export default function PrivacyPolicy() {
             <p className="mb-3 leading-relaxed">
               You may request deletion of your data at any time:
             </p>
-            <ul className="list-disc list-inside space-y-1 text-sm leading-relaxed ml-2">
+            <ul className="list-disc list-inside space-y-2 text-sm leading-relaxed ml-2">
               <li>
                 <strong>Business users:</strong> Email{" "}
                 <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">{CONTACT_EMAIL}</a>{" "}
@@ -406,12 +433,29 @@ export default function PrivacyPolicy() {
                 requests. If you cannot reach the business, email us and we will facilitate the deletion.
               </li>
               <li>
-                <strong>Meta data deletion:</strong> If you connected a Facebook Page, Instagram account, or
-                WhatsApp Business Account to {APP_NAME} and later disconnect it, you may request deletion of
-                all associated message data by emailing{" "}
-                <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">{CONTACT_EMAIL}</a>.
+                <strong>Meta / Facebook data deletion:</strong> If you connected a Facebook Page, Instagram
+                account, or WhatsApp Business Account to {APP_NAME} and later disconnect or remove the app
+                from your Facebook settings, Meta automatically triggers our Data Deletion Request Callback
+                and we delete all associated message data within 30 days. You can verify or re-request
+                deletion by emailing{" "}
+                <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">{CONTACT_EMAIL}</a>{" "}
+                with subject <em>"Facebook Data Deletion Request"</em>. We will reply with a deletion
+                confirmation code.
               </li>
             </ul>
+            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
+              <p className="font-semibold mb-1">Meta Data Deletion Callback URL</p>
+              <p className="leading-relaxed">
+                Our app is registered with Meta to receive automatic data deletion notifications at:<br />
+                <span className="font-mono text-xs break-all">POST /webhooks/meta/data-deletion</span>
+              </p>
+              <p className="mt-2 leading-relaxed">
+                Confirmation codes issued upon deletion are valid for 90 days. To check the status of a
+                deletion, email{" "}
+                <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-700 hover:underline font-medium">{CONTACT_EMAIL}</a>{" "}
+                with your confirmation code.
+              </p>
+            </div>
           </section>
 
           {/* 10 — Children's Privacy */}

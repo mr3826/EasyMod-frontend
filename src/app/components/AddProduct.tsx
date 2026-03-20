@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Upload, X, Plus, ChevronDown, ChevronUp, Save, Calendar, Package, Tag, FolderTree } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { apiClient, Product } from "../lib/api";
 
 interface AddProductProps {
@@ -13,6 +14,7 @@ interface AddProductProps {
 }
 
 export default function AddProduct({ editMode = false, editProduct = null, onClose, onSave, isModal = false }: AddProductProps) {
+  const { t } = useTranslation();
     // Store object URLs for cleanup
     const [imageObjectUrls, setImageObjectUrls] = useState<string[]>([]);
   const navigate = useNavigate();
@@ -348,8 +350,8 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
             {/* Modal Header */}
             <div className="flex justify-between items-start mb-8">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">{editMode ? 'Edit Product' : 'Add New Product'}</h1>
-                <p className="text-gray-600 mt-1">{editMode ? 'Update product details' : 'Add a new product to your store'}</p>
+                <h1 className="text-3xl font-bold text-gray-900">{editMode ? t('products.form.editTitle') : t('products.form.addTitle')}</h1>
+                <p className="text-gray-600 mt-1">{editMode ? t('products.form.editSubtitle') : t('products.form.addSubtitle')}</p>
               </div>
               <button
                 onClick={onClose}
@@ -370,26 +372,26 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
             <div className="grid grid-cols-1 gap-6 max-w-full">
               {/* Product Info Section */}
               <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Product Info</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('products.form.productInfo')}</h2>
                 <div className="space-y-4">
                   <div>
-                    <label htmlFor="modal-product-name" className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
+                    <label htmlFor="modal-product-name" className="block text-sm font-medium text-gray-700 mb-2">{t('products.form.productName')}</label>
                     <input
                       id="modal-product-name"
                       type="text"
                       value={productName}
                       onChange={(e) => setProductName(e.target.value)}
-                      placeholder="Enter product name"
+                      placeholder={t('products.form.productNamePlaceholder')}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label htmlFor="modal-description" className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <label htmlFor="modal-description" className="block text-sm font-medium text-gray-700 mb-2">{t('common.description')}</label>
                     <textarea
                       id="modal-description"
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Describe your product..."
+                      placeholder={t('products.form.descriptionPlaceholder')}
                       rows={4}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -397,7 +399,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label htmlFor="modal-base-price" className="block text-sm font-medium text-gray-700 mb-2">
-                        Selling Price <span className="text-red-500">*</span>
+                        {t('products.detail.sellingPrice')} <span className="text-red-500">*</span>
                       </label>
                       <input
                         id="modal-base-price"
@@ -410,7 +412,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                       />
                     </div>
                     <div>
-                      <label htmlFor="modal-sku" className="block text-sm font-medium text-gray-700 mb-2">SKU</label>
+                      <label htmlFor="modal-sku" className="block text-sm font-medium text-gray-700 mb-2">{t('products.detail.sku')}</label>
                       <input
                         id="modal-sku"
                         type="text"
@@ -431,13 +433,13 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                 onClick={onClose}
                 className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => handleSave("publish")}
                 className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
               >
-                {editMode ? 'Update Product' : 'Publish'}
+                {editMode ? t('products.form.updateProduct') : t('products.form.publish')}
               </button>
             </div>
           </div>
@@ -455,10 +457,10 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
           onClick={() => navigate("/app/products")}
           className="text-gray-600 hover:text-gray-900 flex items-center gap-2 mb-4"
         >
-          ← Back to Products
+          ← {t('products.detail.backToProducts')}
         </button>
-        <h1 className="text-3xl font-bold text-gray-900">{isEditPage ? 'Edit Product' : 'Add New Product'}</h1>
-        <p className="text-gray-600 mt-1">{isEditPage ? 'Update product details' : 'Add a new product to your store'}</p>
+        <h1 className="text-3xl font-bold text-gray-900">{isEditPage ? t('products.form.editTitle') : t('products.form.addTitle')}</h1>
+        <p className="text-gray-600 mt-1">{isEditPage ? t('products.form.editSubtitle') : t('products.form.addSubtitle')}</p>
       </div>
 
       {/* Error Alert */}
@@ -477,32 +479,32 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
           {/* Product Info */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Product Info <span className="text-red-500">*</span>
+              {t('products.form.productInfo')} <span className="text-red-500">*</span>
             </h2>
             
             <div className="space-y-4">
               <div>
                 <label htmlFor="product-name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Product Name <span className="text-red-500">*</span>
+                  {t('products.form.productName')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="product-name"
                   type="text"
                   value={productName}
                   onChange={(e) => setProductName(e.target.value)}
-                  placeholder="Enter product name"
+                  placeholder={t('products.form.productNamePlaceholder')}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description <span className="text-red-500">*</span>
+                  {t('common.description')} <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe your product - features, benefits, specifications..."
+                  placeholder={t('products.form.descriptionFullPlaceholder')}
                   rows={6}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -510,12 +512,12 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
 
               {/* Pricing */}
               <div className="pt-4 border-t border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Pricing</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">{t('products.detail.pricing')}</h3>
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label htmlFor="selling-price" className="block text-sm font-medium text-gray-700 mb-2">
-                        Selling Price <span className="text-red-500">*</span>
+                        {t('products.detail.sellingPrice')} <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
@@ -541,7 +543,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                         onChange={(e) => setDiscountable(e.target.checked)}
                         className="w-4 h-4 text-blue-600 rounded"
                       />
-                      <span className="text-sm text-gray-700">Allow discounts</span>
+                      <span className="text-sm text-gray-700">{t('products.form.allowDiscounts')}</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
@@ -550,7 +552,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                         onChange={(e) => setTaxable(e.target.checked)}
                         className="w-4 h-4 text-blue-600 rounded"
                       />
-                      <span className="text-sm text-gray-700">Charge tax</span>
+                      <span className="text-sm text-gray-700">{t('products.form.chargeTax')}</span>
                     </label>
                   </div>
                 </div>
@@ -559,14 +561,14 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
               {/* Media */}
               <div className="pt-4 border-t border-gray-200">
                 <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                  Product Images <span className="text-red-500">*</span>
+                  {t('products.detail.images')} <span className="text-red-500">*</span>
                 </h3>
                 
                 <div className="space-y-3">
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                     <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm font-medium text-gray-700 mb-1">
-                      Upload product images
+                      {t('products.form.uploadImages')}
                     </p>
                     <p className="text-xs text-gray-500 mb-3">
                       {productImages.length}/5 images • PNG, JPG up to 5MB each
@@ -588,7 +590,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                           : 'bg-blue-600 text-white hover:bg-blue-700'
                       }`}
                     >
-                      {productImages.length >= 5 ? 'Maximum Reached' : 'Choose Files'}
+                      {productImages.length >= 5 ? t('products.form.maxImagesReached') : t('products.form.chooseFiles')}
                     </label>
                   </div>
 
@@ -646,21 +648,21 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
           {/* Inventory & Stock */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Inventory & Stock <span className="text-red-500">*</span>
+              {t('products.form.inventoryStock')} <span className="text-red-500">*</span>
             </h2>
             
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    SKU <span className="text-red-500">*</span>
+                    {t('products.detail.sku')} <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={sku}
                       onChange={(e) => setSku(e.target.value)}
-                      placeholder="SKU"
+                      placeholder={t('products.detail.sku')}
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <button
@@ -675,7 +677,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Stock Tracking <span className="text-red-500">*</span>
+                  {t('products.form.stockTracking')} <span className="text-red-500">*</span>
                 </label>
                 <div className="flex gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -687,7 +689,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                       onChange={(e) => setStockType(e.target.value as "unlimited")}
                       className="w-4 h-4 text-blue-600"
                     />
-                    <span className="text-sm text-gray-700">Don't track inventory</span>
+                    <span className="text-sm text-gray-700">{t('products.form.dontTrackInventory')}</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -698,7 +700,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                       onChange={(e) => setStockType(e.target.value as "limited")}
                       className="w-4 h-4 text-blue-600"
                     />
-                    <span className="text-sm text-gray-700">Track quantity</span>
+                    <span className="text-sm text-gray-700">{t('products.form.trackQuantity')}</span>
                   </label>
                 </div>
               </div>
@@ -707,7 +709,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Available Quantity <span className="text-red-500">*</span>
+                      {t('products.form.availableQuantity')} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -721,7 +723,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Low Stock Threshold
+                      {t('products.form.lowStockThreshold')}
                     </label>
                     <input
                       type="number"
@@ -731,7 +733,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                       min="0"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Get notified when stock is low</p>
+                    <p className="text-xs text-gray-500 mt-1">{t('products.form.lowStockNotify')}</p>
                   </div>
 
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -741,7 +743,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                       onChange={(e) => setLowStockAlert(e.target.checked)}
                       className="w-4 h-4 text-blue-600 rounded"
                     />
-                    <span className="text-sm text-gray-700">Send low stock email alerts</span>
+                    <span className="text-sm text-gray-700">{t('products.form.sendLowStockAlerts')}</span>
                   </label>
                 </>
               )}
@@ -754,7 +756,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
               onClick={() => setShowAdditionalDetails(!showAdditionalDetails)}
               className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
-              <h2 className="text-lg font-semibold text-gray-900">Additional Product Details</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('products.form.additionalDetails')}</h2>
               {showAdditionalDetails ? (
                 <ChevronUp className="w-5 h-5 text-gray-400" />
               ) : (
@@ -766,20 +768,20 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
               <div className="px-6 pb-6 space-y-4 border-t border-gray-200 pt-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Brand / Manufacturer
+                    {t('products.form.brandManufacturer')}
                   </label>
                   <input
                     type="text"
                     value={brand}
                     onChange={(e) => setBrand(e.target.value)}
-                    placeholder="Enter brand name"
+                    placeholder={t('products.form.brandPlaceholder')}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Product Condition
+                    {t('products.form.productCondition')}
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {(["new", "used", "refurbished"] as const).map((condition) => (
@@ -801,7 +803,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <Tag className="w-4 h-4 inline mr-1" />
-                    Product Tags
+                    {t('products.detail.tags')}
                   </label>
                   <div className="space-y-2">
                     {tags.length > 0 && (
@@ -828,17 +830,17 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                         value={newTag}
                         onChange={(e) => setNewTag(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                        placeholder="Add tag (press Enter)"
+                        placeholder={t('products.form.addTagPlaceholder')}
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       <button
                         onClick={addTag}
                         className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
                       >
-                        Add
+                        {t('products.form.addTag')}
                       </button>
                     </div>
-                    <p className="text-xs text-gray-500">Tags help with search and organization</p>
+                    <p className="text-xs text-gray-500">{t('products.form.tagsHelp')}</p>
                   </div>
                 </div>
               </div>
@@ -856,7 +858,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
               onClick={() => setShowCategories(!showCategories)}
               className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
-              <h2 className="text-lg font-semibold text-gray-900">Product Categories</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('products.form.productCategories')}</h2>
               {showCategories ? (
                 <ChevronUp className="w-5 h-5 text-gray-400" />
               ) : (
@@ -866,7 +868,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
             
             {showCategories && (
               <div className="px-6 pb-6 space-y-4 border-t border-gray-200 pt-4">
-                <p className="text-sm text-gray-600">Organize your product by assigning categories</p>
+                <p className="text-sm text-gray-600">{t('products.form.categoriesHelp')}</p>
                 
                 {selectedCategories.length > 0 && (
                   <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg">
@@ -896,7 +898,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                   className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                 >
                   <FolderTree className="w-5 h-5" />
-                  Assign Categories
+                  {t('products.form.assignCategories')}
                 </button>
               </div>
             )}
@@ -908,7 +910,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
               onClick={() => setShowVariants(!showVariants)}
               className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
-              <h2 className="text-lg font-semibold text-gray-900">Product Variants</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('products.form.productVariants')}</h2>
               {showVariants ? (
                 <ChevronUp className="w-5 h-5 text-gray-400" />
               ) : (
@@ -918,11 +920,11 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
             
             {showVariants && (
               <div className="px-6 pb-6 space-y-4 border-t border-gray-200 pt-4">
-                <p className="text-sm text-gray-600">Add variants like size, color, or material</p>
+                <p className="text-sm text-gray-600">{t('products.form.variantsHelp')}</p>
                 {variants.map((variant, index) => (
                   <div key={index} className="p-4 border border-gray-200 rounded-lg space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Variant Group {index + 1}</span>
+                      <span className="text-sm font-medium text-gray-700">{t('products.form.variantGroup', { index: index + 1 })}</span>
                       <button
                         onClick={() => removeVariant(index)}
                         className="text-red-600 hover:text-red-700"
@@ -933,7 +935,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Variant Name
+                        {t('products.form.variantName')}
                       </label>
                       <input
                         type="text"
@@ -946,7 +948,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Options
+                        {t('products.form.variantOptions')}
                       </label>
                       <div className="space-y-2 mb-3">
                         {Array.isArray(variant.options) && variant.options.length > 0 ? (
@@ -985,7 +987,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                             </div>
                           ))
                         ) : (
-                          <p className="text-sm text-gray-500 italic">No options added yet</p>
+                          <p className="text-sm text-gray-500 italic">{t('products.form.noOptionsYet')}</p>
                         )}
                       </div>
                       <button
@@ -1000,14 +1002,14 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                         className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-200"
                       >
                         <Plus className="w-4 h-4" />
-                        Add Option
+                        {t('products.form.addOption')}
                       </button>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Price Adjustment
+                          {t('products.form.priceAdjustment')}
                         </label>
                         <div className="relative">
                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
@@ -1023,7 +1025,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Variant SKU
+                          {t('products.form.variantSku')}
                         </label>
                         <input
                           type="text"
@@ -1042,7 +1044,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                   className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400 hover:text-gray-900 transition-colors flex items-center justify-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
-                  Add Variant Group
+                  {t('products.form.addVariantGroup')}
                 </button>
               </div>
             )}
@@ -1054,7 +1056,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
               onClick={() => setShowBusinessRules(!showBusinessRules)}
               className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
-              <h2 className="text-lg font-semibold text-gray-900">Business Rules</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('products.form.businessRules')}</h2>
               {showBusinessRules ? (
                 <ChevronUp className="w-5 h-5 text-gray-400" />
               ) : (
@@ -1067,7 +1069,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Minimum Order Quantity
+                      {t('products.form.minOrderQty')}
                     </label>
                     <input
                       type="number"
@@ -1080,7 +1082,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Maximum Order Quantity
+                      {t('products.form.maxOrderQty')}
                     </label>
                     <input
                       type="number"
@@ -1095,7 +1097,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Return Policy
+                    {t('products.form.returnPolicy')}
                   </label>
                   <div className="space-y-3">
                     <div className="flex gap-4">
@@ -1107,7 +1109,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                           onChange={() => setReturnable(true)}
                           className="w-4 h-4 text-blue-600"
                         />
-                        <span className="text-sm text-gray-700">Returnable</span>
+                        <span className="text-sm text-gray-700">{t('products.form.returnable')}</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -1117,14 +1119,14 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                           onChange={() => setReturnable(false)}
                           className="w-4 h-4 text-blue-600"
                         />
-                        <span className="text-sm text-gray-700">Non-returnable</span>
+                        <span className="text-sm text-gray-700">{t('products.form.nonReturnable')}</span>
                       </label>
                     </div>
-                    
+
                     {returnable && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Return Window (days)
+                          {t('products.form.returnWindow')}
                         </label>
                         <input
                           type="number"
@@ -1141,20 +1143,20 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Warranty Information
+                    {t('products.form.warrantyInfo')}
                   </label>
                   <input
                     type="text"
                     value={warranty}
                     onChange={(e) => setWarranty(e.target.value)}
-                    placeholder="e.g., 12 months manufacturer warranty"
+                    placeholder={t('products.form.warrantyPlaceholder')}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Expiry / Best Before Date
+                    {t('products.form.expiryDate')}
                   </label>
                   <input
                     type="date"
@@ -1162,7 +1164,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                     onChange={(e) => setExpiryDate(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">For perishable products only</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('products.form.expiryHelp')}</p>
                 </div>
               </div>
             )}
@@ -1174,7 +1176,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
               onClick={() => setShowShipping(!showShipping)}
               className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
-              <h2 className="text-lg font-semibold text-gray-900">Shipping & Delivery</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('products.form.shippingDelivery')}</h2>
               {showShipping ? (
                 <ChevronUp className="w-5 h-5 text-gray-400" />
               ) : (
@@ -1186,8 +1188,8 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
               <div className="px-6 pb-6 space-y-4 border-t border-gray-200 pt-4">
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
-                    <div className="font-medium text-gray-900">Physical Product</div>
-                    <div className="text-sm text-gray-500">This product requires shipping</div>
+                    <div className="font-medium text-gray-900">{t('products.form.physicalProduct')}</div>
+                    <div className="text-sm text-gray-500">{t('products.form.requiresShipping')}</div>
                   </div>
                   <button
                     onClick={() => setRequiresShipping(!requiresShipping)}
@@ -1207,7 +1209,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                   <>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-3">
-                        Package Weight
+                        {t('products.form.packageWeight')}
                       </label>
                       <div className="grid grid-cols-2 gap-3">
                         <input
@@ -1234,7 +1236,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-3">
-                        Package Dimensions (L × W × H)
+                        {t('products.form.packageDimensions')}
                       </label>
                       <div className="grid grid-cols-4 gap-2">
                         <input
@@ -1277,7 +1279,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Shipping Class
+                        {t('products.form.shippingClass')}
                       </label>
                       <div className="grid grid-cols-3 gap-2">
                         {(["standard", "express", "fragile"] as const).map((cls) => (
@@ -1298,16 +1300,16 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Handling Time
+                        {t('products.form.handlingTime')}
                       </label>
                       <input
                         type="text"
                         value={handlingTime}
                         onChange={(e) => setHandlingTime(e.target.value)}
-                        placeholder="e.g., 1-3 business days"
+                        placeholder={t('products.form.handlingTimePlaceholder')}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Time to prepare and ship</p>
+                      <p className="text-xs text-gray-500 mt-1">{t('products.form.handlingTimeHelp')}</p>
                     </div>
 
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -1317,7 +1319,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                         onChange={(e) => setFreeShipping(e.target.checked)}
                         className="w-4 h-4 text-blue-600 rounded"
                       />
-                      <span className="text-sm text-gray-700">Offer free shipping for this product</span>
+                      <span className="text-sm text-gray-700">{t('products.form.freeShipping')}</span>
                     </label>
                   </>
                 )}
@@ -1334,14 +1336,14 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
           onClick={() => navigate('/app/products')}
           className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
         >
-          Cancel
+          {t('common.cancel')}
         </button>
         <button
           onClick={() => handleSave("publish")}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
         >
           <Package className="w-5 h-5" />
-          {isEditPage ? 'Update Product' : 'Publish'}
+          {isEditPage ? t('products.form.updateProduct') : t('products.form.publish')}
         </button>
       </div>
 
@@ -1350,7 +1352,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
         <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900">Select Categories</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('products.form.selectCategories')}</h3>
               <button
                 onClick={() => setShowCategoryModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg"
@@ -1361,17 +1363,17 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
 
             <div className="flex-1 overflow-y-auto p-6">
               <p className="text-sm text-gray-600 mb-4">
-                Select one or more categories for this product
+                {t('products.form.selectCategoriesHelp')}
               </p>
 
               {categoriesLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                  <span className="ml-2 text-gray-600">Loading categories...</span>
+                  <span className="ml-2 text-gray-600">{t('products.form.loadingCategories')}</span>
                 </div>
               ) : categories.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  No categories available
+                  {t('products.form.noCategoriesAvailable')}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
@@ -1423,7 +1425,7 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
               <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <p className="text-sm text-gray-700 mb-3 flex items-center gap-2">
                   <Plus className="w-4 h-4" />
-                  Need a new category?
+                  {t('products.form.needNewCategory')}
                 </p>
                 <button
                   onClick={() => {
@@ -1432,27 +1434,27 @@ export default function AddProduct({ editMode = false, editProduct = null, onClo
                   }}
                   className="w-full px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  Create New Category
+                  {t('products.form.createNewCategory')}
                 </button>
               </div>
             </div>
 
             <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
               <div className="text-sm text-gray-600">
-                {selectedCategories.length} {selectedCategories.length === 1 ? "category" : "categories"} selected
+                {t('products.form.categoriesSelected', { count: selectedCategories.length })}
               </div>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowCategoryModal(false)}
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={() => setShowCategoryModal(false)}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
-                  Apply Selection
+                  {t('products.form.applySelection')}
                 </button>
               </div>
             </div>

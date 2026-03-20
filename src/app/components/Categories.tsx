@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, Edit2, Trash2, ChevronRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from 'react-i18next';
 import { apiClient } from "@/app/lib/api";
 
 interface Category {
@@ -19,6 +20,7 @@ interface Category {
 
 export default function Categories() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,9 +60,9 @@ export default function Categories() {
       setCategories(categories.filter(c => c.id !== categoryToDelete.id));
       setShowDeleteModal(false);
       setCategoryToDelete(null);
-      toast.success('Category deleted');
+      toast.success(t('categories.deleteSuccess'));
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to delete category');
+      toast.error(err.response?.data?.message || t('categories.deleteFailed'));
     }
   };
 
@@ -73,10 +75,10 @@ export default function Categories() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Categories</h1>
-          <p className="text-sm md:text-base text-gray-600 mt-1">Manage product categories and subcategories</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t('categories.title')}</h1>
+          <p className="text-sm md:text-base text-gray-600 mt-1">{t('categories.subtitle')}</p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <div className="relative flex-1 md:flex-none">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -84,7 +86,7 @@ export default function Categories() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search categories..."
+              placeholder={t('categories.searchPlaceholder')}
               className="w-full md:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -93,7 +95,7 @@ export default function Categories() {
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap"
           >
             <Plus className="w-5 h-5" />
-            <span className="hidden sm:inline">Add Category</span>
+            <span className="hidden sm:inline">{t('categories.addCategory')}</span>
           </button>
         </div>
       </div>
@@ -104,9 +106,9 @@ export default function Categories() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Subcategory</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('categories.columns.category')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('categories.columns.totalSubcategory')}</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('categories.columns.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -145,14 +147,14 @@ export default function Categories() {
                       <button
                         onClick={() => navigate(`/categories/${category.id}/edit`)}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                        title="Edit"
+                        title={t('common.edit')}
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(category)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                        title="Delete"
+                        title={t('common.delete')}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -168,9 +170,9 @@ export default function Categories() {
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Search className="w-8 h-8 text-gray-400" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-1">No categories found</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-1">{t('categories.emptySearch')}</h3>
               <p className="text-gray-500 mb-4">
-                {searchQuery ? "Try adjusting your search" : "Get started by creating your first category"}
+                {searchQuery ? t('categories.emptySearchHint') : t('categories.emptyStart')}
               </p>
               {!searchQuery && (
                 <button
@@ -178,7 +180,7 @@ export default function Categories() {
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   <Plus className="w-5 h-5" />
-                  Add Category
+                  {t('categories.addCategory')}
                 </button>
               )}
             </div>
@@ -190,26 +192,26 @@ export default function Categories() {
       {showDeleteModal && categoryToDelete && (
         <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Category</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">{t('categories.deleteModal.title')}</h3>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to delete "<strong>{categoryToDelete.name}</strong>"?
+              {t('categories.deleteModal.message', { name: categoryToDelete.name })}
               {categoryToDelete.subcategories && categoryToDelete.subcategories.length > 0 && (
-                <> This will also delete all {categoryToDelete.subcategories.length} subcategories.</>
+                <> {t('categories.deleteModal.hasSubcategories', { count: categoryToDelete.subcategories.length })}</>
               )}
-              {" "}This action cannot be undone.
+              {" "}{t('categories.deleteModal.cannotUndo')}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteModal(false)}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={confirmDelete}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           </div>
