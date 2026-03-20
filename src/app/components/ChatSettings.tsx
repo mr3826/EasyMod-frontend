@@ -438,10 +438,10 @@ export default function ChatSettings() {
                     <>
                       <p>1. Go to Meta Business Suite: https://business.facebook.com</p>
                       <p>2. Business Settings → Users → System Users</p>
-                      <p>3. Click “Add”, name it “Webhook Manager”, role: Admin</p>
+                      <p>3. Click "Add", name it "Webhook Manager", role: Admin</p>
                       <p>4. Open the System User → Generate New Token</p>
                       <p>5. Select your app and grant permissions:</p>
-                      <ul className=”list-disc list-inside ml-4 space-y-1”>
+                      <ul className="list-disc list-inside ml-4 space-y-1">
                         <li>pages_messaging</li>
                         <li>pages_read_engagement</li>
                         <li>pages_manage_metadata</li>
@@ -453,10 +453,10 @@ export default function ChatSettings() {
                     <>
                       <p>1. Go to Meta Business Suite: https://business.facebook.com</p>
                       <p>2. Business Settings → Users → System Users</p>
-                      <p>3. Click “Add”, name it “WhatsApp Manager”, role: Admin</p>
+                      <p>3. Click "Add", name it "WhatsApp Manager", role: Admin</p>
                       <p>4. Open the System User → Generate New Token</p>
                       <p>5. Select your app and grant permissions:</p>
-                      <ul className=”list-disc list-inside ml-4 space-y-1”>
+                      <ul className="list-disc list-inside ml-4 space-y-1">
                         <li>whatsapp_business_messaging</li>
                         <li>whatsapp_business_management</li>
                       </ul>
@@ -469,10 +469,10 @@ export default function ChatSettings() {
                       <p>1. Make sure your Instagram account is a Professional (Business/Creator) account</p>
                       <p>2. Link your Instagram account to a Facebook Page in Meta Business Suite</p>
                       <p>3. Business Settings → Users → System Users</p>
-                      <p>4. Click “Add”, name it “Instagram Manager”, role: Admin</p>
+                      <p>4. Click "Add", name it "Instagram Manager", role: Admin</p>
                       <p>5. Open the System User → Generate New Token</p>
                       <p>6. Select your app and grant permissions:</p>
-                      <ul className=”list-disc list-inside ml-4 space-y-1”>
+                      <ul className="list-disc list-inside ml-4 space-y-1">
                         <li>instagram_manage_messages</li>
                         <li>instagram_basic</li>
                         <li>pages_manage_metadata</li>
