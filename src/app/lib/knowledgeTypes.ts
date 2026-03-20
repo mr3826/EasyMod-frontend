@@ -52,8 +52,8 @@ export interface KnowledgeGap {
   id: string;
   question: string;
   frequency: number;
-  suggestedAnswer?: string;
-  confidence: number;
+  platform: string;
+  language: string;
   firstAsked: string;
   lastAsked: string;
 }

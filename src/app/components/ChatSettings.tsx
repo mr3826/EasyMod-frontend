@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MessageSquare, Instagram, CheckCircle, Clock, X, Copy, Check, AlertCircle, Info, ChevronDown, ChevronUp, Loader2, Shield, Cpu, Lock } from "lucide-react";
+import { MessageSquare, Instagram, CheckCircle, Clock, X, AlertCircle, Info, ChevronDown, Loader2, Shield, Cpu, Lock } from "lucide-react";
 import { apiClient } from "../lib/api";
 import type { Channel as BackendChannel } from "../lib/api";
 import { useSubscriptionFeatures } from "../lib/useSubscriptionFeatures";
@@ -13,7 +13,10 @@ interface Channel {
   status: 'connected' | 'not_connected' | 'connecting';
   connectedAccount?: string;
   lastSync?: string;
-  systemUserToken?: string;
+  /** True when a System User Token is stored on the server (token is never sent to client). */
+  hasToken?: boolean;
+  /** ISO string of token expiry — null means no expiry info available. */
+  tokenExpiresAt?: string | null;
   businessManagerId?: string;
   savedSettings?: {
     aiAutoReply?: boolean;
@@ -41,30 +44,37 @@ export default function ChatSettings() {
   const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
   const [showManageModal, setShowManageModal] = useState(false);
   const [managedChannel, setManagedChannel] = useState<Channel | null>(null);
-  const [copiedToken, setCopiedToken] = useState(false);
+  const [confirmDisconnect, setConfirmDisconnect] = useState<Channel | null>(null);
   const [showToast, setShowToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // LLM model config state
   const { features: planFeatures } = useSubscriptionFeatures();
   const LLM_MODELS = [
-    { id: 'gpt-4o', label: 'GPT-4o', description: 'Best accuracy, slower' },
-    { id: 'gpt-4o-mini', label: 'GPT-4o Mini', description: 'Balanced speed & quality' },
-    { id: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', description: 'Fastest, lower cost' },
+    { id: 'gpt-4o',                    label: 'GPT-4o',         description: 'OpenAI — best accuracy, slower' },
+    { id: 'gpt-4o-mini',               label: 'GPT-4o Mini',    description: 'OpenAI — balanced speed & quality' },
+    { id: 'gpt-3.5-turbo',             label: 'GPT-3.5 Turbo',  description: 'OpenAI — fastest, lower cost' },
+    { id: 'claude-opus-4-6',           label: 'Claude Opus',    description: 'Anthropic — most capable' },
+    { id: 'claude-sonnet-4-6',         label: 'Claude Sonnet',  description: 'Anthropic — high quality' },
+    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku',   description: 'Anthropic — fast & cheap' },
+    { id: 'gemini-1.5-pro',            label: 'Gemini Pro',     description: 'Google — high quality' },
+    { id: 'gemini-1.5-flash',          label: 'Gemini Flash',   description: 'Google — fast & affordable' },
+    { id: 'deepseek-chat',             label: 'DeepSeek Chat',  description: 'DeepSeek — cost-efficient' },
   ];
   const [llmModel, setLlmModel] = useState('gpt-4o-mini');
   const [llmLoading, setLlmLoading] = useState(false);
   const [llmSaving, setLlmSaving] = useState(false);
 
   const [credentials, setCredentials] = useState<Record<Channel['type'], ChannelCredentials>>({
-    whatsapp: { systemUserToken: '', businessManagerId: '' },
-    facebook: { systemUserToken: '', businessManagerId: '' },
+    whatsapp:  { systemUserToken: '', businessManagerId: '' },
+    facebook:  { systemUserToken: '', businessManagerId: '' },
     instagram: { systemUserToken: '', businessManagerId: '' },
-    telegram: { systemUserToken: '', businessManagerId: '' },
-    webchat: { systemUserToken: '', businessManagerId: '' },
+    telegram:  { systemUserToken: '', businessManagerId: '' },
+    webchat:   { systemUserToken: '', businessManagerId: '' },
   });
 
-  // Channel settings
-  const [channelSettings, setChannelSettings] = useState({
+  // Channel settings for the currently-open manage modal.
+  // Always reset to the channel's saved settings when a new modal is opened (M-1).
+  const CHANNEL_SETTINGS_DEFAULTS = {
     aiAutoReply: true,
     requireApproval: false,
     businessHours: false,
@@ -72,7 +82,8 @@ export default function ChatSettings() {
     autoDetectProducts: true,
     draftOrdersOnly: false,
     requireManualConfirmation: true,
-  });
+  };
+  const [channelSettings, setChannelSettings] = useState({ ...CHANNEL_SETTINGS_DEFAULTS });
 
   // Status configuration
   const statusConfig = {
@@ -125,7 +136,8 @@ export default function ChatSettings() {
           status,
           connectedAccount: channel.name || undefined,
           lastSync: channel.lastSync || channel.last_sync || undefined,
-          systemUserToken: channel.config?.systemUserToken,
+          hasToken: channel.config?.hasToken ?? false,
+          tokenExpiresAt: (channel as any).token_expires_at ?? null,
           businessManagerId: channel.config?.businessManagerId,
           savedSettings: channel.config?.settings || undefined,
         };
@@ -246,25 +258,15 @@ export default function ChatSettings() {
   };
 
   const handleManageChannel = (channel: Channel) => {
-    if (channel.savedSettings) {
-      setChannelSettings((prev) => ({ ...prev, ...channel.savedSettings }));
-    }
+    // Reset to defaults first so stale state from a previous channel doesn't bleed through.
+    setChannelSettings({ ...CHANNEL_SETTINGS_DEFAULTS, ...(channel.savedSettings || {}) });
     setManagedChannel({
       ...channel,
       connectedAccount: channel.connectedAccount || '',
       lastSync: channel.lastSync || '',
-      systemUserToken: channel.systemUserToken || '',
       businessManagerId: channel.businessManagerId || '',
     });
     setShowManageModal(true);
-  };
-
-  const handleCopyToken = () => {
-    if (managedChannel?.systemUserToken) {
-      navigator.clipboard.writeText(managedChannel.systemUserToken);
-      setCopiedToken(true);
-      setTimeout(() => setCopiedToken(false), 2000);
-    }
   };
 
   const handleSettingsChange = (key: keyof typeof channelSettings) => {
@@ -284,10 +286,14 @@ export default function ChatSettings() {
     });
   };
 
-  // Dismiss toast
-  const dismissToast = () => {
-    setShowToast(null);
-  };
+  // Auto-dismiss toast after 4s (M-2)
+  useEffect(() => {
+    if (!showToast) return;
+    const t = setTimeout(() => setShowToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [showToast]);
+
+  const dismissToast = () => setShowToast(null);
 
   // Load LLM config
   useEffect(() => {
@@ -373,6 +379,22 @@ export default function ChatSettings() {
                 </div>
               )}
 
+              {/* Token expiry warning */}
+              {channel.status === 'connected' && channel.tokenExpiresAt && (() => {
+                const expiresMs = new Date(channel.tokenExpiresAt).getTime() - Date.now();
+                const dayMs = 86_400_000;
+                if (expiresMs > 14 * dayMs) return null;
+                const label = expiresMs < 0
+                  ? 'System User Token has expired. Reconnect to restore AI replies.'
+                  : `System User Token expires in ${Math.ceil(expiresMs / dayMs)} day(s). Reconnect soon.`;
+                return (
+                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-lg p-2 mb-4 text-xs text-amber-800">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <span>{label}</span>
+                  </div>
+                );
+              })()}
+
               {/* System User Token Input */}
               {channel.status === 'not_connected' && (
                 <div className="space-y-3 mb-4">
@@ -400,7 +422,7 @@ export default function ChatSettings() {
                     The System User token is sensitive. Treat it like a password and revoke it if you suspect exposure.
                   </div>
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-700">
-                    <strong>Privacy notice:</strong> Once connected, customer messages on this channel will be processed by AI to generate automated responses. Data is encrypted and isolated to your shop.
+                    <strong>Privacy notice:</strong> Once connected, customer messages on this channel will be processed by AI to generate automated responses. Message content may be sent to third-party AI providers (OpenAI, Anthropic, Google) to generate replies. Data is encrypted in transit and isolated to your shop. See our Privacy Policy for details.
                   </div>
                 </div>
               )}
@@ -418,14 +440,44 @@ export default function ChatSettings() {
                       <p>2. Business Settings → Users → System Users</p>
                       <p>3. Click “Add”, name it “Webhook Manager”, role: Admin</p>
                       <p>4. Open the System User → Generate New Token</p>
-                      <p>5. Select your app and permissions:</p>
-                      <ul className="list-disc list-inside ml-4 space-y-1">
+                      <p>5. Select your app and grant permissions:</p>
+                      <ul className=”list-disc list-inside ml-4 space-y-1”>
+                        <li>pages_messaging</li>
+                        <li>pages_read_engagement</li>
+                        <li>pages_manage_metadata</li>
+                      </ul>
+                      <p>6. Paste the token above and click Connect</p>
+                    </>
+                  )}
+                  {channel.type === 'whatsapp' && (
+                    <>
+                      <p>1. Go to Meta Business Suite: https://business.facebook.com</p>
+                      <p>2. Business Settings → Users → System Users</p>
+                      <p>3. Click “Add”, name it “WhatsApp Manager”, role: Admin</p>
+                      <p>4. Open the System User → Generate New Token</p>
+                      <p>5. Select your app and grant permissions:</p>
+                      <ul className=”list-disc list-inside ml-4 space-y-1”>
                         <li>whatsapp_business_messaging</li>
                         <li>whatsapp_business_management</li>
-                        <li>pages_messaging</li>
-                        <li>instagram_manage_messages</li>
                       </ul>
-                      <p>6. Paste the token above and connect</p>
+                      <p>6. Go to WhatsApp → Getting Started to find your Phone Number ID (Business Manager ID)</p>
+                      <p>7. Paste both values above and click Connect</p>
+                    </>
+                  )}
+                  {channel.type === 'instagram' && (
+                    <>
+                      <p>1. Make sure your Instagram account is a Professional (Business/Creator) account</p>
+                      <p>2. Link your Instagram account to a Facebook Page in Meta Business Suite</p>
+                      <p>3. Business Settings → Users → System Users</p>
+                      <p>4. Click “Add”, name it “Instagram Manager”, role: Admin</p>
+                      <p>5. Open the System User → Generate New Token</p>
+                      <p>6. Select your app and grant permissions:</p>
+                      <ul className=”list-disc list-inside ml-4 space-y-1”>
+                        <li>instagram_manage_messages</li>
+                        <li>instagram_basic</li>
+                        <li>pages_manage_metadata</li>
+                      </ul>
+                      <p>7. Paste the token above and click Connect</p>
                     </>
                   )}
                 </div>
@@ -486,7 +538,7 @@ export default function ChatSettings() {
                       Manage
                     </button>
                     <button
-                      onClick={() => handleDisconnect(channel)}
+                      onClick={() => setConfirmDisconnect(channel)}
                       className="flex-1 bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
                     >
                       Disconnect
@@ -545,31 +597,23 @@ export default function ChatSettings() {
                     <span className="text-gray-600">Last Sync:</span>
                     <p className="font-medium text-gray-900">{formatDate(managedChannel.lastSync)}</p>
                   </div>
-                  {managedChannel.systemUserToken && (
-                    <div>
-                      <span className="text-gray-600">System User Token:</span>
-                      <div className="flex items-center mt-1">
-                        <input
-                          type="password"
-                          value={managedChannel.systemUserToken || ''}
-                          readOnly
-                          className="flex-1 bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs"
-                        />
-                        <button
-                          onClick={handleCopyToken}
-                          className="ml-2 p-1 hover:bg-gray-200 rounded"
-                          title="Copy token"
-                        >
-                          {copiedToken ? (
-                            <Check className="w-4 h-4 text-green-600" />
-                          ) : (
-                            <Copy className="w-4 h-4 text-gray-600" />
-                          )}
-                        </button>
-                      </div>
-                      <p className="mt-1 text-xs text-gray-500">Keep this token private. Revoke it in Meta Business Suite if exposed.</p>
+                  <div>
+                    <span className="text-gray-600">System User Token:</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      {managedChannel.hasToken ? (
+                        <>
+                          <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                          <span className="text-xs text-green-700 font-medium">Token stored securely</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                          <span className="text-xs text-amber-700">No token — reconnect the channel</span>
+                        </>
+                      )}
                     </div>
-                  )}
+                    <p className="mt-1 text-xs text-gray-500">Tokens are encrypted at rest and never returned to the browser. Rotate in Meta Business Suite if compromised.</p>
+                  </div>
                   {managedChannel.businessManagerId && (
                     <div>
                       <span className="text-gray-600">Business Manager ID:</span>
@@ -676,11 +720,10 @@ export default function ChatSettings() {
                 onClick={async () => {
                   if (!managedChannel) return;
                   try {
+                    // Send only the settings payload — never echo back the full channel object,
+                    // which would re-transmit stale or sensitive fields.
                     await apiClient.updateChannel(managedChannel.id, {
-                      config: {
-                        ...managedChannel,
-                        settings: channelSettings,
-                      }
+                      settings: channelSettings,
                     });
                     setShowManageModal(false);
                     setShowToast({ type: 'success', message: 'Settings saved successfully!' });
@@ -764,6 +807,36 @@ export default function ChatSettings() {
           </div>
         )}
       </div>
+
+      {/* Disconnect Confirmation Dialog (M-3) */}
+      {confirmDisconnect && (
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900 text-lg">Disconnect {confirmDisconnect.name}?</h3>
+            <p className="text-sm text-gray-600">
+              This will stop all incoming messages and AI replies on this channel. You will need to reconnect with a new token to restore service.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConfirmDisconnect(null)}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const ch = confirmDisconnect;
+                  setConfirmDisconnect(null);
+                  await handleDisconnect(ch);
+                }}
+                className="px-4 py-2 text-white bg-red-600 rounded-lg text-sm font-medium hover:bg-red-700"
+              >
+                Yes, Disconnect
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notification */}
       {showToast && (

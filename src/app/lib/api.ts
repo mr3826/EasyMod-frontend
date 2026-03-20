@@ -153,9 +153,18 @@ export interface DashboardMetrics {
     totalMessages: number;
     activeProducts: number;
     ordersToday: number;
+    ordersInPeriod: number;
     conversionRate: number;
     weeklyChange: number;
   };
+  period?: number;
+  analytics?: {
+    total_messages: number;
+    llm_calls: number;
+    cache_hits: number;
+    keyword_matches: number;
+    cost_estimate: number;
+  } | null;
   channels: {
     active: number;
     total: number;
@@ -566,8 +575,14 @@ class ApiClient {
   }
 
   // Dashboard endpoints
-  async getDashboardMetrics(): Promise<DashboardMetrics> {
-    const response: AxiosResponse<ApiResponse<DashboardMetrics>> = await this.client.get('/dashboard/metrics');
+  async getDashboardMetrics(period = 30): Promise<DashboardMetrics> {
+    const response: AxiosResponse<ApiResponse<DashboardMetrics>> = await this.client.get('/dashboard/metrics', { params: { period } });
+    return response.data.data;
+  }
+
+  async getKnowledgeGaps(limit = 20): Promise<{ id: number; question: string; platform: string; language: string; created_at: string }[]> {
+    const response: AxiosResponse<ApiResponse<{ id: number; question: string; platform: string; language: string; created_at: string }[]>> =
+      await this.client.get('/analytics/knowledge-gap', { params: { limit } });
     return response.data.data;
   }
 
@@ -673,12 +688,7 @@ class ApiClient {
 
   async listKnowledgeGaps(): Promise<KnowledgeGap[]> {
     const response: AxiosResponse<ApiResponse<KnowledgeGap[]>> = await this.client.get('/knowledge/gaps');
-    return response.data.data;
-  }
-
-  async updateKnowledgeGaps(gaps: KnowledgeGap[]): Promise<KnowledgeGap[]> {
-    const response: AxiosResponse<ApiResponse<KnowledgeGap[]>> = await this.client.put('/knowledge/gaps', gaps);
-    return response.data.data;
+    return response.data.data || [];
   }
 
   async listKnowledgeDocuments(): Promise<any[]> {
@@ -988,6 +998,14 @@ class ApiClient {
     return response.data;
   }
 
+  async paySubscriptionInvoice(invoiceId: string, gateway: 'aamarpay' | 'sslcommerz'): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.post(
+      `/subscription/invoices/${invoiceId}/pay`,
+      { gateway }
+    );
+    return response.data;
+  }
+
   async updateSubscriptionPlan(payload: {
     plan_name: string;
     plan_price: number;
@@ -1034,6 +1052,17 @@ class ApiClient {
     return response.data.data as KnowledgeSummary;
   }
 
+  async getShopAISettings(): Promise<ShopAISettings> {
+    const response: AxiosResponse<ApiResponse<ShopAISettings>> = await this.client.get('/shop/ai-settings');
+    return response.data.data as ShopAISettings;
+  }
+
+  async updateShopAISettings(settings: Partial<ShopAISettings>): Promise<ShopAISettings> {
+    await this.initCsrfToken();
+    const response: AxiosResponse<ApiResponse<ShopAISettings>> = await this.client.put('/shop/ai-settings', settings);
+    return response.data.data as ShopAISettings;
+  }
+
   async updateShop(shopId: string, updates: any): Promise<any> {
     const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/shop/update', {
       shopId,
@@ -1070,5 +1099,29 @@ export interface KnowledgeSummary {
   businessInfo: BusinessInfo;
   brandingRules: BrandingRules;
   faqs: FAQ[];
-  gaps: KnowledgeGap[];
+  documents: any[];
+}
+
+export interface ShopAISettings {
+  automation_mode: 'DRAFT' | 'AUTO' | 'MANUAL';
+  confidence_threshold: number;
+  auto_reply_enabled: boolean;
+  max_auto_order_value: number;
+  ask_email: boolean;
+  primary_language: 'mixed' | 'en' | 'bn';
+  llm_model?: string;
+  llm_temperature?: number;
+  required_fields: {
+    customer_name: boolean;
+    mobile_number: boolean;
+    delivery_address: boolean;
+    payment_method: boolean;
+    email_address: boolean;
+    special_instructions: boolean;
+  };
+  handoff_settings: {
+    trigger_keywords: string[];
+    notification_channel: 'in_app' | 'email' | 'sms';
+    cooldown_minutes: number;
+  };
 }
