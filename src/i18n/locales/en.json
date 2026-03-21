@@ -583,6 +583,10 @@
       "phonePlaceholder": "Enter phone number",
       "channel": "Channel",
       "channelManual": "Manual Entry",
+      "channelWhatsApp": "WhatsApp",
+      "channelFacebook": "Facebook",
+      "channelWebChat": "Web Chat",
+      "channelTelegram": "Telegram",
       "address": "Delivery Address",
       "addressPlaceholder": "Enter complete delivery address",
       "productsSection": "Products",
@@ -608,11 +612,27 @@
     "detailModal": {
       "title": "Order Details",
       "customerSection": "Customer Information",
+      "name": "Name",
+      "channel": "Channel",
+      "created": "Created",
       "metaSection": "Order Meta Information",
+      "orderSource": "Order Source",
+      "createdBy": "Created By",
+      "createdByManual": "Manual Entry",
+      "createdByAI": "Automation",
+      "creationMethod": "Creation Method",
+      "methodManual": "Manual",
+      "methodAutomated": "Automated",
       "itemsSection": "Order Items",
+      "quantity": "Quantity",
+      "total": "Total",
       "updateStatus": "Update Status",
       "confirmOrder": "Confirm Order",
-      "cancelOrder": "Cancel Order"
+      "cancelOrder": "Cancel Order",
+      "close": "Close"
+    },
+    "labels": {
+      "sku": "SKU"
     },
     "selectProduct": {
       "title": "Select Product",
@@ -622,6 +642,12 @@
       "createButton": "Create New Product"
     },
     "errors": {
+      "loadFailed": "Failed to load orders",
+      "updateStatus": "Failed to update order status",
+      "highRTO": "High RTO-risk orders require manual review before confirmation",
+      "nameRequired": "Customer name is required",
+      "phoneRequired": "Customer phone is required",
+      "addressRequired": "Delivery address is required",
       "noExportData": "No orders available to export.",
       "csvFallback": "Excel export is not available yet. Downloaded CSV instead.",
       "itemRequired": "At least one item is required",

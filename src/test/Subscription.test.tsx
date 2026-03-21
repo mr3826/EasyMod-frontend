@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import Subscription from '@/app/components/Subscription'
 
@@ -38,7 +38,9 @@ vi.mock('@/app/lib/api', () => ({
         }
       ]
     }),
-    purchaseConversationPack: vi.fn().mockResolvedValue({ success: true })
+    purchaseConversationPack: vi.fn().mockResolvedValue({ success: true }),
+    updateSubscriptionPlan: vi.fn().mockResolvedValue({ success: true }),
+    paySubscriptionInvoice: vi.fn().mockResolvedValue({ success: true, data: { payment_url: '' } }),
   }
 }))
 
@@ -47,6 +49,19 @@ vi.mock('@/app/lib/auth', () => ({
   authService: {
     getCurrentShopId: vi.fn().mockReturnValue('shop1')
   }
+}))
+
+// Mock subscription features hook used by FeatureGate
+vi.mock('@/app/lib/useSubscriptionFeatures', () => ({
+  useSubscriptionFeatures: vi.fn().mockReturnValue({
+    features: { image_understanding: true, advanced_ai: true },
+    loading: false,
+  }),
+}))
+
+// Render FeatureGate children directly (bypass the lock overlay)
+vi.mock('@/app/components/FeatureGate', () => ({
+  FeatureGate: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
 // Mock UI components
@@ -58,7 +73,17 @@ vi.mock('@/app/components/ui/badge', () => ({
   Badge: ({ children }: any) => <div data-testid="badge">{children}</div>
 }))
 
-// Mock lucide-react icons
+vi.mock('@/app/components/ui/switch', () => ({
+  Switch: ({ checked, onCheckedChange }: any) => (
+    <button role="switch" aria-checked={checked} onClick={() => onCheckedChange?.(!checked)} />
+  ),
+}))
+
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn() },
+}))
+
+// Mock lucide-react icons — include all icons used by Subscription.tsx
 vi.mock('lucide-react', () => ({
   Receipt: () => <div data-testid="receipt-icon" />,
   AlertCircle: () => <div data-testid="alert-circle-icon" />,
@@ -68,7 +93,12 @@ vi.mock('lucide-react', () => ({
   TrendingUp: () => <div data-testid="trending-up-icon" />,
   Package: () => <div data-testid="package-icon" />,
   ShoppingCart: () => <div data-testid="shopping-cart-icon" />,
-  MessageSquare: () => <div data-testid="message-square-icon" />
+  MessageSquare: () => <div data-testid="message-square-icon" />,
+  CreditCard: () => <div data-testid="credit-card-icon" />,
+  Clock: () => <div data-testid="clock-icon" />,
+  Lock: () => <div data-testid="lock-icon" />,
+  Zap: () => <div data-testid="zap-icon" />,
+  X: () => <div data-testid="x-icon" />,
 }))
 
 const renderWithRouter = (component: React.ReactElement) => {
@@ -85,7 +115,7 @@ describe('Subscription', () => {
 
     expect(screen.getByText('Plan & Billing')).toBeInTheDocument()
     expect(screen.getByText('৳29.99')).toBeInTheDocument()
-    expect(screen.getAllByTestId('progress')).toHaveLength(3) // conversations, orders, products
+    expect(screen.getAllByTestId('progress')).toHaveLength(3)
   })
 
   it('displays invoices', async () => {

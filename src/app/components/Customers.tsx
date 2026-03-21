@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from 'react-i18next';
-import { 
-  Users, 
+import {
+  Users,
   Search,
   X,
   Trash2,
@@ -12,46 +12,55 @@ import {
   Mail,
   MessageSquare,
   Calendar,
-  Hash,
   Filter,
   ShieldAlert,
   ShieldOff
 } from "lucide-react";
 import { toast } from "sonner";
-import { apiClient, Customer, CustomerFilters } from "../lib/api";
+import { apiClient, Customer, CustomerFilters, ChannelType } from "../lib/api";
 
-
-const channelIcons: Record<string, { icon: any; color: string; bgColor: string; label: string }> = {
-  facebook: { icon: MessageSquare, color: "text-blue-600", bgColor: "bg-blue-50", label: "Facebook" },
-  whatsapp: { icon: MessageSquare, color: "text-green-600", bgColor: "bg-green-50", label: "WhatsApp" },
-  webchat: { icon: MessageSquare, color: "text-purple-600", bgColor: "bg-purple-50", label: "Web Chat" },
-  telegram: { icon: MessageSquare, color: "text-sky-600", bgColor: "bg-sky-50", label: "Telegram" },
-  manual: { icon: UserPlus, color: "text-gray-600", bgColor: "bg-gray-50", label: "Manual" },
+const channelConfig: Record<string, { icon: any; color: string; bgColor: string; labelKey: string }> = {
+  facebook:  { icon: MessageSquare, color: "text-blue-600",   bgColor: "bg-blue-50",   labelKey: "customers.channels.facebook" },
+  messenger: { icon: MessageSquare, color: "text-blue-500",   bgColor: "bg-blue-50",   labelKey: "customers.channels.messenger" },
+  instagram: { icon: MessageSquare, color: "text-pink-600",   bgColor: "bg-pink-50",   labelKey: "customers.channels.instagram" },
+  whatsapp:  { icon: MessageSquare, color: "text-green-600",  bgColor: "bg-green-50",  labelKey: "customers.channels.whatsapp" },
+  webchat:   { icon: MessageSquare, color: "text-purple-600", bgColor: "bg-purple-50", labelKey: "customers.channels.webchat" },
+  telegram:  { icon: MessageSquare, color: "text-sky-600",    bgColor: "bg-sky-50",    labelKey: "customers.channels.telegram" },
+  manual:    { icon: UserPlus,      color: "text-gray-600",   bgColor: "bg-gray-50",   labelKey: "customers.channels.manual" },
 };
 
-const channels = [
-  { value: 'all', label: 'All Channels' },
-  { value: 'facebook', label: 'Facebook' },
-  { value: 'whatsapp', label: 'WhatsApp' },
-  { value: 'telegram', label: 'Telegram' },
-  { value: 'webchat', label: 'Web Chat' },
-  { value: 'manual', label: 'Manual' },
-];
+const REST_CHANNELS = ['facebook', 'whatsapp', 'telegram', 'webchat', 'manual'];
+
+const PAGE_SIZE = 10;
+
+// Safe first-character helper — name is nullable in the DB
+const nameInitial = (name: string | null | undefined) =>
+  (name ?? '?').charAt(0).toUpperCase();
 
 export default function Customers() {
   const { t } = useTranslation();
+
+  // Shop-wide stats (fetched once on mount, independent of filters)
+  const [shopStats, setShopStats] = useState({ total: 0, channelCount: 0, manualCount: 0 });
+
+  // Table data
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [tableTotal, setTableTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Filters and pagination
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>("all");
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // UI state
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [togglingBlacklist, setTogglingBlacklist] = useState(false);
-  
+
   const [newCustomer, setNewCustomer] = useState({
     name: "",
     number: "",
@@ -59,50 +68,91 @@ export default function Customers() {
     channel: "" as const,
   });
 
-  const itemsPerPage = 10;
-
-  // Fetch customers on mount
+  // ── Stats fetch — once on mount ────────────────────────────────────────────
   useEffect(() => {
-    fetchCustomers();
+    const fetchStats = async () => {
+      try {
+        const [allResult, manualResult] = await Promise.all([
+          apiClient.getCustomers({ pageSize: 1 }),
+          apiClient.getCustomers({ channel_type: 'manual' as ChannelType, pageSize: 1 }),
+        ]);
+        setShopStats({
+          total: allResult.total,
+          manualCount: manualResult.total,
+          channelCount: allResult.total - manualResult.total,
+        });
+      } catch {
+        // Stats are non-critical — fail silently
+      }
+    };
+    fetchStats();
   }, []);
+
+  // ── Table fetch — server-side, debounced search ───────────────────────────
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchCustomers();
+    }, searchQuery ? 300 : 0);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, channelFilter, currentPage]);
 
   const fetchCustomers = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await apiClient.getCustomers();
-      setCustomers(data);
+      const filters: CustomerFilters = { page: currentPage, pageSize: PAGE_SIZE };
+      if (searchQuery) filters.search = searchQuery;
+      if (channelFilter !== 'all') filters.channel_type = channelFilter as ChannelType;
+
+      const result = await apiClient.getCustomers(filters);
+      setCustomers(result.data);
+      setTableTotal(result.total);
     } catch (err: any) {
       setError(err.message || t('customers.errors.fetchFailed'));
-      console.error('Error fetching customers:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Reset to page 1 when filters change
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  const handleChannelChange = (value: string) => {
+    setChannelFilter(value);
+    setCurrentPage(1);
+  };
+
+  const totalPages = Math.ceil(tableTotal / PAGE_SIZE);
+  const startIndex = (currentPage - 1) * PAGE_SIZE + 1;
+  const endIndex = Math.min(currentPage * PAGE_SIZE, tableTotal);
+
+  // ── Mutations ──────────────────────────────────────────────────────────────
+
   const handleCreateCustomer = async () => {
     if (!newCustomer.name || !newCustomer.number || !newCustomer.channel) {
-      setError(t('customers.errors.requiredFields'));
+      toast.error(t('customers.errors.requiredFields'));
       return;
     }
-
     try {
       setIsSubmitting(true);
-      const created = await apiClient.createCustomer({
+      await apiClient.createCustomer({
         name: newCustomer.name,
         number: newCustomer.number,
         email: newCustomer.email || undefined,
         channel: newCustomer.channel,
       });
-      
-      setCustomers([created, ...customers]);
       setShowCreateCustomer(false);
       setNewCustomer({ name: "", number: "", email: "", channel: "" as const });
-      setError(null);
       toast.success(t('customers.success.created'));
+      // Refresh table and stats
+      fetchCustomers();
+      setShopStats(prev => ({ ...prev, total: prev.total + 1 }));
     } catch (err: any) {
-      toast.error(err.response?.data?.message || t('customers.errors.createFailed'));
-      setError(err.response?.data?.message || t('customers.errors.createFailed'));
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || t('customers.errors.createFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -112,14 +162,13 @@ export default function Customers() {
     try {
       setIsSubmitting(true);
       await apiClient.deleteCustomer(customerId);
-      setCustomers(customers.filter(c => c.id !== customerId));
       setShowDeleteConfirm(null);
-      if (selectedCustomer?.id === customerId) {
-        setSelectedCustomer(null);
-      }
+      if (selectedCustomer?.id === customerId) setSelectedCustomer(null);
       toast.success(t('customers.success.deleted'));
+      fetchCustomers();
+      setShopStats(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
     } catch (err: any) {
-      toast.error(err.response?.data?.message || t('customers.errors.deleteFailed'));
+      toast.error(err.response?.data?.error?.message || t('customers.errors.deleteFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -131,11 +180,11 @@ export default function Customers() {
       const updated = customer.blacklisted
         ? await apiClient.unblacklistCustomer(customer.id)
         : await apiClient.blacklistCustomer(customer.id);
-      setCustomers(customers.map(c => c.id === customer.id ? updated : c));
+      setCustomers(prev => prev.map(c => c.id === customer.id ? updated : c));
       setSelectedCustomer(updated);
       toast.success(updated.blacklisted ? t('customers.success.blacklisted') : t('customers.success.unblacklisted'));
     } catch (err: any) {
-      toast.error(err.response?.data?.message || t('customers.errors.blacklistFailed'));
+      toast.error(err.response?.data?.error?.message || t('customers.errors.blacklistFailed'));
     } finally {
       setTogglingBlacklist(false);
     }
@@ -145,39 +194,17 @@ export default function Customers() {
     try {
       setIsSubmitting(true);
       const updated = await apiClient.updateCustomer(customerId, updates);
-      setCustomers(customers.map(c => c.id === customerId ? updated : c));
+      setCustomers(prev => prev.map(c => c.id === customerId ? updated : c));
       setSelectedCustomer(updated);
       toast.success(t('customers.success.updated'));
     } catch (err: any) {
-      toast.error(err.response?.data?.message || t('customers.errors.updateFailed'));
+      toast.error(err.response?.data?.error?.message || t('customers.errors.updateFailed'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Filter customers
-  const filteredCustomers = customers.filter(customer => {
-    const matchesSearch = 
-      searchQuery === "" || 
-      customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.number.includes(searchQuery) ||
-      (customer.email && customer.email.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesChannel = 
-      channelFilter === "all" || 
-      customer.channel === channelFilter;
-
-    return matchesSearch && matchesChannel;
-  });
-
-  // Pagination
-  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedCustomers = filteredCustomers.slice(startIndex, endIndex);
-
-  // Calculate channel customer count (exclude manual)
-  const channelCustomers = customers.filter(c => c.channel !== 'manual').length;
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
@@ -188,14 +215,13 @@ export default function Customers() {
           <p className="text-gray-600">{t('customers.subtitle')}</p>
         </div>
 
-        {/* Summary Cards - Only 3 boxes as requested */}
+        {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* Total Customers */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">{t('customers.totalCustomers')}</p>
-                <p className="text-3xl font-bold text-gray-900">{customers.length}</p>
+                <p className="text-3xl font-bold text-gray-900">{shopStats.total}</p>
               </div>
               <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center">
                 <Users className="w-7 h-7 text-blue-600" />
@@ -203,12 +229,11 @@ export default function Customers() {
             </div>
           </div>
 
-          {/* Channel Customers */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">{t('customers.channelCustomers')}</p>
-                <p className="text-3xl font-bold text-gray-900">{channelCustomers}</p>
+                <p className="text-3xl font-bold text-gray-900">{shopStats.channelCount}</p>
                 <p className="text-xs text-gray-500 mt-1">{t('customers.channelCustomersHelper')}</p>
               </div>
               <div className="w-14 h-14 bg-green-50 rounded-xl flex items-center justify-center">
@@ -217,12 +242,11 @@ export default function Customers() {
             </div>
           </div>
 
-          {/* Manual Customers */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">{t('customers.manualCustomers')}</p>
-                <p className="text-3xl font-bold text-gray-900">{customers.filter(c => c.channel === 'manual').length}</p>
+                <p className="text-3xl font-bold text-gray-900">{shopStats.manualCount}</p>
                 <p className="text-xs text-gray-500 mt-1">{t('customers.manualCustomersHelper')}</p>
               </div>
               <div className="w-14 h-14 bg-purple-50 rounded-xl flex items-center justify-center">
@@ -236,13 +260,8 @@ export default function Customers() {
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
             <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-red-900">{error}</p>
-            </div>
-            <button
-              onClick={() => setError(null)}
-              className="text-red-400 hover:text-red-600"
-            >
+            <p className="flex-1 text-sm font-medium text-red-900">{error}</p>
+            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -251,35 +270,32 @@ export default function Customers() {
         {/* Search and Filter Bar */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="flex flex-col md:flex-row gap-4">
-            {/* Search */}
             <div className="flex-1 relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder={t('customers.searchPlaceholder')}
                 className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
-            {/* Channel Filter */}
             <div className="md:w-64">
               <select
                 value={channelFilter}
-                onChange={(e) => setChannelFilter(e.target.value)}
+                onChange={(e) => handleChannelChange(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
               >
                 <option value="all">{t('customers.allChannels')}</option>
-                {channels.filter(c => c.value !== 'all').map((channel) => (
-                  <option key={channel.value} value={channel.value}>
-                    {channel.label}
+                {REST_CHANNELS.map((ch) => (
+                  <option key={ch} value={ch}>
+                    {t(channelConfig[ch]?.labelKey ?? `customers.channels.${ch}`, { defaultValue: ch })}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Add Customer Button */}
             <button
               onClick={() => setShowCreateCustomer(true)}
               className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors whitespace-nowrap"
@@ -301,7 +317,7 @@ export default function Customers() {
         {/* Customer List */}
         {!isLoading && (
           <>
-            {filteredCustomers.length === 0 ? (
+            {customers.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
                 <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('customers.noCustomers')}</h3>
@@ -323,17 +339,18 @@ export default function Customers() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {paginatedCustomers.map((customer) => {
-                          const ChannelIcon = channelIcons[customer.channel]?.icon || MessageSquare;
+                        {customers.map((customer) => {
+                          const cfg = channelConfig[customer.channel];
+                          const ChannelIcon = cfg?.icon ?? MessageSquare;
                           return (
                             <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-3">
                                   <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
-                                    {customer.name.charAt(0).toUpperCase()}
+                                    {nameInitial(customer.name)}
                                   </div>
                                   <div>
-                                    <p className="font-medium text-gray-900">{customer.name}</p>
+                                    <p className="font-medium text-gray-900">{customer.name ?? t('customers.unknownName')}</p>
                                     <p className="text-sm text-gray-500">ID: {customer.id.slice(0, 8)}</p>
                                   </div>
                                 </div>
@@ -342,7 +359,7 @@ export default function Customers() {
                                 <div className="space-y-1">
                                   <div className="flex items-center gap-2 text-sm text-gray-900">
                                     <Phone className="w-4 h-4 text-gray-400" />
-                                    {customer.number}
+                                    {customer.number ?? '—'}
                                   </div>
                                   {customer.email && (
                                     <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -353,10 +370,10 @@ export default function Customers() {
                                 </div>
                               </td>
                               <td className="px-6 py-4">
-                                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${channelIcons[customer.channel]?.bgColor || 'bg-gray-50'}`}>
-                                  <ChannelIcon className={`w-4 h-4 ${channelIcons[customer.channel]?.color || 'text-gray-600'}`} />
-                                  <span className={`text-sm font-medium ${channelIcons[customer.channel]?.color || 'text-gray-600'}`}>
-                                    {channelIcons[customer.channel]?.label || customer.channel}
+                                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${cfg?.bgColor ?? 'bg-gray-50'}`}>
+                                  <ChannelIcon className={`w-4 h-4 ${cfg?.color ?? 'text-gray-600'}`} />
+                                  <span className={`text-sm font-medium ${cfg?.color ?? 'text-gray-600'}`}>
+                                    {t(cfg?.labelKey ?? `customers.channels.${customer.channel}`, { defaultValue: customer.channel })}
                                   </span>
                                 </div>
                               </td>
@@ -386,13 +403,9 @@ export default function Customers() {
                                   <Calendar className="w-4 h-4 text-gray-400" />
                                   {customer.created_at ? (
                                     new Date(customer.created_at).toLocaleDateString('en-US', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric'
+                                      year: 'numeric', month: 'short', day: 'numeric'
                                     })
-                                  ) : (
-                                    'N/A'
-                                  )}
+                                  ) : 'N/A'}
                                 </div>
                               </td>
                               <td className="px-6 py-4">
@@ -401,7 +414,7 @@ export default function Customers() {
                                     onClick={() => setSelectedCustomer(customer)}
                                     className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                   >
-                                    View
+                                    {t('common.view')}
                                   </button>
                                   <button
                                     onClick={() => setShowDeleteConfirm(customer.id)}
@@ -423,7 +436,7 @@ export default function Customers() {
                 {totalPages > 1 && (
                   <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center justify-between">
                     <p className="text-sm text-gray-600">
-                      {t('customers.pagination', { start: startIndex + 1, end: Math.min(endIndex, filteredCustomers.length), total: filteredCustomers.length })}
+                      {t('customers.pagination', { start: startIndex, end: endIndex, total: tableTotal })}
                     </p>
                     <div className="flex items-center gap-2">
                       <button
@@ -470,10 +483,10 @@ export default function Customers() {
               {/* Avatar and Name */}
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                  {selectedCustomer.name.charAt(0).toUpperCase()}
+                  {nameInitial(selectedCustomer.name)}
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900">{selectedCustomer.name}</h3>
+                  <h3 className="text-xl font-semibold text-gray-900">{selectedCustomer.name ?? t('customers.unknownName')}</h3>
                   <p className="text-sm text-gray-500">{t('customers.detail.id', { id: selectedCustomer.id.slice(0, 8) })}</p>
                   {selectedCustomer.blacklisted && (
                     <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-900 text-white">
@@ -486,7 +499,7 @@ export default function Customers() {
                       selectedCustomer.rto_risk === 'medium' ? 'bg-amber-100 text-amber-700' :
                       'bg-green-100 text-green-700'
                     }`}>
-                      <ShieldAlert className="w-3 h-3" /> RTO Risk: {selectedCustomer.rto_risk.charAt(0).toUpperCase() + selectedCustomer.rto_risk.slice(1)}
+                      <ShieldAlert className="w-3 h-3" /> {t('customers.detail.rtoRiskLabel', { level: selectedCustomer.rto_risk })}
                     </span>
                   )}
                 </div>
@@ -499,7 +512,7 @@ export default function Customers() {
                     <Phone className="w-4 h-4" />
                     {t('customers.detail.phoneNumber')}
                   </label>
-                  <p className="text-lg text-gray-900 pl-6">{selectedCustomer.number}</p>
+                  <p className="text-lg text-gray-900 pl-6">{selectedCustomer.number ?? '—'}</p>
                 </div>
 
                 <div>
@@ -513,16 +526,17 @@ export default function Customers() {
                 <div>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-2">
                     <MessageSquare className="w-4 h-4" />
-                    Channel
+                    {t('customers.detail.channel')}
                   </label>
                   <div className="pl-6">
                     {(() => {
-                      const ChannelIcon = channelIcons[selectedCustomer.channel]?.icon || MessageSquare;
+                      const cfg = channelConfig[selectedCustomer.channel];
+                      const ChannelIcon = cfg?.icon ?? MessageSquare;
                       return (
-                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg ${channelIcons[selectedCustomer.channel]?.bgColor || 'bg-gray-50'}`}>
-                          <ChannelIcon className={`w-5 h-5 ${channelIcons[selectedCustomer.channel]?.color || 'text-gray-600'}`} />
-                          <span className={`text-base font-medium ${channelIcons[selectedCustomer.channel]?.color || 'text-gray-600'}`}>
-                            {channelIcons[selectedCustomer.channel]?.label || selectedCustomer.channel}
+                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg ${cfg?.bgColor ?? 'bg-gray-50'}`}>
+                          <ChannelIcon className={`w-5 h-5 ${cfg?.color ?? 'text-gray-600'}`} />
+                          <span className={`text-base font-medium ${cfg?.color ?? 'text-gray-600'}`}>
+                            {t(cfg?.labelKey ?? `customers.channels.${selectedCustomer.channel}`, { defaultValue: selectedCustomer.channel })}
                           </span>
                         </div>
                       );
@@ -533,40 +547,30 @@ export default function Customers() {
                 <div>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-2">
                     <Calendar className="w-4 h-4" />
-                    Created At
+                    {t('customers.detail.createdAt')}
                   </label>
                   <p className="text-base text-gray-900 pl-6">
                     {selectedCustomer.created_at ? (
                       new Date(selectedCustomer.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
+                        year: 'numeric', month: 'long', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
                       })
-                    ) : (
-                      'Not available'
-                    )}
+                    ) : t('customers.detail.notAvailable')}
                   </p>
                 </div>
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-2">
                     <Calendar className="w-4 h-4" />
-                    Last Updated
+                    {t('customers.detail.lastUpdated')}
                   </label>
                   <p className="text-base text-gray-900 pl-6">
                     {selectedCustomer.updated_at ? (
                       new Date(selectedCustomer.updated_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
+                        year: 'numeric', month: 'long', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
                       })
-                    ) : (
-                      'Not available'
-                    )}
+                    ) : t('customers.detail.notAvailable')}
                   </p>
                 </div>
 
@@ -585,7 +589,11 @@ export default function Customers() {
                             selectedCustomer.rto_risk === 'high' ? 'text-red-600' :
                             selectedCustomer.rto_risk === 'medium' ? 'text-amber-600' :
                             'text-green-600'
-                          }`}>{selectedCustomer.rto_risk === 'high' ? t('customers.rtoHigh') : selectedCustomer.rto_risk === 'medium' ? t('customers.rtoMedium') : t('customers.rtoLow')}</span>
+                          }`}>
+                            {selectedCustomer.rto_risk === 'high' ? t('customers.rtoHigh') :
+                             selectedCustomer.rto_risk === 'medium' ? t('customers.rtoMedium') :
+                             t('customers.rtoLow')}
+                          </span>
                         </div>
                       )}
                       {selectedCustomer.rto_count !== undefined && (
@@ -616,10 +624,10 @@ export default function Customers() {
                     )}
                   </button>
                 </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
       )}
 
       {/* Create Customer Modal */}
@@ -632,7 +640,6 @@ export default function Customers() {
                 onClick={() => {
                   setShowCreateCustomer(false);
                   setNewCustomer({ name: "", number: "", email: "", channel: "" as const });
-                  setError(null);
                 }}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -688,9 +695,9 @@ export default function Customers() {
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
                 >
                   <option value="">{t('customers.addModal.channelPlaceholder')}</option>
-                  {channels.filter(c => c.value !== 'all').map((channel) => (
-                    <option key={channel.value} value={channel.value}>
-                      {channel.label}
+                  {REST_CHANNELS.map((ch) => (
+                    <option key={ch} value={ch}>
+                      {t(channelConfig[ch]?.labelKey ?? `customers.channels.${ch}`, { defaultValue: ch })}
                     </option>
                   ))}
                 </select>
@@ -701,7 +708,6 @@ export default function Customers() {
                   onClick={() => {
                     setShowCreateCustomer(false);
                     setNewCustomer({ name: "", number: "", email: "", channel: "" as const });
-                    setError(null);
                   }}
                   className="flex-1 px-6 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
                 >
@@ -728,9 +734,7 @@ export default function Customers() {
               <Trash2 className="w-6 h-6 text-red-600" />
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2 text-center">{t('customers.deleteModal.title')}</h2>
-            <p className="text-gray-600 mb-6 text-center">
-              {t('customers.deleteModal.message')}
-            </p>
+            <p className="text-gray-600 mb-6 text-center">{t('customers.deleteModal.message')}</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(null)}

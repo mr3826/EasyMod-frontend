@@ -123,7 +123,7 @@ test('sign in flow reaches dashboard with mocked backend', async ({ page }) => {
   await page.locator('button[type="submit"]').click();
 
   await expect(page).toHaveURL(/\/app$/);
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '12' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '8' })).toBeVisible();
 });
