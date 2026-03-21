@@ -582,6 +582,10 @@
       "phonePlaceholder": "ফোন নম্বর লিখুন",
       "channel": "চ্যানেল",
       "channelManual": "ম্যানুয়াল এন্ট্রি",
+      "channelWhatsApp": "হোয়াটসঅ্যাপ",
+      "channelFacebook": "ফেসবুক",
+      "channelWebChat": "ওয়েব চ্যাট",
+      "channelTelegram": "টেলিগ্রাম",
       "address": "ডেলিভারি ঠিকানা",
       "addressPlaceholder": "সম্পূর্ণ ডেলিভারি ঠিকানা লিখুন",
       "productsSection": "পণ্যসমূহ",
@@ -607,11 +611,27 @@
     "detailModal": {
       "title": "অর্ডারের বিবরণ",
       "customerSection": "কাস্টমারের তথ্য",
+      "name": "নাম",
+      "channel": "চ্যানেল",
+      "created": "তৈরির সময়",
       "metaSection": "অর্ডারের মেটা তথ্য",
+      "orderSource": "অর্ডারের উৎস",
+      "createdBy": "তৈরি করেছেন",
+      "createdByManual": "ম্যানুয়াল এন্ট্রি",
+      "createdByAI": "অটোমেশন",
+      "creationMethod": "তৈরির পদ্ধতি",
+      "methodManual": "ম্যানুয়াল",
+      "methodAutomated": "স্বয়ংক্রিয়",
       "itemsSection": "অর্ডারের আইটেম",
+      "quantity": "পরিমাণ",
+      "total": "মোট",
       "updateStatus": "অবস্থা আপডেট করুন",
       "confirmOrder": "অর্ডার নিশ্চিত করুন",
-      "cancelOrder": "অর্ডার বাতিল করুন"
+      "cancelOrder": "অর্ডার বাতিল করুন",
+      "close": "বন্ধ করুন"
+    },
+    "labels": {
+      "sku": "এসকেইউ"
     },
     "selectProduct": {
       "title": "পণ্য বেছে নিন",
@@ -621,6 +641,12 @@
       "createButton": "নতুন পণ্য তৈরি করুন"
     },
     "errors": {
+      "loadFailed": "অর্ডার লোড করতে ব্যর্থ",
+      "updateStatus": "অর্ডারের অবস্থা আপডেট করতে ব্যর্থ",
+      "highRTO": "উচ্চ RTO ঝুঁকির অর্ডার নিশ্চিত করার আগে ম্যানুয়াল রিভিউ প্রয়োজন",
+      "nameRequired": "কাস্টমারের নাম আবশ্যিক",
+      "phoneRequired": "কাস্টমারের ফোন নম্বর আবশ্যিক",
+      "addressRequired": "ডেলিভারি ঠিকানা আবশ্যিক",
       "noExportData": "রপ্তানির জন্য কোনো অর্ডার নেই।",
       "csvFallback": "Excel রপ্তানি এখনো পাওয়া যাচ্ছে না। CSV ডাউনলোড হয়েছে।",
       "itemRequired": "কমপক্ষে একটি আইটেম আবশ্যিক",
