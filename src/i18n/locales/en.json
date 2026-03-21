@@ -921,6 +921,9 @@
     "deliverySettings": {
       "title": "Delivery Settings",
       "subtitle": "Configure your delivery providers for automated order fulfillment",
+      "zoneInsideDhaka": "Dhaka",
+      "zoneSubDhaka": "Sub Dhaka",
+      "zoneOutsideDhaka": "Outside Dhaka",
       "generalSettings": "General Delivery Settings",
       "defaultCharge": "Default Delivery Charge",
       "codCharge": "Cash on Delivery Charge",
@@ -948,6 +951,7 @@
       "saveConnect": "Save & Connect",
       "disconnectConfirm": "Are you sure you want to disconnect {{provider}}? This will deactivate the provider.",
       "success": {
+        "settingsSaved": "Delivery settings saved successfully",
         "connected": "{{provider}} connected successfully!",
         "disconnected": "{{provider}} disconnected successfully",
         "activated": "{{provider}} activated successfully",
@@ -955,6 +959,9 @@
         "testSuccess": "{{provider}} connection test successful!"
       },
       "errors": {
+        "loadFailed": "Failed to load delivery settings",
+        "saveFailed": "Failed to save delivery settings",
+        "invalidWeightTiers": "Each weight tier must have From (kg) less than To (kg)",
         "fieldRequired": "{{field}} is required",
         "connectFailed": "Failed to connect provider",
         "disconnectFailed": "Failed to disconnect provider",
@@ -971,6 +978,9 @@
       "codDesc": "Accept cash payment on delivery",
       "aamarName": "AamarPay",
       "aamarDesc": "Accept card payments, mobile banking & more",
+      "sslCommerzName": "SSLCommerz",
+      "sslCommerzDesc": "Accept cards, mobile banking and internet banking",
+      "defaultPaymentMessage": "Payment instructions will be sent after order confirmation.",
       "storeId": "Store ID",
       "storeIdPlaceholder": "Enter Store ID",
       "secretKey": "Secret Key",
@@ -1017,6 +1027,18 @@
       "paymentInstructionsPlaceholder": "Enter instructions for customers...",
       "paymentInstructionsHint": "These instructions will be shown to customers after order confirmation",
       "saveMFS": "Save Self MFS"
+      ,"errors": {
+        "loadFailed": "Failed to load payment configurations",
+        "credentialsRequiredAamarPay": "Please enter both Store ID and Secret Key for AamarPay",
+        "credentialsRequiredSSLCommerz": "Please enter both Store ID and Store Password for SSLCommerz",
+        "testFailed": "Connection test failed. Please check your credentials.",
+        "saveConfigFailed": "Failed to save configuration. Please check your credentials.",
+        "disconnectFailed": "Failed to disconnect payment method",
+        "credentialsSaveFirst": "Please save your credentials first before activating this payment method",
+        "toggleFailed": "Failed to toggle payment method",
+        "shopNotFound": "Shop not found. Please refresh the page.",
+        "saveSettingsFailed": "Failed to save payment settings"
+      }
     }
   },
   "subscription": {
