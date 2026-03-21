@@ -122,14 +122,17 @@ export interface Channel {
   channel_type?: string;
 }
 
+// All channel types (REST-creatable + channel-only like messenger/instagram)
+export type ChannelType = 'facebook' | 'whatsapp' | 'telegram' | 'webchat' | 'manual' | 'messenger' | 'instagram';
+
 // Customer types (aligned with backend entity)
 export interface Customer {
   id: string;
   shop_id: string;
-  name: string;
+  name: string | null;
   email?: string;
   number: string;
-  channel: 'facebook' | 'whatsapp' | 'telegram' | 'webchat' | 'manual';
+  channel: ChannelType;
   created_at: string;
   updated_at: string;
   rto_risk?: 'high' | 'medium' | 'low';
@@ -137,14 +140,24 @@ export interface Customer {
   rto_count?: number;
 }
 
-// Customer filters for listing
+// Paginated list response returned by GET /customer
+export interface CustomerListResponse {
+  data: Customer[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// Customer filters for listing (includes pagination)
 export interface CustomerFilters {
   search?: string;
   email?: string;
   number?: string;
-  channel?: 'facebook' | 'whatsapp' | 'telegram' | 'webchat' | 'manual';
+  channel_type?: ChannelType;
   start_date?: string;
   end_date?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 // Dashboard metrics types (aligned with backend service)
@@ -763,7 +776,7 @@ class ApiClient {
   }
 
   // Customer endpoints
-  async getCustomers(filters?: CustomerFilters): Promise<Customer[]> {
+  async getCustomers(filters?: CustomerFilters): Promise<CustomerListResponse> {
     const params = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
@@ -772,8 +785,13 @@ class ApiClient {
         }
       });
     }
-    const response: AxiosResponse<ApiResponse<Customer[]>> = await this.client.get(`/customer?${params}`);
-    return response.data.data;
+    const response: AxiosResponse<CustomerListResponse & { success: boolean }> = await this.client.get(`/customer?${params}`);
+    return {
+      data: response.data.data,
+      total: response.data.total,
+      page: response.data.page,
+      pageSize: response.data.pageSize,
+    };
   }
 
   async getCustomer(customerId: string): Promise<Customer> {
@@ -841,7 +859,7 @@ class ApiClient {
     };
     delete backendUpdates.status;
 
-    const response: AxiosResponse<ApiResponse<any>> = await this.client.post('/order/update', { order_id: orderId, ...backendUpdates });
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.patch(`/order/${orderId}`, backendUpdates);
     return transformOrderFromBackend(response.data.data);
   }
 
