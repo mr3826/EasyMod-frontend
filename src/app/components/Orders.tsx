@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from 'react-i18next';
 import { CheckCircle, Clock, Package as PackageIcon, XCircle, Eye, Plus, Search, Download, ChevronDown, X, AlertTriangle } from "lucide-react";
 import { Order, Product } from "../lib/api";
@@ -36,7 +36,7 @@ interface ManualOrder {
 }
 
 export default function Orders() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,6 +48,19 @@ export default function Orders() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showCreateOrder, setShowCreateOrder] = useState(false);
   const [showProductSelector, setShowProductSelector] = useState(false);
+
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(i18n.language === 'bn' ? 'bn-BD' : 'en-US', {
+        style: 'currency',
+        currency: 'BDT',
+        minimumFractionDigits: 2,
+      }),
+    [i18n.language]
+  );
+
+  const formatCurrency = (value: number) => currencyFormatter.format(Number(value || 0));
+  const formatDate = (value: string) => new Date(value).toLocaleString(i18n.language === 'bn' ? 'bn-BD' : 'en-US');
 
   const resolveDateRange = (value: string): { start_date?: string; end_date?: string } => {
     const now = new Date();
@@ -113,7 +126,7 @@ export default function Orders() {
         setOrders(fetchedOrders);
         setProducts(fetchedProducts);
       } catch (error: any) {
-        setError(error.response?.data?.message || t('orders.errors.loadFailed'));
+        setError(error?.response?.data?.error?.message || error?.response?.data?.message || t('orders.errors.loadFailed'));
       } finally {
         setIsLoading(false);
       }
@@ -151,7 +164,7 @@ export default function Orders() {
         setSelectedOrder(updatedOrder);
       }
     } catch (error: any) {
-      setError(error.response?.data?.message || t('orders.errors.updateStatus'));
+      setError(error?.response?.data?.error?.message || error?.response?.data?.message || t('orders.errors.updateStatus'));
     }
   };
 
@@ -194,7 +207,7 @@ export default function Orders() {
     }
 
     if (format === 'excel') {
-      setError(t('orders.errors.excelNotAvailable'));
+      setError(t('orders.errors.csvFallback'));
       setTimeout(() => setError(null), 2500);
     }
 
@@ -328,7 +341,7 @@ export default function Orders() {
         createdBy: 'user',
       });
     } catch (error: any) {
-      setError(error.response?.data?.message || t('orders.errors.createFailed'));
+      setError(error?.response?.data?.error?.message || error?.response?.data?.message || t('orders.errors.createFailed'));
     }
   };
 
@@ -509,7 +522,7 @@ export default function Orders() {
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">{t('orders.itemCount', { count: order.items.length })}</td>
-                <td className="px-6 py-4 text-sm font-semibold text-gray-900">${order.total.toFixed(2)}</td>
+                <td className="px-6 py-4 text-sm font-semibold text-gray-900">{formatCurrency(order.total)}</td>
                 <td className="px-6 py-4">
                   <span className="text-sm text-gray-600 capitalize">{order.channel}</span>
                 </td>
@@ -583,10 +596,10 @@ export default function Orders() {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="manual">{t('orders.createModal.channelManual')}</option>
-                      <option value="whatsapp">WhatsApp</option>
-                      <option value="facebook">Facebook</option>
-                      <option value="webchat">Web Chat</option>
-                      <option value="telegram">Telegram</option>
+                      <option value="whatsapp">{t('orders.createModal.channelWhatsApp')}</option>
+                      <option value="facebook">{t('orders.createModal.channelFacebook')}</option>
+                      <option value="webchat">{t('orders.createModal.channelWebChat')}</option>
+                      <option value="telegram">{t('orders.createModal.channelTelegram')}</option>
                     </select>
                   </div>
                 </div>
@@ -630,7 +643,7 @@ export default function Orders() {
                       <div key={index} className="p-4 flex items-center gap-4">
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">{item.productName}</p>
-                          <p className="text-sm text-gray-500">SKU: {item.sku} • ${item.price.toFixed(2)}</p>
+                          <p className="text-sm text-gray-500">{t('orders.labels.sku')}: {item.sku} • {formatCurrency(item.price)}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
@@ -648,7 +661,7 @@ export default function Orders() {
                           </button>
                         </div>
                         <div className="w-24 text-right font-semibold text-gray-900">
-                          ${(item.price * item.quantity).toFixed(2)}
+                          {formatCurrency(item.price * item.quantity)}
                         </div>
                         <button
                           onClick={() => removeProductFromOrder(item.productId)}
@@ -668,7 +681,7 @@ export default function Orders() {
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">{t('orders.createModal.subtotal')}:</span>
-                    <span className="text-gray-900">${calculateSubtotal().toFixed(2)}</span>
+                    <span className="text-gray-900">{formatCurrency(calculateSubtotal())}</span>
                   </div>
                   <div className="flex justify-between text-sm items-center">
                     <span className="text-gray-600">{t('orders.createModal.discount')}:</span>
@@ -714,7 +727,7 @@ export default function Orders() {
                   </div>
                   <div className="border-t border-gray-300 pt-3 flex justify-between font-bold">
                     <span className="text-gray-900">{t('orders.createModal.total')}:</span>
-                    <span className="text-blue-600 text-lg">${calculateTotal().toFixed(2)}</span>
+                    <span className="text-blue-600 text-lg">{formatCurrency(calculateTotal())}</span>
                   </div>
                 </div>
               </div>
@@ -805,11 +818,11 @@ export default function Orders() {
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">{product.name}</p>
-                      <p className="text-sm text-gray-500">SKU: {product.sku} • {product.category}</p>
+                      <p className="text-sm text-gray-500">{t('orders.labels.sku')}: {product.sku} • {product.category}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-gray-900">${product.price.toFixed(2)}</p>
-                      <p className="text-xs text-green-600">{product.stock ? 'In Stock' : 'Out of Stock'}</p>
+                      <p className="font-semibold text-gray-900">{formatCurrency(product.price)}</p>
+                      <p className="text-xs text-green-600">{product.stock ? t('orders.selectProduct.inStock') : t('orders.selectProduct.outOfStock')}</p>
                     </div>
                   </button>
                 ))}
@@ -818,7 +831,7 @@ export default function Orders() {
               <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <p className="text-sm text-gray-700 mb-3 flex items-center gap-2">
                   <Plus className="w-4 h-4" />
-                  Need to add a new product?
+                  {t('orders.selectProduct.createNew')}
                 </p>
                 <button
                   onClick={() => {
@@ -828,7 +841,7 @@ export default function Orders() {
                   }}
                   className="w-full px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  Create New Product
+                  {t('orders.selectProduct.createButton')}
                 </button>
               </div>
             </div>
@@ -868,7 +881,7 @@ export default function Orders() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">{t('orders.detailModal.created')}:</span>
                   <span className="text-gray-900 font-medium">
-                    {new Date(selectedOrder.createdAt).toLocaleString()}
+                    {formatDate(selectedOrder.createdAt)}
                   </span>
                 </div>
               </div>
@@ -908,7 +921,7 @@ export default function Orders() {
                       <p className="text-sm text-gray-500">{t('orders.detailModal.quantity')}: {item.quantity}</p>
                     </div>
                     <p className="text-gray-900 font-semibold">
-                      ${(item.price * item.quantity).toFixed(2)}
+                      {formatCurrency(item.price * item.quantity)}
                     </p>
                   </div>
                 ))}
@@ -916,7 +929,7 @@ export default function Orders() {
               
               <div className="mt-4 flex justify-between items-center text-lg font-bold">
                 <span>{t('orders.detailModal.total')}:</span>
-                <span className="text-blue-600">${selectedOrder.total.toFixed(2)}</span>
+                <span className="text-blue-600">{formatCurrency(selectedOrder.total)}</span>
               </div>
             </div>
 
