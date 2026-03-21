@@ -28,6 +28,7 @@ vi.mock('../app/lib/api', () => ({
       },
       chartData: [],
     }),
+    getKnowledgeGaps: vi.fn().mockResolvedValue([]),
   },
 }))
 
