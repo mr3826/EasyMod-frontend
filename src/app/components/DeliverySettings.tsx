@@ -85,12 +85,6 @@ const PROVIDER_CONFIGS: ProviderConfig[] = [
   }
 ];
 
-const AREA_ZONE_OPTIONS = [
-  { value: 'inside_dhaka', label: 'Dhaka' },
-  { value: 'sub_dhaka', label: 'Sub Dhaka' },
-  { value: 'outside_dhaka', label: 'Outside Dhaka' }
-];
-
 const DEFAULT_DELIVERY_SETTINGS: DeliveryShopSettings = {
   default_delivery_charge: 60,
   cod_enabled: false,
@@ -139,6 +133,11 @@ const applyDefaults = (settings?: Partial<DeliveryShopSettings> | null): Deliver
 
 export default function DeliverySettings() {
   const { t } = useTranslation();
+  const areaZoneOptions = [
+    { value: 'inside_dhaka', label: t('manageShop.deliverySettings.zoneInsideDhaka') },
+    { value: 'sub_dhaka', label: t('manageShop.deliverySettings.zoneSubDhaka') },
+    { value: 'outside_dhaka', label: t('manageShop.deliverySettings.zoneOutsideDhaka') }
+  ];
   const [providers, setProviders] = useState<DeliveryProviderStatus[]>([]);
   const [deliverySettings, setDeliverySettings] = useState<DeliveryShopSettings>(DEFAULT_DELIVERY_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -178,6 +177,12 @@ export default function DeliverySettings() {
       setSavingSettings(true);
       setError(null);
       setSuccessMessage(null);
+
+      const invalidWeightTier = deliverySettings.weight_tiers.some((tier) => tier.from_kg >= tier.to_kg);
+      if (invalidWeightTier) {
+        setError(t('manageShop.deliverySettings.errors.invalidWeightTiers'));
+        return;
+      }
 
       const saved = await apiClient.updateDeliverySettings(deliverySettings);
       setDeliverySettings(applyDefaults(saved));
@@ -499,7 +504,7 @@ export default function DeliverySettings() {
                     onChange={(e) => updateAreaPricing(index, 'zone', e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                   >
-                    {AREA_ZONE_OPTIONS.map((option) => (
+                    {areaZoneOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -512,7 +517,7 @@ export default function DeliverySettings() {
                     value={area.charge}
                     onChange={(e) => updateAreaPricing(index, 'charge', Number(e.target.value) || 0)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                    placeholder="Charge"
+                    placeholder={t('manageShop.deliverySettings.extraCharge')}
                   />
                 </div>
                 <div className="md:col-span-3">

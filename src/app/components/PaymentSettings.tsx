@@ -32,13 +32,21 @@ export default function PaymentSettings() {
       enabled: false,
       config: { storeId: '', secretKey: '', environment: 'sandbox' },
     },
+    {
+      id: 'sslcommerz',
+      name: t('manageShop.paymentSettings.sslCommerzName'),
+      logo: <Wallet className="w-6 h-6 text-indigo-600" />,
+      description: t('manageShop.paymentSettings.sslCommerzDesc'),
+      enabled: false,
+      config: { storeId: '', storePassword: '', environment: 'sandbox' },
+    },
   ]);
 
   const [expandedGateway, setExpandedGateway] = useState<string | null>(null);
   const [advancePaymentRule, setAdvancePaymentRule] = useState<'none' | 'full' | 'delivery' | 'percentage' | 'fixed'>('none');
   const [advancePercentage, setAdvancePercentage] = useState(50);
   const [advanceFixed, setAdvanceFixed] = useState(100);
-  const [paymentMessage, setPaymentMessage] = useState('Payment instructions will be sent after order confirmation.');
+  const [paymentMessage, setPaymentMessage] = useState(t('manageShop.paymentSettings.defaultPaymentMessage'));
   const [loading, setLoading] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingGateway, setSavingGateway] = useState<string | null>(null);
@@ -97,7 +105,7 @@ export default function PaymentSettings() {
       }
     } catch (error: any) {
       console.error('Failed to load payment configs:', error);
-      setError('Failed to load payment configurations');
+      setError(t('manageShop.paymentSettings.errors.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -117,7 +125,7 @@ export default function PaymentSettings() {
       // Prepare credentials based on gateway type
       if (gatewayId === 'aamarpay' && gateway.config) {
         if (!gateway.config.storeId || !gateway.config.secretKey) {
-          setError('Please enter both Store ID and Secret Key for AamarPay');
+          setError(t('manageShop.paymentSettings.errors.credentialsRequiredAamarPay'));
           return;
         }
         credentials = {
@@ -126,7 +134,7 @@ export default function PaymentSettings() {
         };
       } else if (gatewayId === 'sslcommerz' && gateway.config) {
         if (!gateway.config.storeId || !gateway.config.storePassword) {
-          setError('Please enter both Store ID and Store Password for SSLCommerz');
+          setError(t('manageShop.paymentSettings.errors.credentialsRequiredSSLCommerz'));
           return;
         }
         credentials = {
@@ -144,7 +152,7 @@ export default function PaymentSettings() {
       const testResponse = await apiClient.testPaymentConnection(testPayload);
 
       if (!testResponse.success) {
-        setError('Connection test failed. Please check your credentials.');
+        setError(t('manageShop.paymentSettings.errors.testFailed'));
         return;
       }
 
@@ -182,7 +190,7 @@ export default function PaymentSettings() {
       }
     } catch (error: any) {
       console.error('Failed to save gateway config:', error);
-      setError(error.response?.data?.message || 'Failed to save configuration. Please check your credentials.');
+      setError(error.response?.data?.message || t('manageShop.paymentSettings.errors.saveConfigFailed'));
     } finally {
       setSavingGateway(null);
     }
@@ -218,7 +226,7 @@ export default function PaymentSettings() {
       }
     } catch (error: any) {
       console.error('Failed to disconnect gateway:', error);
-      setError(error.response?.data?.message || 'Failed to disconnect payment method');
+      setError(error.response?.data?.message || t('manageShop.paymentSettings.errors.disconnectFailed'));
     } finally {
       setDisconnectingGateway(null);
     }
@@ -231,7 +239,7 @@ export default function PaymentSettings() {
     // For COD, allow toggle without saved credentials
     // For others, require saved credentials first
     if (id !== 'cod' && !savedGateways.has(id)) {
-      setError('Please save your credentials first before activating this payment method');
+      setError(t('manageShop.paymentSettings.errors.credentialsSaveFirst'));
       setTimeout(() => setError(null), 3000);
       return;
     }
@@ -259,7 +267,7 @@ export default function PaymentSettings() {
       }
     } catch (error: any) {
       console.error('Failed to toggle gateway:', error);
-      setError(error.response?.data?.message || 'Failed to toggle payment method');
+      setError(error.response?.data?.message || t('manageShop.paymentSettings.errors.toggleFailed'));
     } finally {
       setSavingGateway(null);
     }
@@ -285,7 +293,7 @@ export default function PaymentSettings() {
 
       const shopId = authService.getCurrentShopId();
       if (!shopId) {
-        setError('Shop not found. Please refresh the page.');
+        setError(t('manageShop.paymentSettings.errors.shopNotFound'));
         return;
       }
 
@@ -306,7 +314,7 @@ export default function PaymentSettings() {
       setTimeout(() => setSuccess(null), 3000);
     } catch (error: any) {
       console.error('Failed to save payment settings:', error);
-      setError(error.response?.data?.message || 'Failed to save payment settings');
+      setError(error.response?.data?.message || t('manageShop.paymentSettings.errors.saveSettingsFailed'));
     } finally {
       setSavingSettings(false);
     }
@@ -412,7 +420,7 @@ export default function PaymentSettings() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Environment
+                            {t('manageShop.paymentSettings.environment')}
                           </label>
                           <select
                             value={gateway.config.environment || 'sandbox'}
@@ -426,7 +434,7 @@ export default function PaymentSettings() {
                         </div>
                         <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                           <p className="text-sm text-blue-900">
-                            Don't have an account? <a href="https://aamarpay.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Apply Now</a>
+                            {t('manageShop.paymentSettings.applyNow')}: <a href="https://aamarpay.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">AamarPay</a>
                           </p>
                         </div>
                         <div className="flex gap-3">
@@ -493,7 +501,7 @@ export default function PaymentSettings() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Environment
+                            {t('manageShop.paymentSettings.environment')}
                           </label>
                           <select
                             value={gateway.config.environment}

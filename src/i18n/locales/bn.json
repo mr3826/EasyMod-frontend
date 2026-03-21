@@ -920,6 +920,9 @@
     "deliverySettings": {
       "title": "ডেলিভারি সেটিংস",
       "subtitle": "স্বয়ংক্রিয় অর্ডার পূরণের জন্য ডেলিভারি প্রদানকারী কনফিগার করুন",
+      "zoneInsideDhaka": "ঢাকা",
+      "zoneSubDhaka": "সাব ঢাকা",
+      "zoneOutsideDhaka": "ঢাকার বাইরে",
       "generalSettings": "সাধারণ ডেলিভারি সেটিংস",
       "defaultCharge": "ডিফল্ট ডেলিভারি চার্জ",
       "codCharge": "ক্যাশ অন ডেলিভারি চার্জ",
@@ -947,6 +950,7 @@
       "saveConnect": "সংরক্ষণ ও সংযুক্ত করুন",
       "disconnectConfirm": "আপনি কি {{provider}} বিচ্ছিন্ন করতে চান? এটি প্রদানকারীকে নিষ্ক্রিয় করবে।",
       "success": {
+        "settingsSaved": "ডেলিভারি সেটিংস সফলভাবে সংরক্ষণ হয়েছে",
         "connected": "{{provider}} সফলভাবে সংযুক্ত হয়েছে!",
         "disconnected": "{{provider}} সফলভাবে বিচ্ছিন্ন হয়েছে",
         "activated": "{{provider}} সফলভাবে সক্রিয় হয়েছে",
@@ -954,6 +958,9 @@
         "testSuccess": "{{provider}} সংযোগ পরীক্ষা সফল!"
       },
       "errors": {
+        "loadFailed": "ডেলিভারি সেটিংস লোড করতে ব্যর্থ",
+        "saveFailed": "ডেলিভারি সেটিংস সংরক্ষণ করতে ব্যর্থ",
+        "invalidWeightTiers": "প্রতিটি ওজন স্তরে From (kg) অবশ্যই To (kg)-এর চেয়ে কম হতে হবে",
         "fieldRequired": "{{field}} আবশ্যিক",
         "connectFailed": "প্রদানকারী সংযুক্ত করতে ব্যর্থ",
         "disconnectFailed": "প্রদানকারী বিচ্ছিন্ন করতে ব্যর্থ",
@@ -970,6 +977,9 @@
       "codDesc": "ডেলিভারিতে নগদ পেমেন্ট গ্রহণ করুন",
       "aamarName": "AamarPay",
       "aamarDesc": "কার্ড পেমেন্ট, মোবাইল ব্যাংকিং ও আরও গ্রহণ করুন",
+      "sslCommerzName": "SSLCommerz",
+      "sslCommerzDesc": "কার্ড, মোবাইল ব্যাংকিং এবং ইন্টারনেট ব্যাংকিং গ্রহণ করুন",
+      "defaultPaymentMessage": "অর্ডার নিশ্চিত হওয়ার পর পেমেন্ট নির্দেশনা পাঠানো হবে।",
       "storeId": "Store ID",
       "storeIdPlaceholder": "Store ID লিখুন",
       "secretKey": "Secret Key",
@@ -1015,7 +1025,19 @@
       "paymentInstructions": "পেমেন্ট নির্দেশনা",
       "paymentInstructionsPlaceholder": "কাস্টমারের জন্য নির্দেশনা লিখুন...",
       "paymentInstructionsHint": "অর্ডার নিশ্চিতের পরে কাস্টমারকে এই নির্দেশনা দেখানো হবে",
-      "saveMFS": "Self MFS সংরক্ষণ করুন"
+      "saveMFS": "Self MFS সংরক্ষণ করুন",
+      "errors": {
+        "loadFailed": "পেমেন্ট কনফিগারেশন লোড করতে ব্যর্থ",
+        "credentialsRequiredAamarPay": "AamarPay-এর জন্য Store ID এবং Secret Key দুটোই দিন",
+        "credentialsRequiredSSLCommerz": "SSLCommerz-এর জন্য Store ID এবং Store Password দুটোই দিন",
+        "testFailed": "সংযোগ পরীক্ষা ব্যর্থ হয়েছে। অনুগ্রহ করে আপনার ক্রেডেনশিয়াল যাচাই করুন।",
+        "saveConfigFailed": "কনফিগারেশন সংরক্ষণ ব্যর্থ হয়েছে। অনুগ্রহ করে আপনার ক্রেডেনশিয়াল যাচাই করুন।",
+        "disconnectFailed": "পেমেন্ট পদ্ধতি বিচ্ছিন্ন করতে ব্যর্থ",
+        "credentialsSaveFirst": "এই পেমেন্ট পদ্ধতি সক্রিয় করার আগে আগে ক্রেডেনশিয়াল সংরক্ষণ করুন",
+        "toggleFailed": "পেমেন্ট পদ্ধতি টগল করতে ব্যর্থ",
+        "shopNotFound": "শপ পাওয়া যায়নি। অনুগ্রহ করে পেজ রিফ্রেশ করুন।",
+        "saveSettingsFailed": "পেমেন্ট সেটিংস সংরক্ষণ করতে ব্যর্থ"
+      }
     }
   },
   "subscription": {
