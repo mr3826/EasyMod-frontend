@@ -58,3 +58,10 @@ yarn.lock
 
 # Ignore test snapshots
 __snapshots__/
+
+secret.json
+secret.*.json
+deployment_info.json
+.env.production
+.env.local
+playwright-report/
