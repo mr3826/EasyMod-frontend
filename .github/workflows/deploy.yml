@@ -23,9 +23,10 @@ jobs:
 
       - name: Retrieve secrets from AWS Secrets Manager
         run: |
-          # Get all secrets for Easy Moderator
+          # Get all secrets for Easy Moderator (stored in ap-south-1)
           SECRETS_JSON=$(aws secretsmanager get-secret-value \
             --secret-id "easymoderator/production" \
+            --region ap-south-1 \
             --query SecretString \
             --output text)
           
