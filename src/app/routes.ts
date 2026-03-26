@@ -33,6 +33,10 @@ const LandingPage = lazy(() => import("./components/LandingPage"));
 const Pricing = lazy(() => import("./components/Pricing"));
 const UsersPage = lazy(() => import("./features/users/components/UsersPage"));
 
+// BD-Lite specific imports
+const BDSellerShell = lazy(() => import("./components/bd-lite/BDSellerShell"));
+const TodayQueueDashboard = lazy(() => import("./components/bd-lite/TodayQueueDashboard"));
+
 // Loader function to check authentication
 async function protectedLoader() {
 	await authService.ensureInitialized();
@@ -153,4 +157,17 @@ export const router = createBrowserRouter([
 			},
 		],
 	},
+        {
+                path: "/bd-lite",
+                Component: withSuspense(BDSellerShell),
+                loader: protectedLoader,
+                errorElement: createElement(RouteError),
+                children: [
+                        { index: true, Component: withSuspense(TodayQueueDashboard) },
+                        // Temporary fallbacks for BD-Lite internal routes
+                        { path: "inbox", Component: withSuspense(UnifiedInbox) },
+                        { path: "orders", Component: withSuspense(Orders) },
+                        { path: "settings", Component: withSuspense(BusinessInfoSettings) },
+                ],
+        },
 ]);
