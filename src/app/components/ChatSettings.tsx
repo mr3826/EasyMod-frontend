@@ -759,6 +759,7 @@ export default function ChatSettings() {
                 <p className="mt-3 text-blue-700 font-medium">✓ This optimization reduces costs while improving response quality</p>
               </div>
             </div>
+          </div>
         )}
       </div>
 
