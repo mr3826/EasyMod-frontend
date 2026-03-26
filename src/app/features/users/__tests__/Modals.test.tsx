@@ -51,7 +51,7 @@ describe('CreateUserModal', () => {
       <CreateUserModal isOpen={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />
     );
 
-    expect(screen.getByDisplayValue('user')).toBeInTheDocument(); // Role select default
+    expect(screen.getByDisplayValue('User')).toBeInTheDocument(); // Role select default (label is 'User')
   });
 
   it('should show title when open', () => {
