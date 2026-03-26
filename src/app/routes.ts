@@ -1,6 +1,7 @@
 import { lazy, createElement, Suspense, type LazyExoticComponent } from "react";
 import { createBrowserRouter, redirect } from "react-router-dom";
 import { authService } from "./lib/auth";
+import { AdminRoute } from "@/shared/components/guards";
 
 const DashboardLayout = lazy(() => import("./components/DashboardLayout"));
 const Dashboard = lazy(() => import("./components/Dashboard"));
@@ -30,6 +31,7 @@ const Subscription = lazy(() => import("./components/Subscription"));
 const PrivacyPolicy = lazy(() => import("./components/PrivacyPolicy"));
 const LandingPage = lazy(() => import("./components/LandingPage"));
 const Pricing = lazy(() => import("./components/Pricing"));
+const UsersPage = lazy(() => import("./features/users/components/UsersPage"));
 
 // Loader function to check authentication
 async function protectedLoader() {
@@ -143,6 +145,12 @@ export const router = createBrowserRouter([
 			{ path: "knowledge", Component: withSuspense(Knowledge) },
 			{ path: "reports", Component: withSuspense(Reports) },
 			{ path: "subscription", Component: withSuspense(Subscription) },
+			{
+				path: "admin/users",
+				Component: withSuspense((props: any) =>
+					createElement(AdminRoute, {}, createElement(UsersPage, props))
+				),
+			},
 		],
 	},
 ]);

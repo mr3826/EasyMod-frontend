@@ -431,6 +431,12 @@ class ApiClient {
   private client: AxiosInstance;
   private accessToken: string | null = null;
   private csrfToken: string | null = null;
+  private isRefreshing = false;
+  private refreshQueue: Array<{
+    resolve: (value: any) => void;
+    reject: (reason: any) => void;
+    config: any;
+  }> = [];
 
   constructor() {
     const normalizedBaseUrl = normalizeApiBaseUrl(config.apiBaseUrl);
@@ -460,14 +466,34 @@ class ApiClient {
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor for error handling
+    // Response interceptor for error handling and automatic token refresh
     this.client.interceptors.response.use(
       (response) => response,
-      (error) => {
+      async (error) => {
         const status = error.response?.status;
-        if (status === 401) {
+        const originalRequest = error.config;
+
+        // Handle 401 with automatic token refresh
+        if (status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+
+          try {
+            // Queue the request and attempt refresh
+            const refreshedResponse = await this.handleRefreshQueue(originalRequest);
+            return refreshedResponse;
+          } catch (refreshError) {
+            // Refresh failed, clear tokens and emit unauthorized event
+            this.clearTokens();
+            this.clearRefreshQueue();
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+              window.dispatchEvent(new CustomEvent('UNAUTHORIZED'));
+            }
+            return Promise.reject(refreshError);
+          }
+        } else if (status === 401 && originalRequest._retry) {
+          // Already retried but still 401, clear tokens
           this.clearTokens();
-          // Emit an unauthorized event instead of redirecting
+          this.clearRefreshQueue();
           if (typeof window !== 'undefined' && window.dispatchEvent) {
             window.dispatchEvent(new CustomEvent('UNAUTHORIZED'));
           }
@@ -477,10 +503,12 @@ class ApiClient {
         } else if (status === 503) {
           (error as any).isServiceUnavailable = true;
         }
+        
         if (error.response?.status === 403 && error.response.data?.error?.message === 'invalid csrf token') {
           // If CSRF fails, clear it so it can be re-initialized
           this.csrfToken = null;
         }
+        
         return Promise.reject(error);
       }
     );
@@ -494,6 +522,56 @@ class ApiClient {
   private clearTokens() {
     this.accessToken = null;
     this.csrfToken = null;
+  }
+
+  private async handleRefreshQueue(originalRequest: any): Promise<any> {
+    return new Promise((resolve, reject) => {
+      // Add request to queue
+      this.refreshQueue.push({ resolve, reject, config: originalRequest });
+
+      // If not already refreshing, start the refresh process
+      if (!this.isRefreshing) {
+        this.isRefreshing = true;
+        this.performTokenRefresh();
+      }
+    });
+  }
+
+  private clearRefreshQueue(): void {
+    // Reject all queued requests
+    this.refreshQueue.forEach(({ reject }) => {
+      reject(new Error('Token refresh failed'));
+    });
+    this.refreshQueue = [];
+    this.isRefreshing = false;
+  }
+
+  private async performTokenRefresh(): Promise<void> {
+    try {
+      // Attempt to refresh the token
+      await this.refreshToken();
+      
+      // Retry all queued requests
+      const queuedRequests = [...this.refreshQueue];
+      this.refreshQueue = [];
+      
+      // Execute queued requests in parallel
+      await Promise.all(
+        queuedRequests.map(async ({ resolve, reject, config }) => {
+          try {
+            const response = await this.client(config);
+            resolve(response);
+          } catch (error) {
+            reject(error);
+          }
+        })
+      );
+    } catch (error) {
+      // Refresh failed, reject all queued requests
+      this.clearRefreshQueue();
+    } finally {
+      this.isRefreshing = false;
+    }
   }
 
   async initCsrfToken(): Promise<void> {

@@ -4,6 +4,17 @@ import { router } from "./routes";
 import { apiClient } from "./lib/api";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AuthProvider } from "../features/auth/AuthProvider";
+import { useAuthHttpShopId } from "@/shared/lib/http";
+
+function AppContent() {
+  useAuthHttpShopId();
+
+  return (
+    <ErrorBoundary>
+      <RouterProvider router={router} />
+    </ErrorBoundary>
+  );
+}
 
 export default function App() {
   useEffect(() => {
@@ -12,9 +23,7 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <ErrorBoundary>
-        <RouterProvider router={router} />
-      </ErrorBoundary>
+      <AppContent />
     </AuthProvider>
   );
 }
