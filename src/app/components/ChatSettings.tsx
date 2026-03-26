@@ -47,22 +47,9 @@ export default function ChatSettings() {
   const [confirmDisconnect, setConfirmDisconnect] = useState<Channel | null>(null);
   const [showToast, setShowToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // LLM model config state
+  // LLM model configuration is now handled automatically by backend based on subscription tier
+  // Users no longer see or choose models — this provides better UX and cost optimization
   const { features: planFeatures } = useSubscriptionFeatures();
-  const LLM_MODELS = [
-    { id: 'gpt-4o',                    label: 'GPT-4o',         description: 'OpenAI — best accuracy, slower' },
-    { id: 'gpt-4o-mini',               label: 'GPT-4o Mini',    description: 'OpenAI — balanced speed & quality' },
-    { id: 'gpt-3.5-turbo',             label: 'GPT-3.5 Turbo',  description: 'OpenAI — fastest, lower cost' },
-    { id: 'claude-opus-4-6',           label: 'Claude Opus',    description: 'Anthropic — most capable' },
-    { id: 'claude-sonnet-4-6',         label: 'Claude Sonnet',  description: 'Anthropic — high quality' },
-    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku',   description: 'Anthropic — fast & cheap' },
-    { id: 'gemini-1.5-pro',            label: 'Gemini Pro',     description: 'Google — high quality' },
-    { id: 'gemini-1.5-flash',          label: 'Gemini Flash',   description: 'Google — fast & affordable' },
-    { id: 'deepseek-chat',             label: 'DeepSeek Chat',  description: 'DeepSeek — cost-efficient' },
-  ];
-  const [llmModel, setLlmModel] = useState('gpt-4o-mini');
-  const [llmLoading, setLlmLoading] = useState(false);
-  const [llmSaving, setLlmSaving] = useState(false);
 
   const [credentials, setCredentials] = useState<Record<Channel['type'], ChannelCredentials>>({
     whatsapp:  { systemUserToken: '', businessManagerId: '' },
@@ -296,26 +283,8 @@ export default function ChatSettings() {
   const dismissToast = () => setShowToast(null);
 
   // Load LLM config
-  useEffect(() => {
-    if (!planFeatures.advanced_ai) return;
-    setLlmLoading(true);
-    apiClient.getLLMConfig()
-      .then((cfg) => { if (cfg?.model) setLlmModel(cfg.model); })
-      .catch(() => { /* keep default */ })
-      .finally(() => setLlmLoading(false));
-  }, [planFeatures.advanced_ai]);
-
-  const handleSaveLLMConfig = async () => {
-    setLlmSaving(true);
-    try {
-      await apiClient.updateLLMConfig({ model: llmModel });
-      setShowToast({ type: 'success', message: 'AI model updated successfully.' });
-    } catch {
-      setShowToast({ type: 'error', message: 'Failed to update AI model.' });
-    } finally {
-      setLlmSaving(false);
-    }
-  };
+  // useEffect removed — LLM model selection is now backend-managed
+  // No need to fetch or save model configuration from frontend
 
 
   return (
@@ -765,46 +734,31 @@ export default function ChatSettings() {
               </p>
             </div>
           </div>
-        ) : llmLoading ? (
-          <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
-            <Loader2 className="w-4 h-4 animate-spin" /> Loading current model...
-          </div>
         ) : (
-          <div className="space-y-3">
-            {LLM_MODELS.map((m) => (
-              <label
-                key={m.id}
-                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                  llmModel === m.id
-                    ? 'border-purple-400 bg-purple-50'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="llm-model"
-                  value={m.id}
-                  checked={llmModel === m.id}
-                  onChange={() => setLlmModel(m.id)}
-                  className="accent-purple-600"
-                />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{m.label}</p>
-                  <p className="text-xs text-gray-500">{m.description}</p>
+          <div className="bg-white border border-blue-200 rounded-lg p-6 bg-blue-50">
+            <div className="space-y-4">
+              <div className="bg-white border border-blue-300 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Cpu className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">AI Model: Auto-Selected Based on Your Plan</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      EasyMod automatically selects the best AI model for your subscription tier. No configuration needed.
+                    </p>
+                  </div>
                 </div>
-              </label>
-            ))}
-            <div className="flex justify-end pt-1">
-              <button
-                onClick={handleSaveLLMConfig}
-                disabled={llmSaving}
-                className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-60 transition-colors"
-              >
-                {llmSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-                Save Model
-              </button>
+              </div>
+
+              <div className="text-xs text-gray-600 space-y-2">
+                <p className="font-medium text-gray-700">Model Selection Strategy:</p>
+                <ul className="space-y-1 ml-3 list-disc list-inside">
+                  <li><span className="font-medium">Starter:</span> Fast & cost-effective (GPT-4o-mini)</li>
+                  <li><span className="font-medium">Growth:</span> Balanced speed & intelligence (mix of models)</li>
+                  <li><span className="font-medium">Scale:</span> Advanced reasoning & efficiency (Claude with caching)</li>
+                </ul>
+                <p className="mt-3 text-blue-700 font-medium">✓ This optimization reduces costs while improving response quality</p>
+              </div>
             </div>
-          </div>
         )}
       </div>
 

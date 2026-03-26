@@ -10,6 +10,12 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@shared': path.resolve(__dirname, './src/shared'),
+    },
+  },
   server: {
     proxy: {
       '/api': {
@@ -37,11 +43,5 @@ export default defineConfig({
         }
       }
     }
-  },
-  resolve: {
-    alias: {
-      // Alias @ to the src directory
-      '@': path.resolve(__dirname, './src'),
-    },
   },
 })

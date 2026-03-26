@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Send, Bot, User, CheckCircle2, Edit3, Loader2, Search, UserCheck, Tag, AlertTriangle, Clock, Lock, ChevronUp } from "lucide-react";
+import { Send, Bot, User, CheckCircle2, Edit3, Loader2, Search, UserCheck, Tag, AlertTriangle, Clock, Lock, ChevronUp, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient, Conversation, Message } from "../lib/api";
 import { useSubscriptionFeatures } from "../lib/useSubscriptionFeatures";
@@ -32,6 +32,8 @@ export default function UnifiedInbox() {
   const [messagesPage, setMessagesPage] = useState(1);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
+  // Bug #3: on mobile, track whether conversation panel or sidebar is visible
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const { features: planFeatures } = useSubscriptionFeatures();
 
   // Load conversations on mount
@@ -255,8 +257,14 @@ export default function UnifiedInbox() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Conversations List */}
-        <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
+        {/* Conversations List
+            Bug #3: on mobile (<md) the sidebar takes full width and hides when
+            a conversation is open; on desktop it's always visible at w-80. */}
+        <div className={`
+          bg-white border-r border-gray-200 overflow-y-auto flex flex-col
+          w-full md:w-80
+          ${mobilePanelOpen ? 'hidden' : 'flex'} md:flex
+        `}>
           <div className="p-4 border-b border-gray-200 space-y-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -306,7 +314,11 @@ export default function UnifiedInbox() {
               {filteredConversations.map((conversation) => (
                 <div
                   key={conversation.id}
-                  onClick={() => setSelectedConversation(conversation)}
+                  onClick={() => {
+                    setSelectedConversation(conversation);
+                    // Bug #3: on mobile, switch to the conversation panel
+                    setMobilePanelOpen(true);
+                  }}
                   className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
                     selectedConversation?.id === conversation.id ? 'bg-blue-50' : ''
                   }`}
@@ -345,20 +357,34 @@ export default function UnifiedInbox() {
           )}
         </div>
 
-        {/* Conversation View */}
-        <div className="flex-1 flex flex-col bg-gray-50">
+        {/* Conversation View
+            Bug #3: full-width on mobile when mobilePanelOpen, hidden otherwise */}
+        <div className={`
+          flex-1 flex flex-col bg-gray-50
+          ${mobilePanelOpen ? 'flex' : 'hidden'} md:flex
+        `}>
           {selectedConversation ? (
             <>
               {/* Conversation Header */}
-              <div className="bg-white border-b border-gray-200 px-6 py-4">
+              <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-900">{selectedConversation.customer?.name || 'Unknown'}</h2>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <span>{getChannelIcon(selectedConversation.channel)}</span>
-                      <span>via {selectedConversation.channel}</span>
-                      <span>•</span>
-                      <span>Last active {formatDate(selectedConversation.updated_at)}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    {/* Bug #3: back button only visible on mobile */}
+                    <button
+                      className="md:hidden p-1 -ml-1 text-gray-500 hover:text-gray-700"
+                      onClick={() => setMobilePanelOpen(false)}
+                      aria-label="Back to conversations"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    <div className="min-w-0">
+                      <h2 className="text-lg font-semibold text-gray-900 truncate">{selectedConversation.customer?.name || 'Unknown'}</h2>
+                      <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
+                        <span>{getChannelIcon(selectedConversation.channel)}</span>
+                        <span>via {selectedConversation.channel}</span>
+                        <span>•</span>
+                        <span>Last active {formatDate(selectedConversation.updated_at)}</span>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -518,23 +544,27 @@ export default function UnifiedInbox() {
                       <AlertTriangle className="w-3 h-3" /> {t('inbox.lowConfidence')}
                     </p>
                   )}
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <button
                       onClick={() => handleUseAiSuggestion(false)}
                       disabled={isSending}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-purple-600 text-white text-xs font-medium rounded-lg hover:bg-purple-700 disabled:opacity-60"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2 sm:px-3 bg-purple-600 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-60 min-h-10"
                     >
-                      <CheckCircle2 className="w-3 h-3" /> {t('inbox.useThis')}
+                      <CheckCircle2 className="w-4 sm:w-3 h-4 sm:h-3 flex-shrink-0" /> 
+                      <span className="hidden xs:inline">{t('inbox.useThis')}</span>
+                      <span className="inline xs:hidden">Use</span>
                     </button>
                     <button
                       onClick={() => handleUseAiSuggestion(true)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white border border-purple-300 text-purple-700 text-xs font-medium rounded-lg hover:bg-purple-50"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2 sm:px-3 bg-white border border-purple-300 text-purple-700 text-xs sm:text-sm font-medium rounded-lg hover:bg-purple-50 min-h-10"
                     >
-                      <Edit3 className="w-3 h-3" /> {t('inbox.editAndUse')}
+                      <Edit3 className="w-4 sm:w-3 h-4 sm:h-3 flex-shrink-0" /> 
+                      <span className="hidden xs:inline">{t('inbox.editAndUse')}</span>
+                      <span className="inline xs:hidden">Edit</span>
                     </button>
                     <button
                       onClick={() => lastAiMsg && setDismissedSuggestionId(lastAiMsg.id)}
-                      className="py-1.5 px-3 bg-white border border-gray-300 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-50"
+                      className="flex-1 py-2 sm:py-1.5 px-2 sm:px-3 bg-white border border-gray-300 text-gray-600 text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-50 min-h-10"
                     >
                       {t('inbox.ignore')}
                     </button>

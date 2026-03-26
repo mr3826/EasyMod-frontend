@@ -48,6 +48,8 @@ export default function Orders() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showCreateOrder, setShowCreateOrder] = useState(false);
   const [showProductSelector, setShowProductSelector] = useState(false);
+  // Bug #14: inline product search — no separate modal needed
+  const [productSearchQuery, setProductSearchQuery] = useState('');
 
   const currencyFormatter = useMemo(
     () =>
@@ -93,7 +95,7 @@ export default function Orders() {
     discount: 0,
     tax: 0,
     delivery: 0,
-    payment: 'unpaid',
+    payment: 'pending',
     notes: '',
     source: 'manual',
     createdBy: 'user',
@@ -335,7 +337,7 @@ export default function Orders() {
         discount: 0,
         tax: 0,
         delivery: 0,
-        payment: 'unpaid',
+        payment: 'pending',
         notes: '',
         source: 'manual',
         createdBy: 'user',
@@ -619,17 +621,52 @@ export default function Orders() {
                 </div>
               </div>
 
-              {/* Products */}
+              {/* Products — Bug #14: inline search, no separate modal */}
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-gray-900">{t('orders.createModal.productsSection')}</h3>
-                  <button
-                    onClick={() => setShowProductSelector(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                  >
-                    <Plus className="w-4 h-4" />
-                    {t('orders.createModal.addProduct')}
-                  </button>
+                <h3 className="font-semibold text-gray-900 mb-3">{t('orders.createModal.productsSection')}</h3>
+
+                {/* Inline product search */}
+                <div className="relative mb-3">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search and add products…"
+                    value={productSearchQuery}
+                    onChange={(e) => setProductSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  {/* Dropdown results */}
+                  {productSearchQuery.trim().length >= 1 && (
+                    <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto mt-1">
+                      {products
+                        .filter(p =>
+                          p.name.toLowerCase().includes(productSearchQuery.toLowerCase()) ||
+                          (p.sku || '').toLowerCase().includes(productSearchQuery.toLowerCase())
+                        )
+                        .slice(0, 8)
+                        .map(product => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => {
+                              addProductToOrder(product);
+                              setProductSearchQuery('');
+                            }}
+                            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-blue-50 text-left text-sm border-b border-gray-100 last:border-0"
+                          >
+                            <span className="font-medium text-gray-900 truncate">{product.name}</span>
+                            <span className="ml-2 text-blue-700 font-semibold whitespace-nowrap">{formatCurrency(product.price)}</span>
+                          </button>
+                        ))
+                      }
+                      {products.filter(p =>
+                        p.name.toLowerCase().includes(productSearchQuery.toLowerCase()) ||
+                        (p.sku || '').toLowerCase().includes(productSearchQuery.toLowerCase())
+                      ).length === 0 && (
+                        <p className="px-4 py-3 text-sm text-gray-500">No products found</p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {manualOrder.items.length === 0 ? (

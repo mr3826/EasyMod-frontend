@@ -92,8 +92,14 @@ export default function Knowledge() {
         text = await file.text();
       } else if (extension === 'docx' || extension === 'doc') {
         const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer });
+        // Use convertToHtml to preserve headings, bold, tables and lists.
+        // The backend RAG pipeline strips tags if needed; plain extractRawText
+        // loses all document structure.
+        const result = await mammoth.convertToHtml({ arrayBuffer });
         text = result.value || '';
+        if (result.messages?.length) {
+          console.warn('[mammoth] conversion warnings:', result.messages);
+        }
       } else {
         throw new Error('Only .txt, .doc, or .docx files are supported.');
       }
