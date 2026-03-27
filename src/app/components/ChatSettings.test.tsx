@@ -55,13 +55,19 @@ vi.mock('@/app/lib/api', () => ({
   },
 }));
 
+// ── Mock react-router-dom (Link used in ChatSettings) ─────────────────────
+vi.mock('react-router-dom', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Link: ({ children, to, ...props }: any) => <a href={to} {...props}>{children}</a>,
+}));
+
 // ── Mock lucide-react icons ───────────────────────────────────────────────
 vi.mock('lucide-react', () => {
   const Icon = () => null;
   return {
     MessageSquare: Icon, Instagram: Icon, CheckCircle: Icon, Clock: Icon,
     X: Icon, AlertCircle: Icon, Info: Icon, ChevronDown: Icon,
-    Loader2: Icon, Shield: Icon, Cpu: Icon, Lock: Icon,
+    Loader2: Icon, Shield: Icon, Cpu: Icon, Lock: Icon, Plus: Icon,
   };
 });
 
