@@ -15,7 +15,7 @@ export default function Signup() {
   const { t } = useTranslation();
   const { signup } = useAuth();
   const [billingAnnual, setBillingAnnual] = useState(false);
-  const [selectedPlanId, setSelectedPlanId] = useState("growth");
+  const [selectedPlanId, setSelectedPlanId] = useState("starter");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");

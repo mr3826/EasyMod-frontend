@@ -496,6 +496,7 @@ export default function Orders() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.total')}</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.channel')}</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.status')}</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RTO</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.actions')}</th>
             </tr>
           </thead>
@@ -532,6 +533,21 @@ export default function Orders() {
                   <span className={`px-3 py-1 rounded-full text-sm ${statusColors[order.status]}`}>
                     {order.status}
                   </span>
+                </td>
+                <td className="px-6 py-4">
+                  {order.rto_risk === 'high' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-red-100 text-red-700 border border-red-200">
+                      <AlertTriangle className="w-3 h-3" /> HIGH
+                    </span>
+                  )}
+                  {order.rto_risk === 'medium' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+                      <AlertTriangle className="w-3 h-3" /> MED
+                    </span>
+                  )}
+                  {(!order.rto_risk || order.rto_risk === 'low' || order.rto_risk === 'safe') && (
+                    <span className="text-gray-300 text-xs">—</span>
+                  )}
                 </td>
                 <td className="px-6 py-4 text-right">
                   <button

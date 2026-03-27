@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { toast } from "sonner";
 import LanguageToggle from "./LanguageToggle";
+import OnboardingWizard from "./OnboardingWizard";
 
 const appBasePath = '/app';
 
@@ -50,6 +51,12 @@ export default function DashboardLayout() {
   const [createShopLoading, setCreateShopLoading] = useState(false);
 
   const { user, currentShop, allShops, logout, switchShop } = useAuth();
+
+  // Show onboarding wizard for new shops that haven't completed setup
+  const onboardingCompleted: boolean =
+    (currentShop as any)?.settings?.onboarding_completed ?? false;
+  const [wizardDismissed, setWizardDismissed] = useState(false);
+  const showWizard = !onboardingCompleted && !wizardDismissed;
 
   const shops: Shop[] = allShops.map((shop) => ({
     id: shop.id,
@@ -346,6 +353,11 @@ export default function DashboardLayout() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ─── Onboarding Wizard ────────────────────────────────────── */}
+      {showWizard && (
+        <OnboardingWizard onComplete={() => setWizardDismissed(true)} />
       )}
 
       {/* ─── Logout Confirmation ───────────────────────────────────── */}

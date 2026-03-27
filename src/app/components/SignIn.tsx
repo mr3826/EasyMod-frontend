@@ -31,7 +31,9 @@ export default function SignIn() {
     e.preventDefault();
     setError('');
 
-    if (!email.trim()) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
       setError(t('auth.signin.errors.emailRequired'));
       return;
     }
@@ -44,7 +46,7 @@ export default function SignIn() {
     setIsLoading(true);
 
     try {
-      await signin({ email, password });
+      await signin({ email: normalizedEmail, password });
       navigate('/app');
     } catch (error: any) {
       setError(

@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
-import { Send, Bot, User, CheckCircle2, Edit3, Loader2, Search, UserCheck, Tag, AlertTriangle, Clock, Lock, ChevronUp, ArrowLeft } from "lucide-react";
+import { useState, useEffect, useCallback, useRef, ChangeEvent } from "react";
+import { Send, Bot, User, CheckCircle2, Edit3, Loader2, Search, UserCheck, Tag, AlertTriangle, Clock, Lock, ChevronUp, ArrowLeft, Zap, Paperclip, Mic, StopCircle, X, FileText } from "lucide-react";
 import { toast } from "sonner";
-import { apiClient, Conversation, Message } from "../lib/api";
+import { apiClient, Conversation, Message, ResponseTemplate } from "../lib/api";
 import { useSubscriptionFeatures } from "../lib/useSubscriptionFeatures";
 import { useTranslation } from 'react-i18next';
 import { useInboxSSE } from "../lib/useInboxSSE";
@@ -34,11 +34,57 @@ export default function UnifiedInbox() {
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   // Bug #3: on mobile, track whether conversation panel or sidebar is visible
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const quickReplyRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
+  const [templates, setTemplates] = useState<ResponseTemplate[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [selectedAttachment, setSelectedAttachment] = useState<File | null>(null);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [isTranscribingVoice, setIsTranscribingVoice] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+
+  const FALLBACK_TEMPLATES: ResponseTemplate[] = [
+    { id: 'fallback-1', name: 'Order Confirmed', content: 'আপনার অর্ডার confirm হয়েছে ✅ Delivery: 2-3 দিন' },
+    { id: 'fallback-2', name: 'Need Address', content: 'Stock আছে। Address & mobile নম্বর দিন please 🙏' },
+    { id: 'fallback-3', name: 'Advance Payment', content: 'Advance ৳[Amount] bKash/Nagad করুন: 01XXXXXXXXX' },
+    { id: 'fallback-4', name: 'Courier Update', content: 'আপনার পার্সেল courier এ দেওয়া হয়েছে ✈️' },
+    { id: 'fallback-5', name: 'Thank You', content: 'ধন্যবাদ আপনার order এর জন্য! 😊' },
+    { id: 'fallback-6', name: 'Out of Stock', content: 'এই product টা এখন stock এ নেই। 2-3 দিনের মধ্যে available হবে।' },
+    { id: 'fallback-7', name: 'Delivery Charge', content: 'Dhaka তে delivery charge ৳60, Dhaka এর বাইরে ৳120।' },
+    { id: 'fallback-8', name: 'Return Window', content: 'Return/exchange এর জন্য 3 দিনের মধ্যে জানাবেন please।' },
+    { id: 'fallback-9', name: 'Cash on Delivery', content: 'COD available আছে। Delivery তে টাকা দিতে পারবেন।' },
+    { id: 'fallback-10', name: 'Dispatch Today', content: 'আপনার product টি ready। আজকেই dispatch করব। 🚚' },
+  ];
+  const quickReplyTemplates = templates.length > 0 ? templates : FALLBACK_TEMPLATES;
   const { features: planFeatures } = useSubscriptionFeatures();
 
   // Load conversations on mount
   useEffect(() => {
     loadConversations();
+    loadTemplates();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (quickReplyRef.current && !quickReplyRef.current.contains(event.target as Node)) {
+        setShowQuickReplies(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== 'inactive') {
+        recorder.stop();
+      }
+    };
   }, []);
 
   const PAGE_SIZE = 30;
@@ -68,6 +114,19 @@ export default function UnifiedInbox() {
       console.error('Error loading conversations:', err);
     } finally {
       setLoadingConversations(false);
+    }
+  };
+
+  const loadTemplates = async () => {
+    try {
+      setLoadingTemplates(true);
+      const rows = await apiClient.getResponseTemplates();
+      setTemplates(rows.filter((tpl) => tpl.is_active !== false));
+    } catch {
+      // Silent fallback to local template list.
+      setTemplates([]);
+    } finally {
+      setLoadingTemplates(false);
     }
   };
 
@@ -148,6 +207,14 @@ export default function UnifiedInbox() {
     !!customerSentAfterAgent;
   const isLowConfidence = hasAiSuggestion && aiConfidence < 0.65;
 
+  // Confidence tier labels for BD sellers — replaces raw % with meaningful label
+  const confidenceTier = (() => {
+    const pct = Math.round((aiConfidence ?? 0) * 100);
+    if (pct >= 85) return { label: "High Confidence ✅", color: "bg-green-100 text-green-800 border border-green-200" };
+    if (pct >= 60) return { label: "Review Carefully ⚠️", color: "bg-amber-100 text-amber-800 border border-amber-200" };
+    return { label: "Low — AI Unsure ❌", color: "bg-red-100 text-red-800 border border-red-200" };
+  })();
+
   const META_CHANNELS = ['facebook', 'messenger', 'instagram'];
   const is24hChannel = selectedConversation ? META_CHANNELS.includes(selectedConversation.channel) : false;
   const hoursElapsed = selectedConversation
@@ -202,9 +269,124 @@ export default function UnifiedInbox() {
     }
   };
 
+  const fileToDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Attachment read failed'));
+      reader.readAsDataURL(file);
+    });
+
+  const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || '');
+        const encoded = result.includes(',') ? result.split(',')[1] : result;
+        if (!encoded) {
+          reject(new Error('Audio conversion failed'));
+          return;
+        }
+        resolve(encoded);
+      };
+      reader.onerror = () => reject(new Error('Audio conversion failed'));
+      reader.readAsDataURL(blob);
+    });
+
+  const resolveTemplateContent = (template: ResponseTemplate): string => {
+    const customerName = selectedConversation?.customer?.name || 'Customer';
+    return template.content
+      .replaceAll('{{customer_name}}', customerName)
+      .replaceAll('{{name}}', customerName);
+  };
+
+  const handleQuickTemplateSend = async (template: ResponseTemplate) => {
+    const rendered = resolveTemplateContent(template).trim();
+    if (!rendered) return;
+    setShowQuickReplies(false);
+    await handleSendMessage(rendered);
+  };
+
+  const handleAttachmentPick = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    if (!file) return;
+    setSelectedAttachment(file);
+  };
+
+  const handleAttachmentClear = () => {
+    setSelectedAttachment(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleStartVoiceRecording = async () => {
+    try {
+      setVoiceError(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const tracks = stream.getTracks();
+        tracks.forEach((track) => track.stop());
+
+        if (audioChunksRef.current.length === 0) {
+          setIsRecordingVoice(false);
+          return;
+        }
+
+        try {
+          setIsTranscribingVoice(true);
+          const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+          const audioBase64 = await blobToBase64(audioBlob);
+          const data = await apiClient.transcribeVoice({
+            messageId: `draft-${Date.now()}`,
+            audioBase64,
+            language: 'auto',
+          });
+
+          if (data.transcript?.trim()) {
+            setEditingMessage((prev) => (prev.trim() ? `${prev.trim()} ${data.transcript.trim()}` : data.transcript.trim()));
+            toast.success('Voice converted to text');
+          }
+        } catch {
+          const msg = 'Voice transcription failed';
+          setVoiceError(msg);
+          toast.error(msg);
+        } finally {
+          setIsTranscribingVoice(false);
+          setIsRecordingVoice(false);
+        }
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecordingVoice(true);
+    } catch {
+      const msg = 'Microphone access denied';
+      setVoiceError(msg);
+      toast.error(msg);
+    }
+  };
+
+  const handleStopVoiceRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop();
+    }
+  };
+
   const handleSendMessage = async (overrideContent?: string) => {
     const trimmed = (overrideContent ?? editingMessage).trim();
-    if (!selectedConversation || !trimmed || isSending) return;
+    const hasAttachment = !!selectedAttachment;
+    if (!selectedConversation || (!trimmed && !hasAttachment) || isSending) return;
     if (is24hExpired && !selectedMessageTag) {
       toast.error(t('inbox.errors.selectTag'));
       return;
@@ -212,16 +394,39 @@ export default function UnifiedInbox() {
     try {
       setIsSending(true);
       setSendError(null);
+      let messageType: 'text' | 'image' | 'file' | 'location' = 'text';
+      let metadata: Record<string, unknown> | undefined;
+      let content = trimmed;
+
+      if (selectedAttachment) {
+        const dataUrl = await fileToDataUrl(selectedAttachment);
+        const isImage = selectedAttachment.type.startsWith('image/');
+        messageType = isImage ? 'image' : 'file';
+        metadata = {
+          message_type: messageType,
+          file_name: selectedAttachment.name,
+          mime_type: selectedAttachment.type || 'application/octet-stream',
+          file_size: selectedAttachment.size,
+          file_url: dataUrl,
+          ...(isImage ? { image_url: dataUrl } : {}),
+        };
+        if (!content) {
+          content = selectedAttachment.name;
+        }
+      }
+
       const payload: Parameters<typeof apiClient.createMessage>[1] = {
-        content: trimmed,
+        content,
         sender: 'agent',
-        message_type: 'text',
+        message_type: messageType,
+        ...(metadata ? { metadata } : {}),
         ...(selectedMessageTag ? { message_tag: selectedMessageTag as any } : {}),
       };
       const message = await apiClient.createMessage(selectedConversation.id, payload);
       setMessages((prev) => [...prev, message]);
       setEditingMessage('');
       setSelectedMessageTag('');
+      handleAttachmentClear();
       setConversations((prev) =>
         prev.map((conv) =>
           conv.id === selectedConversation.id
@@ -481,11 +686,11 @@ export default function UnifiedInbox() {
                     <div key={message.id} className={`flex ${message.sender === 'customer' ? 'justify-start' : 'justify-end'}`}>
                       <div className={`max-w-lg ${
                         message.sender === 'customer'
-                          ? 'bg-white'
+                          ? 'bg-white border border-gray-100'
                           : message.sender === 'ai'
-                          ? 'bg-purple-100'
+                          ? 'bg-purple-100 border border-purple-200'
                           : 'bg-blue-600 text-white'
-                      } rounded-lg p-4 shadow-sm`}>
+                      } rounded-2xl p-4 shadow-sm`}>
                         <div className="flex items-center gap-2 mb-2">
                           {message.sender === 'customer' ? (
                             <User className="w-4 h-4 text-gray-600" />
@@ -499,7 +704,7 @@ export default function UnifiedInbox() {
                         {message.message_type === 'image' ? (
                           <div>
                             {message.metadata?.image_url ? (
-                              <img src={message.metadata.image_url} alt="Image" className="max-w-xs rounded-lg" />
+                              <img src={message.metadata.image_url} alt="Attachment" className="max-w-xs rounded-xl border border-black/5" />
                             ) : (
                               <span className="text-sm italic text-gray-500">[Image]</span>
                             )}
@@ -513,8 +718,31 @@ export default function UnifiedInbox() {
                             )}
                           </div>
                         ) : (
-                          <p className={message.sender === 'agent' ? 'text-white' : 'text-gray-800'}>{message.content}</p>
+                          message.message_type === 'file' ? (
+                            <div className="space-y-2">
+                              <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg ${message.sender === 'agent' ? 'bg-blue-500/60' : 'bg-gray-100'}`}>
+                                <FileText className={`w-4 h-4 ${message.sender === 'agent' ? 'text-white' : 'text-gray-600'}`} />
+                                <span className={`text-sm ${message.sender === 'agent' ? 'text-white' : 'text-gray-700'}`}>
+                                  {message.metadata?.file_name || message.content || 'Attachment'}
+                                </span>
+                              </div>
+                              {message.metadata?.file_url && (
+                                <a
+                                  href={message.metadata.file_url}
+                                  download={message.metadata?.file_name || 'attachment'}
+                                  className={`inline-block text-xs underline ${message.sender === 'agent' ? 'text-blue-100' : 'text-blue-700'}`}
+                                >
+                                  Download file
+                                </a>
+                              )}
+                            </div>
+                          ) : (
+                            <p className={message.sender === 'agent' ? 'text-white' : 'text-gray-800'}>{message.content}</p>
+                          )
                         )}
+                        <p className={`mt-2 text-[11px] ${message.sender === 'agent' ? 'text-blue-100' : 'text-gray-400'}`}>
+                          {formatDate(message.created_at)}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -525,17 +753,20 @@ export default function UnifiedInbox() {
               {/* AI Suggestion Panel */}
               {planFeatures.advanced_ai && hasAiSuggestion && (
                 <div className={`mx-4 rounded-t-lg border px-4 py-3 ${
-                  isLowConfidence ? 'bg-amber-50 border-amber-300' : 'bg-purple-50 border-purple-200'
+                  (() => {
+                    const pct = Math.round((aiConfidence ?? 0) * 100);
+                    if (pct >= 85) return 'bg-green-50 border-green-200';
+                    if (pct >= 60) return 'bg-amber-50 border-amber-300';
+                    return 'bg-red-50 border-red-300';
+                  })()
                 }`}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <Bot className="w-4 h-4 text-purple-600" />
                       <span className="text-sm font-semibold text-purple-900">{t('inbox.aiSuggestion')}</span>
                     </div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      isLowConfidence ? 'bg-amber-200 text-amber-800' : 'bg-purple-200 text-purple-800'
-                    }`}>
-                      {t('inbox.confidence', { percent: Math.round((aiConfidence ?? 0) * 100) })}
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${confidenceTier.color}`}>
+                      {confidenceTier.label}
                     </span>
                   </div>
                   <p className="text-sm text-gray-800 mb-2 italic">"{aiSuggestion}"</p>
@@ -592,12 +823,86 @@ export default function UnifiedInbox() {
                     </select>
                   </div>
                 )}
-                <div className="flex items-center gap-3">
+                {selectedAttachment && (
+                  <div className="mb-3 inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                    {selectedAttachment.type.startsWith('image/') ? '🖼️' : '📎'}
+                    <span className="max-w-56 truncate">{selectedAttachment.name}</span>
+                    <button onClick={handleAttachmentClear} className="text-blue-700 hover:text-blue-900" aria-label="Remove attachment">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                {voiceError && (
+                  <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{voiceError}</div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                  onChange={handleAttachmentPick}
+                />
+                <div className="flex items-center gap-2 md:gap-3 relative">
+                  {/* Quick Reply popup */}
+                  {showQuickReplies && (
+                    <div
+                      ref={quickReplyRef}
+                      className="absolute bottom-full left-0 mb-2 w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-20 overflow-hidden"
+                    >
+                      <div className="px-3 py-2 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-600">⚡ Templates</span>
+                        <button onClick={() => setShowQuickReplies(false)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto divide-y divide-gray-50">
+                        {loadingTemplates && (
+                          <div className="px-3 py-2 text-xs text-gray-500">Loading templates...</div>
+                        )}
+                        {quickReplyTemplates.map((template) => (
+                          <button
+                            key={template.id}
+                            onClick={() => handleQuickTemplateSend(template)}
+                            className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors leading-snug"
+                          >
+                            <div className="font-medium text-gray-900">{template.name}</div>
+                            <div className="line-clamp-2 text-xs text-gray-500 mt-1">{template.content}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setShowQuickReplies(v => !v)}
+                    title="Quick Reply"
+                    className="p-2.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 border border-gray-300 rounded-xl transition-colors flex-shrink-0"
+                  >
+                    <Zap className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Attach file"
+                    className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 border border-gray-300 rounded-xl transition-colors flex-shrink-0"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={isRecordingVoice ? handleStopVoiceRecording : handleStartVoiceRecording}
+                    title={isRecordingVoice ? 'Stop recording' : 'Start voice recording'}
+                    disabled={isTranscribingVoice}
+                    className={`p-2.5 border rounded-xl transition-colors flex-shrink-0 ${isRecordingVoice ? 'text-red-600 border-red-300 bg-red-50 hover:bg-red-100' : 'text-gray-500 border-gray-300 hover:text-blue-600 hover:bg-blue-50'} ${isTranscribingVoice ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {isRecordingVoice ? <StopCircle className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  </button>
                   <input
                     type="text"
                     value={editingMessage}
                     onChange={(e) => setEditingMessage(e.target.value)}
-                    placeholder={is24hExpired && !selectedMessageTag ? t('inbox.messageTagPlaceholder') : t('inbox.messagePlaceholder')}
+                    placeholder={
+                      isTranscribingVoice
+                        ? 'Transcribing voice...'
+                        : is24hExpired && !selectedMessageTag
+                        ? t('inbox.messageTagPlaceholder')
+                        : t('inbox.messagePlaceholder')
+                    }
                     disabled={is24hExpired && !selectedMessageTag}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
@@ -611,9 +916,9 @@ export default function UnifiedInbox() {
                   />
                   <button
                     onClick={() => handleSendMessage()}
-                    disabled={isSending || !editingMessage.trim() || (is24hExpired && !selectedMessageTag)}
+                    disabled={isSending || (!editingMessage.trim() && !selectedAttachment) || (is24hExpired && !selectedMessageTag)}
                     className={`px-6 py-3 bg-blue-600 text-white rounded-lg flex items-center gap-2 ${
-                      isSending || !editingMessage.trim() || (is24hExpired && !selectedMessageTag)
+                      isSending || (!editingMessage.trim() && !selectedAttachment) || (is24hExpired && !selectedMessageTag)
                         ? 'opacity-60 cursor-not-allowed'
                         : 'hover:bg-blue-700'
                     }`}

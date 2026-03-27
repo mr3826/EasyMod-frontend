@@ -17,16 +17,26 @@ function PlanCard({
   onSelect: () => void;
 }) {
   const isFree = plan.monthlyPrice === 0;
-  const isPopular = plan.popular;
+  const isStarter = plan.id === "starter";
+  const isPopular = plan.popular && !isStarter;
 
   return (
     <div
       className={`relative flex flex-col rounded-2xl border p-6 ${
-        isPopular
+        isStarter
+          ? "border-green-500 bg-green-600 text-white shadow-xl shadow-green-200"
+          : isPopular
           ? "border-blue-600 bg-blue-600 text-white shadow-xl shadow-blue-200"
           : "border-gray-200 bg-white"
       }`}
     >
+      {isStarter && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+          <span className="bg-amber-400 text-amber-900 text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
+            নতুন সেলারদের জন্য
+          </span>
+        </div>
+      )}
       {isPopular && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
           <span className="bg-amber-400 text-amber-900 text-xs font-bold px-3 py-1 rounded-full">
@@ -36,42 +46,42 @@ function PlanCard({
       )}
 
       <div className="mb-4">
-        <p className={`text-lg font-bold ${isPopular ? "text-white" : "text-gray-900"}`}>
+        <p className={`text-lg font-bold ${isStarter || isPopular ? "text-white" : "text-gray-900"}`}>
           {plan.name}
         </p>
-        <p className={`text-sm mt-0.5 ${isPopular ? "text-blue-100" : "text-gray-500"}`}>
+        <p className={`text-sm mt-0.5 ${isStarter ? "text-green-100" : isPopular ? "text-blue-100" : "text-gray-500"}`}>
           {plan.description}
         </p>
       </div>
 
       <div className="mb-5">
         {isFree ? (
-          <span className={`text-4xl font-extrabold ${isPopular ? "text-white" : "text-gray-900"}`}>
+          <span className={`text-4xl font-extrabold ${isStarter || isPopular ? "text-white" : "text-gray-900"}`}>
             Free
           </span>
         ) : (
           <div className="flex items-end gap-1">
-            <span className={`text-4xl font-extrabold ${isPopular ? "text-white" : "text-gray-900"}`}>
+            <span className={`text-4xl font-extrabold ${isStarter || isPopular ? "text-white" : "text-gray-900"}`}>
               ৳{plan.monthlyPrice.toLocaleString()}
             </span>
-            <span className={`text-sm mb-1 ${isPopular ? "text-blue-100" : "text-gray-500"}`}>/mo</span>
+            <span className={`text-sm mb-1 ${isStarter ? "text-green-100" : isPopular ? "text-blue-100" : "text-gray-500"}`}>/mo</span>
           </div>
         )}
         {!isFree && (
-          <p className={`text-xs mt-1 ${isPopular ? "text-blue-100" : "text-gray-400"}`}>
+          <p className={`text-xs mt-1 ${isStarter ? "text-green-100" : isPopular ? "text-blue-100" : "text-gray-400"}`}>
             or ৳{plan.yearlyPrice.toLocaleString()}/yr · save 2 months free
           </p>
         )}
       </div>
 
       {/* Limits */}
-      <div className={`rounded-xl p-3 mb-5 space-y-1.5 ${isPopular ? "bg-blue-500" : "bg-gray-50"}`}>
+      <div className={`rounded-xl p-3 mb-5 space-y-1.5 ${isStarter ? "bg-green-500" : isPopular ? "bg-blue-500" : "bg-gray-50"}`}>
         {[
           { icon: MessageSquare, label: plan.limits.conversations === -1 ? "Unlimited conversations" : `${plan.limits.conversations.toLocaleString()} conversations/mo` },
           { icon: ShoppingCart, label: plan.limits.orders === -1 ? "Unlimited orders" : `${plan.limits.orders.toLocaleString()} orders/mo` },
           { icon: Package, label: plan.limits.products === -1 ? "Unlimited products" : `${plan.limits.products.toLocaleString()} products` },
         ].map(({ icon: Icon, label }) => (
-          <div key={label} className={`flex items-center gap-2 text-sm ${isPopular ? "text-blue-50" : "text-gray-600"}`}>
+          <div key={label} className={`flex items-center gap-2 text-sm ${isStarter || isPopular ? "text-white/90" : "text-gray-600"}`}>
             <Icon className="w-3.5 h-3.5 flex-shrink-0" />
             {label}
           </div>
@@ -81,8 +91,8 @@ function PlanCard({
       {/* Features */}
       <ul className="space-y-2 flex-1 mb-6">
         {plan.highlights.map((h) => (
-          <li key={h} className={`flex items-start gap-2 text-sm ${isPopular ? "text-blue-50" : "text-gray-600"}`}>
-            <Check className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isPopular ? "text-white" : "text-green-600"}`} />
+          <li key={h} className={`flex items-start gap-2 text-sm ${isStarter || isPopular ? "text-white/90" : "text-gray-600"}`}>
+            <Check className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isStarter || isPopular ? "text-white" : "text-green-600"}`} />
             {h}
           </li>
         ))}
@@ -91,7 +101,9 @@ function PlanCard({
       <button
         onClick={onSelect}
         className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all ${
-          isPopular
+          isStarter
+            ? "bg-white text-green-700 hover:bg-green-50"
+            : isPopular
             ? "bg-white text-blue-600 hover:bg-blue-50"
             : isFree
             ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
@@ -150,7 +162,7 @@ export default function Pricing() {
         </div>
 
         {/* Plan cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-16">
           {subscriptionPlans.map((plan) => (
             <PlanCard
               key={plan.id}

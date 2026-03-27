@@ -1,13 +1,16 @@
 import React from 'react';
 import { MessageCircle, Box, CreditCard, AlertTriangle, ArrowRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const TodayQueueDashboard: React.FC = () => {
+  const { t } = useTranslation();
+
   return (
     <div className="p-4 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-black tracking-tight text-gray-900">Today's Queue</h1>
-        <p className="text-sm text-gray-500 font-medium mt-1">Focus on what needs attention</p>
+        <h1 className="text-2xl font-black tracking-tight text-gray-900">{t('bd_lite.todayQueue')}</h1>
+        <p className="text-sm text-gray-500 font-medium mt-1">{t('bd_lite.focusAttention')}</p>
       </div>
 
       {/* Action Cards Grid */}
@@ -19,7 +22,7 @@ const TodayQueueDashboard: React.FC = () => {
           </div>
           <div>
             <div className="text-3xl font-black text-gray-900">14</div>
-            <div className="text-xs font-bold text-blue-700 uppercase mt-0.5">Needs Reply</div>
+            <div className="text-xs font-bold text-blue-700 uppercase mt-0.5">{t('bd_lite.needsReply')}</div>
           </div>
         </div>
 
@@ -30,7 +33,7 @@ const TodayQueueDashboard: React.FC = () => {
           </div>
           <div>
             <div className="text-3xl font-black text-gray-900">5</div>
-            <div className="text-[11px] font-bold text-orange-700 uppercase leading-snug mt-0.5">Pending bKash/Nagad</div>
+            <div className="text-[11px] font-bold text-orange-700 uppercase leading-snug mt-0.5">{t('bd_lite.pendingPayment')}</div>
           </div>
         </div>
 
@@ -42,7 +45,7 @@ const TodayQueueDashboard: React.FC = () => {
             </div>
             <div className="flex-1">
               <div className="text-3xl font-black text-gray-900">23</div>
-              <div className="text-xs font-bold text-purple-700 uppercase mt-0.5">To Courier (Pathao/Steadfast)</div>
+              <div className="text-xs font-bold text-purple-700 uppercase mt-0.5">{t('bd_lite.toCourier')}</div>
             </div>
             <div className="bg-purple-200/50 p-2 rounded-full shrink-0">
               <ArrowRight className="text-purple-600 w-5 h-5" strokeWidth={2.5} />
@@ -55,23 +58,23 @@ const TodayQueueDashboard: React.FC = () => {
       <div className="bg-red-50 border border-red-200 rounded-2xl overflow-hidden mt-6 shadow-sm">
         <div className="p-3.5 border-b border-red-100 flex items-center gap-2 bg-red-100/50">
           <AlertTriangle className="w-5 h-5 text-red-600" strokeWidth={2.5} />
-          <h3 className="text-sm font-bold text-red-900 uppercase tracking-wide">Action Needed: Potential RTO</h3>
-          <span className="ml-auto bg-red-600 text-white text-[10px] px-2.5 py-1 rounded-full font-bold shadow-sm">2 Risk</span>
+          <h3 className="text-sm font-bold text-red-900 uppercase tracking-wide">{t('bd_lite.actionNeeded')}</h3>
+          <span className="ml-auto bg-red-600 text-white text-[10px] px-2.5 py-1 rounded-full font-bold shadow-sm">{t('bd_lite.riskCount', { count: 2 })}</span>
         </div>
         <div className="divide-y divide-red-100/60">
           <div className="p-4 flex gap-3 justify-between items-center text-sm cursor-pointer hover:bg-red-50/80 transition-colors">
             <div>
               <div className="font-bold text-gray-900">INV-92842</div>
-              <div className="text-xs text-red-600 font-semibold mt-1">Attempted delivery twice</div>
+              <div className="text-xs text-red-600 font-semibold mt-1">{t('bd_lite.attemptedDelivery')}</div>
             </div>
-            <button className="text-[11px] uppercase tracking-wide bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg font-bold shadow-sm transition-colors shrink-0">Call Hub</button>
+            <button className="text-[11px] uppercase tracking-wide bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg font-bold shadow-sm transition-colors shrink-0">{t('bd_lite.callHub')}</button>
           </div>
           <div className="p-4 flex gap-3 justify-between items-center text-sm cursor-pointer hover:bg-red-50/80 transition-colors">
             <div>
               <div className="font-bold text-gray-900">INV-83711</div>
-              <div className="text-xs text-red-600 font-semibold mt-1">Customer phone unreachable</div>
+              <div className="text-xs text-red-600 font-semibold mt-1">{t('bd_lite.phoneUnreachable')}</div>
             </div>
-            <button className="text-[11px] uppercase tracking-wide bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg font-bold shadow-sm transition-colors shrink-0">Contact Buyer</button>
+            <button className="text-[11px] uppercase tracking-wide bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg font-bold shadow-sm transition-colors shrink-0">{t('bd_lite.contactBuyer')}</button>
           </div>
         </div>
       </div>

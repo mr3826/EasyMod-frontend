@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { MessageSquare, Instagram, CheckCircle, Clock, X, AlertCircle, Info, ChevronDown, Loader2, Shield, Cpu, Lock } from "lucide-react";
+import { MessageSquare, Instagram, CheckCircle, Clock, X, AlertCircle, ChevronDown, Loader2, Shield, Cpu, Lock, Plus } from "lucide-react";
+import { Link } from "react-router-dom";
 import { apiClient } from "../lib/api";
 import type { Channel as BackendChannel } from "../lib/api";
 import { useSubscriptionFeatures } from "../lib/useSubscriptionFeatures";
@@ -7,15 +8,13 @@ import { useSubscriptionFeatures } from "../lib/useSubscriptionFeatures";
 interface Channel {
   id: string;
   name: string;
-  type: 'facebook' | 'whatsapp' | 'instagram' | 'telegram' | 'webchat';
+  type: 'facebook' | 'whatsapp' | 'instagram';
   logo: React.ReactNode;
   description: string;
   status: 'connected' | 'not_connected' | 'connecting';
   connectedAccount?: string;
   lastSync?: string;
-  /** True when a System User Token is stored on the server (token is never sent to client). */
   hasToken?: boolean;
-  /** ISO string of token expiry — null means no expiry info available. */
   tokenExpiresAt?: string | null;
   businessManagerId?: string;
   savedSettings?: {
@@ -29,16 +28,10 @@ interface Channel {
   };
 }
 
-interface ChannelCredentials {
-  systemUserToken: string;
-  businessManagerId: string;
-}
-
 export default function ChatSettings() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-
 
   // UI State
   const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
@@ -47,20 +40,8 @@ export default function ChatSettings() {
   const [confirmDisconnect, setConfirmDisconnect] = useState<Channel | null>(null);
   const [showToast, setShowToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // LLM model configuration is now handled automatically by backend based on subscription tier
-  // Users no longer see or choose models — this provides better UX and cost optimization
   const { features: planFeatures } = useSubscriptionFeatures();
 
-  const [credentials, setCredentials] = useState<Record<Channel['type'], ChannelCredentials>>({
-    whatsapp:  { systemUserToken: '', businessManagerId: '' },
-    facebook:  { systemUserToken: '', businessManagerId: '' },
-    instagram: { systemUserToken: '', businessManagerId: '' },
-    telegram:  { systemUserToken: '', businessManagerId: '' },
-    webchat:   { systemUserToken: '', businessManagerId: '' },
-  });
-
-  // Channel settings for the currently-open manage modal.
-  // Always reset to the channel's saved settings when a new modal is opened (M-1).
   const CHANNEL_SETTINGS_DEFAULTS = {
     aiAutoReply: true,
     requireApproval: false,
@@ -69,24 +50,16 @@ export default function ChatSettings() {
     autoDetectProducts: true,
     draftOrdersOnly: false,
     requireManualConfirmation: true,
+    commentToDmEnabled: false,
+    commentToDmAutoReply: "আমরা আপনাকে DM করেছি! Inbox check করুন 📩",
+    commentToDmFilter: 'all' as 'all' | 'questions' | 'keywords',
   };
   const [channelSettings, setChannelSettings] = useState({ ...CHANNEL_SETTINGS_DEFAULTS });
 
-  // Status configuration
   const statusConfig = {
     connected: { icon: CheckCircle, label: 'Connected', color: 'bg-green-100 text-green-800' },
     not_connected: { icon: Clock, label: 'Not Connected', color: 'bg-gray-100 text-gray-800' },
     connecting: { icon: Loader2, label: 'Connecting...', color: 'bg-blue-100 text-blue-800' },
-  };
-
-  const handleCredentialChange = (channelType: Channel['type'], field: keyof ChannelCredentials, value: string) => {
-    setCredentials(prev => ({
-      ...prev,
-      [channelType]: {
-        ...prev[channelType],
-        [field]: value,
-      }
-    }));
   };
 
   const loadChannels = async () => {
@@ -96,20 +69,16 @@ export default function ChatSettings() {
       const backendChannels = await apiClient.getChannels();
       const mapped = backendChannels.map((channel: BackendChannel): Channel => {
         const descriptionMap: Record<string, string> = {
-          whatsapp: 'Direct messaging through WhatsApp for customer support',
-          facebook: 'Connect with customers via Facebook Messenger',
-          instagram: 'Manage customer inquiries through Instagram Direct Messages',
-          telegram: 'Engage customers through Telegram',
-          webchat: 'Website live chat support',
+          whatsapp: 'WhatsApp Business এর জন্য — সরাসরি WhatsApp-এ অর্ডার',
+          facebook: 'Facebook Page এর জন্য — কাস্টমারের DM ও Order নিন',
+          instagram: 'Instagram Shop এর জন্য — DM থেকে Order নিন',
         };
 
         const status = channel.connected || channel.status === 'active'
           ? 'connected'
-          : channel.status === 'error'
-            ? 'not_connected'
-            : 'not_connected';
+          : 'not_connected';
 
-        const type = (channel.type || (channel as any).channel_type || 'webchat') as Channel['type'];
+        const type = (channel.type || (channel as any).channel_type || 'facebook') as Channel['type'];
         const logo = type === 'instagram'
           ? <Instagram className="w-8 h-8 text-pink-600" />
           : <MessageSquare className={`w-8 h-8 ${type === 'whatsapp' ? 'text-green-600' : 'text-blue-600'}`} />;
@@ -136,7 +105,7 @@ export default function ChatSettings() {
           name: 'Messenger',
           type: 'facebook',
           logo: <MessageSquare className="w-8 h-8 text-blue-600" />,
-          description: 'Connect with customers via Facebook Messenger',
+          description: 'Facebook Page এর জন্য — কাস্টমারের DM ও Order নিন',
           status: 'not_connected'
         },
         {
@@ -144,7 +113,7 @@ export default function ChatSettings() {
           name: 'WhatsApp',
           type: 'whatsapp',
           logo: <MessageSquare className="w-8 h-8 text-green-600" />,
-          description: 'Direct messaging through WhatsApp for customer support',
+          description: 'WhatsApp Business এর জন্য — সরাসরি WhatsApp-এ অর্ডার',
           status: 'not_connected'
         },
         {
@@ -152,7 +121,7 @@ export default function ChatSettings() {
           name: 'Instagram',
           type: 'instagram',
           logo: <Instagram className="w-8 h-8 text-pink-600" />,
-          description: 'Manage customer inquiries through Instagram Direct Messages',
+          description: 'Instagram Shop এর জন্য — DM থেকে Order নিন',
           status: 'not_connected'
         }
       ];
@@ -168,10 +137,7 @@ export default function ChatSettings() {
     } catch (err) {
       console.error('Failed to load channels:', err);
       setLoadError('Failed to load channels from backend');
-      setShowToast({
-        type: 'error',
-        message: 'Failed to load channels from backend'
-      });
+      setShowToast({ type: 'error', message: 'Failed to load channels from backend' });
       setChannels([]);
     } finally {
       setIsLoading(false);
@@ -182,60 +148,15 @@ export default function ChatSettings() {
     loadChannels();
   }, []);
 
-  const handleConnect = async (channel: Channel) => {
-    const channelCreds = credentials[channel.type];
-    if (!channelCreds?.systemUserToken) {
-      setShowToast({
-        type: 'error',
-        message: 'Please provide a System User Token before connecting.'
-      });
-      return;
-    }
-
-    setChannels(prev => prev.map(ch =>
-      ch.type === channel.type ? { ...ch, status: 'connecting' } : ch
-    ));
-
-    try {
-      await apiClient.connectChannel({
-        type: channel.type,
-        name: channel.name,
-        systemUserToken: channelCreds.systemUserToken,
-        businessManagerId: channelCreds.businessManagerId || undefined
-      });
-
-      await loadChannels();
-      setShowToast({
-        type: 'success',
-        message: `${channel.name} connected successfully!`
-      });
-    } catch (error: any) {
-      setShowToast({
-        type: 'error',
-        message: error.response?.data?.error?.message || 'Connection failed. Please try again.'
-      });
-      setChannels(prev => prev.map(ch =>
-        ch.type === channel.type ? { ...ch, status: 'not_connected' } : ch
-      ));
-    }
-  };
-
   const handleDisconnect = async (channel: Channel) => {
     if (channel.id === channel.type) {
-      setShowToast({
-        type: 'error',
-        message: 'This channel is not connected yet.'
-      });
+      setShowToast({ type: 'error', message: 'This channel is not connected yet.' });
       return;
     }
-
     try {
       await apiClient.disconnectChannel(channel.id);
       await loadChannels();
-      setShowToast({
-        type: 'success',
-        message: `${channel.name} disconnected successfully.`
-      });
+      setShowToast({ type: 'success', message: `${channel.name} disconnected successfully.` });
     } catch (error: any) {
       setShowToast({
         type: 'error',
@@ -245,7 +166,6 @@ export default function ChatSettings() {
   };
 
   const handleManageChannel = (channel: Channel) => {
-    // Reset to defaults first so stale state from a previous channel doesn't bleed through.
     setChannelSettings({ ...CHANNEL_SETTINGS_DEFAULTS, ...(channel.savedSettings || {}) });
     setManagedChannel({
       ...channel,
@@ -257,10 +177,7 @@ export default function ChatSettings() {
   };
 
   const handleSettingsChange = (key: keyof typeof channelSettings) => {
-    setChannelSettings(prev => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    setChannelSettings(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const formatDate = (dateString?: string) => {
@@ -273,7 +190,6 @@ export default function ChatSettings() {
     });
   };
 
-  // Auto-dismiss toast after 4s (M-2)
   useEffect(() => {
     if (!showToast) return;
     const t = setTimeout(() => setShowToast(null), 4000);
@@ -281,11 +197,6 @@ export default function ChatSettings() {
   }, [showToast]);
 
   const dismissToast = () => setShowToast(null);
-
-  // Load LLM config
-  // useEffect removed — LLM model selection is now backend-managed
-  // No need to fetch or save model configuration from frontend
-
 
   return (
     <div className="space-y-6 p-6">
@@ -295,15 +206,15 @@ export default function ChatSettings() {
           <MessageSquare className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Chat Channel Settings</h2>
-          <p className="text-gray-600 text-sm">Manage your Messenger, WhatsApp, and Instagram integrations</p>
+          <h2 className="text-2xl font-bold text-gray-900">চ্যানেল সেটিংস</h2>
+          <p className="text-gray-600 text-sm">আপনার চ্যানেলের সেটিংস পরিচালনা করুন</p>
         </div>
       </div>
 
       {/* Channels Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {isLoading && (
-          <div className="col-span-full text-center text-gray-500 py-8">Loading channels from backend...</div>
+          <div className="col-span-full text-center text-gray-500 py-8">Loading channels...</div>
         )}
         {loadError && (
           <div className="col-span-full text-center text-red-600 py-8">{loadError}</div>
@@ -348,14 +259,14 @@ export default function ChatSettings() {
                 </div>
               )}
 
-              {/* Token expiry warning */}
+              {/* Connection expiry warning */}
               {channel.status === 'connected' && channel.tokenExpiresAt && (() => {
                 const expiresMs = new Date(channel.tokenExpiresAt).getTime() - Date.now();
                 const dayMs = 86_400_000;
                 if (expiresMs > 14 * dayMs) return null;
                 const label = expiresMs < 0
-                  ? 'System User Token has expired. Reconnect to restore AI replies.'
-                  : `System User Token expires in ${Math.ceil(expiresMs / dayMs)} day(s). Reconnect soon.`;
+                  ? 'সংযোগের মেয়াদ শেষ হয়েছে। আবার সংযুক্ত করুন।'
+                  : `সংযোগের মেয়াদ ${Math.ceil(expiresMs / dayMs)} দিনের মধ্যে শেষ। পুনরায় সংযুক্ত করুন।`;
                 return (
                   <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-lg p-2 mb-4 text-xs text-amber-800">
                     <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -364,93 +275,19 @@ export default function ChatSettings() {
                 );
               })()}
 
-              {/* System User Token Input */}
+              {/* Not connected — redirect to Channels page */}
               {channel.status === 'not_connected' && (
-                <div className="space-y-3 mb-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">System User Token</label>
-                    <input
-                      type="password"
-                      value={credentials[channel.type]?.systemUserToken || ''}
-                      onChange={(e) => handleCredentialChange(channel.type, 'systemUserToken', e.target.value)}
-                      placeholder="Paste System User token"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Business Manager ID (optional)</label>
-                    <input
-                      type="text"
-                      value={credentials[channel.type]?.businessManagerId || ''}
-                      onChange={(e) => handleCredentialChange(channel.type, 'businessManagerId', e.target.value)}
-                      placeholder="Enter your Business Manager ID"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    The System User token is sensitive. Treat it like a password and revoke it if you suspect exposure.
-                  </div>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-700">
-                    <strong>Privacy notice:</strong> Once connected, customer messages on this channel will be processed by AI to generate automated responses. Message content may be sent to third-party AI providers (OpenAI, Anthropic, Google) to generate replies. Data is encrypted in transit and isolated to your shop. See our Privacy Policy for details.
-                  </div>
+                <div className="mt-1 mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                  <p className="text-sm text-gray-600 mb-2">এই চ্যানেল সংযুক্ত করতে</p>
+                  <Link
+                    to="/app/channels"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    চ্যানেল সংযুক্ত করুন
+                  </Link>
                 </div>
               )}
-
-              {/* Setup Instructions (Collapsible) */}
-              <details className="mb-4">
-                <summary className="text-sm font-medium text-gray-700 cursor-pointer hover:text-gray-900 flex items-center">
-                  <ChevronDown className="w-4 h-4 mr-2" />
-                  Setup Instructions
-                </summary>
-                <div className="mt-3 text-xs text-gray-600 space-y-2 ml-6">
-                  {channel.type === 'facebook' && (
-                    <>
-                      <p>1. Go to Meta Business Suite: https://business.facebook.com</p>
-                      <p>2. Business Settings → Users → System Users</p>
-                      <p>3. Click "Add", name it "Webhook Manager", role: Admin</p>
-                      <p>4. Open the System User → Generate New Token</p>
-                      <p>5. Select your app and grant permissions:</p>
-                      <ul className="list-disc list-inside ml-4 space-y-1">
-                        <li>pages_messaging</li>
-                        <li>pages_read_engagement</li>
-                        <li>pages_manage_metadata</li>
-                      </ul>
-                      <p>6. Paste the token above and click Connect</p>
-                    </>
-                  )}
-                  {channel.type === 'whatsapp' && (
-                    <>
-                      <p>1. Go to Meta Business Suite: https://business.facebook.com</p>
-                      <p>2. Business Settings → Users → System Users</p>
-                      <p>3. Click "Add", name it "WhatsApp Manager", role: Admin</p>
-                      <p>4. Open the System User → Generate New Token</p>
-                      <p>5. Select your app and grant permissions:</p>
-                      <ul className="list-disc list-inside ml-4 space-y-1">
-                        <li>whatsapp_business_messaging</li>
-                        <li>whatsapp_business_management</li>
-                      </ul>
-                      <p>6. Go to WhatsApp → Getting Started to find your Phone Number ID (Business Manager ID)</p>
-                      <p>7. Paste both values above and click Connect</p>
-                    </>
-                  )}
-                  {channel.type === 'instagram' && (
-                    <>
-                      <p>1. Make sure your Instagram account is a Professional (Business/Creator) account</p>
-                      <p>2. Link your Instagram account to a Facebook Page in Meta Business Suite</p>
-                      <p>3. Business Settings → Users → System Users</p>
-                      <p>4. Click "Add", name it "Instagram Manager", role: Admin</p>
-                      <p>5. Open the System User → Generate New Token</p>
-                      <p>6. Select your app and grant permissions:</p>
-                      <ul className="list-disc list-inside ml-4 space-y-1">
-                        <li>instagram_manage_messages</li>
-                        <li>instagram_basic</li>
-                        <li>pages_manage_metadata</li>
-                      </ul>
-                      <p>7. Paste the token above and click Connect</p>
-                    </>
-                  )}
-                </div>
-              </details>
 
               {/* Automated Features (Collapsible) */}
               <details className="mb-4">
@@ -482,22 +319,6 @@ export default function ChatSettings() {
 
               {/* Actions */}
               <div className="flex gap-2">
-                {channel.status === 'not_connected' && (
-                  <button
-                    onClick={() => handleConnect(channel)}
-                    className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                  >
-                    Connect
-                  </button>
-                )}
-
-                {channel.status === 'connecting' && (
-                  <button disabled className="flex-1 bg-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium cursor-not-allowed flex items-center justify-center">
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Connecting...
-                  </button>
-                )}
-
                 {channel.status === 'connected' && (
                   <>
                     <button
@@ -518,23 +339,6 @@ export default function ChatSettings() {
             </div>
           );
         })}
-      </div>
-
-      {/* Info Section */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start space-x-3">
-        <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-blue-800">
-          <div className="font-semibold mb-2">How this integration works:</div>
-          <ul className="space-y-1 text-blue-700">
-            <li>• Client grants admin access to their Page/WhatsApp/Instagram</li>
-            <li>• You add their assets to your Business Manager</li>
-            <li>• You generate a System User token with the required permissions</li>
-            <li>• Paste the token here to activate webhooks</li>
-          </ul>
-          <p className="mt-2 text-xs text-blue-700">
-            Tokens are sensitive. Store them securely and rotate if compromised.
-          </p>
-        </div>
       </div>
 
       {/* Manage Channel Modal */}
@@ -567,28 +371,21 @@ export default function ChatSettings() {
                     <p className="font-medium text-gray-900">{formatDate(managedChannel.lastSync)}</p>
                   </div>
                   <div>
-                    <span className="text-gray-600">System User Token:</span>
+                    <span className="text-gray-600">সংযোগ:</span>
                     <div className="flex items-center gap-2 mt-1">
                       {managedChannel.hasToken ? (
                         <>
                           <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                          <span className="text-xs text-green-700 font-medium">Token stored securely</span>
+                          <span className="text-xs text-green-700 font-medium">সংযোগ সক্রিয় ও সুরক্ষিত</span>
                         </>
                       ) : (
                         <>
                           <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                          <span className="text-xs text-amber-700">No token — reconnect the channel</span>
+                          <span className="text-xs text-amber-700">সংযোগ নেই — আবার সংযুক্ত করুন</span>
                         </>
                       )}
                     </div>
-                    <p className="mt-1 text-xs text-gray-500">Tokens are encrypted at rest and never returned to the browser. Rotate in Meta Business Suite if compromised.</p>
                   </div>
-                  {managedChannel.businessManagerId && (
-                    <div>
-                      <span className="text-gray-600">Business Manager ID:</span>
-                      <p className="font-medium text-gray-900 mt-1">{managedChannel.businessManagerId}</p>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -660,6 +457,59 @@ export default function ChatSettings() {
                 </div>
               </div>
 
+              {/* Comment-to-DM (Facebook only) */}
+              {managedChannel?.type === 'facebook' && (
+                <div className="border border-blue-100 rounded-xl p-4 bg-blue-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-blue-900 text-sm">Comment-to-DM</h4>
+                      <p className="text-xs text-blue-700 mt-0.5">
+                        Post comment গুলো automatically DM এ convert করুন
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={channelSettings.commentToDmEnabled}
+                        onChange={() => handleSettingsChange('commentToDmEnabled' as any)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-gray-300 peer-checked:bg-blue-600 rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
+                    </label>
+                  </div>
+                  {channelSettings.commentToDmEnabled && (
+                    <div className="space-y-3 mt-3 pt-3 border-t border-blue-200">
+                      <div>
+                        <label className="block text-xs font-medium text-blue-900 mb-1">
+                          Comment এ auto-reply
+                        </label>
+                        <input
+                          type="text"
+                          value={channelSettings.commentToDmAutoReply}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, commentToDmAutoReply: e.target.value }))}
+                          className="w-full text-xs border border-blue-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          placeholder="আমরা আপনাকে DM করেছি! Inbox check করুন 📩"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-blue-900 mb-1">
+                          কোন comment convert করবেন?
+                        </label>
+                        <select
+                          value={channelSettings.commentToDmFilter}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, commentToDmFilter: e.target.value as any }))}
+                          className="w-full text-xs border border-blue-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        >
+                          <option value="all">সব comment</option>
+                          <option value="questions">শুধু প্রশ্ন (? আছে এমন)</option>
+                          <option value="keywords">Keyword match (price, দাম, কত, আছে)</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Permissions & Safety */}
               <div className="bg-gray-50 rounded-lg p-3">
                 <div className="flex items-start space-x-2">
@@ -689,11 +539,7 @@ export default function ChatSettings() {
                 onClick={async () => {
                   if (!managedChannel) return;
                   try {
-                    // Send only the settings payload — never echo back the full channel object,
-                    // which would re-transmit stale or sensitive fields.
-                    await apiClient.updateChannel(managedChannel.id, {
-                      settings: channelSettings,
-                    });
+                    await apiClient.updateChannel(managedChannel.id, { settings: channelSettings });
                     setShowManageModal(false);
                     setShowToast({ type: 'success', message: 'Settings saved successfully!' });
                     loadChannels();
@@ -748,7 +594,6 @@ export default function ChatSettings() {
                   </div>
                 </div>
               </div>
-
               <div className="text-xs text-gray-600 space-y-2">
                 <p className="font-medium text-gray-700">Model Selection Strategy:</p>
                 <ul className="space-y-1 ml-3 list-disc list-inside">
@@ -763,13 +608,13 @@ export default function ChatSettings() {
         )}
       </div>
 
-      {/* Disconnect Confirmation Dialog (M-3) */}
+      {/* Disconnect Confirmation Dialog */}
       {confirmDisconnect && (
         <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 space-y-4">
             <h3 className="font-semibold text-gray-900 text-lg">Disconnect {confirmDisconnect.name}?</h3>
             <p className="text-sm text-gray-600">
-              This will stop all incoming messages and AI replies on this channel. You will need to reconnect with a new token to restore service.
+              This will stop all incoming messages and AI replies on this channel. You can reconnect at any time from the Channels page.
             </p>
             <div className="flex gap-3 justify-end">
               <button

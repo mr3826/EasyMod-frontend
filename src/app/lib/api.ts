@@ -109,7 +109,7 @@ export interface Channel {
   id: string;
   shop_id?: string;
   name?: string;
-  type?: 'facebook' | 'whatsapp' | 'telegram' | 'webchat' | 'instagram';
+  type?: 'facebook' | 'whatsapp' | 'instagram';
   status?: 'active' | 'inactive' | 'error';
   connected?: boolean;
   config?: any; // JSONB field for channel-specific configuration
@@ -122,8 +122,23 @@ export interface Channel {
   channel_type?: string;
 }
 
+// Facebook Page returned during OAuth page picker
+export interface FacebookPage {
+  id: string;
+  name: string;
+  category: string | null;
+  pictureUrl: string | null;
+  instagramAccount: { id: string; name: string; username: string } | null;
+}
+
+// Returned by POST /channel/oauth/callback — page list + opaque server-side token reference
+export interface OAuthCallbackResult {
+  pages: FacebookPage[];
+  tempToken: string;
+}
+
 // All channel types (REST-creatable + channel-only like messenger/instagram)
-export type ChannelType = 'facebook' | 'whatsapp' | 'telegram' | 'webchat' | 'manual' | 'messenger' | 'instagram';
+export type ChannelType = 'facebook' | 'whatsapp' | 'manual' | 'messenger' | 'instagram';
 
 // Customer types (aligned with backend entity)
 export interface Customer {
@@ -332,6 +347,27 @@ export interface Message {
   ai_confidence?: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface ResponseTemplate {
+  id: string;
+  name: string;
+  content: string;
+  variables?: string[];
+  category?: string;
+  is_active?: boolean;
+}
+
+export interface VoiceTranscriptionRequest {
+  messageId: string;
+  audioBase64: string;
+  language?: 'auto' | 'bengali' | 'english' | 'banglish';
+}
+
+export interface VoiceTranscriptionResponse {
+  messageId: string;
+  transcript: string;
+  language: string;
 }
 
 // Meta Integration types
@@ -848,6 +884,21 @@ class ApiClient {
     return response.data.data;
   }
 
+  async initiateOAuth(channelType: 'facebook' | 'instagram' | 'whatsapp'): Promise<{ redirectUrl: string; state: string }> {
+    const response: AxiosResponse<ApiResponse<{ redirectUrl: string; state: string }>> = await this.client.post('/channel/oauth/initiate', { channelType });
+    return response.data.data;
+  }
+
+  async handleOAuthCallback(code: string, state: string, channelType: 'facebook' | 'instagram' | 'whatsapp'): Promise<OAuthCallbackResult> {
+    const response: AxiosResponse<ApiResponse<OAuthCallbackResult>> = await this.client.post('/channel/oauth/callback', { code, state, channelType });
+    return response.data.data;
+  }
+
+  async connectOAuthPage(pageId: string, pageName: string, tempToken: string, channelType: 'facebook' | 'instagram' | 'whatsapp'): Promise<Channel> {
+    const response: AxiosResponse<ApiResponse<Channel>> = await this.client.post('/channel/oauth/connect-page', { pageId, pageName, tempToken, channelType });
+    return response.data.data;
+  }
+
   async disconnectChannel(channelId: string): Promise<Channel> {
     const response: AxiosResponse<ApiResponse<Channel>> = await this.client.post(`/channel/${channelId}/disconnect`);
     return response.data.data;
@@ -981,6 +1032,24 @@ class ApiClient {
     return response.data.data as Message;
   }
 
+  async getResponseTemplates(category?: string): Promise<ResponseTemplate[]> {
+    const query = category ? `?category=${encodeURIComponent(category)}` : '';
+    const response: AxiosResponse<ApiResponse<ResponseTemplate[]>> = await this.client.get(`/templates${query}`);
+    return response.data.data || [];
+  }
+
+  async renderResponseTemplate(templateId: string, variables: Record<string, string>): Promise<string> {
+    const response: AxiosResponse<ApiResponse<{ rendered: string }>> = await this.client.post(`/templates/${templateId}/render`, {
+      variables,
+    });
+    return response.data.data?.rendered || '';
+  }
+
+  async transcribeVoice(payload: VoiceTranscriptionRequest): Promise<VoiceTranscriptionResponse> {
+    const response: AxiosResponse<ApiResponse<VoiceTranscriptionResponse>> = await this.client.post('/voice/transcribe', payload);
+    return response.data.data;
+  }
+
   async updateConversation(conversationId: string, data: { hitl?: boolean; status?: 'active' | 'closed' | 'archived' }): Promise<Conversation> {
     const response: AxiosResponse<ApiResponse<Conversation>> = await this.client.patch(`/conversation/${conversationId}`, data);
     return response.data.data as Conversation;
@@ -1111,6 +1180,7 @@ class ApiClient {
     products_limit: number;
     features?: Record<string, boolean>;
   }): Promise<any> {
+    await this.initCsrfToken();
     const response: AxiosResponse<ApiResponse<any>> = await this.client.put('/subscription/plan', payload);
     return response.data;
   }

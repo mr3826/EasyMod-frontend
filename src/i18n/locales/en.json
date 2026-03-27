@@ -741,42 +741,85 @@
     "statusInactive": "Inactive",
     "statusError": "Error",
     "configure": "Configure",
+    "refreshed": "Channels refreshed",
     "connectModal": {
-      "title": "Connect New Channel",
-      "subtitle": "Choose a platform to connect with your customers",
+      "title": "Connect Channel",
+      "subtitle": "Facebook, Instagram or WhatsApp — choose where your customers come from",
       "steps": {
         "select": "Select",
-        "authorize": "Authorize",
-        "test": "Test",
+        "connect": "Connect",
+        "pageSelect": "Choose Page",
         "complete": "Complete"
       },
+      "back": "Back",
+      "comingSoon": "Coming Soon",
+      "pageSelect": {
+        "title": "Which Page do you want to connect?",
+        "hint": "We found these Pages in your Facebook account",
+        "noPages": "No Pages found. Make sure you manage at least one Facebook Page.",
+        "connectButton_one": "Connect {{count}} Page",
+        "connectButton_other": "Connect {{count}} Pages",
+        "connectButton": "Connect Pages"
+      },
       "channels": {
-        "facebook": { "name": "Facebook Messenger", "desc": "Connect your Facebook Page to receive messages" },
-        "whatsapp": { "name": "WhatsApp Cloud API", "desc": "Integrate WhatsApp Business for customer support" },
-        "telegram": { "name": "Telegram Bot", "desc": "Create a Telegram bot for your business" },
-        "webchat": { "name": "Web Chat Widget", "desc": "Add chat widget to your website" }
+        "facebook": {
+          "name": "Facebook Messenger",
+          "description": "For your Facebook Page — receive DMs and orders",
+          "tagline": "For your Facebook Page"
+        },
+        "instagram": {
+          "name": "Instagram DM",
+          "description": "For your Instagram Shop — take orders from DMs",
+          "tagline": "For your Instagram Shop"
+        },
+        "whatsapp": {
+          "name": "WhatsApp Business",
+          "description": "For your WhatsApp Business — orders directly on WhatsApp",
+          "tagline": "For your WhatsApp Business"
+        }
       },
       "selectButton": "Select",
-      "tokenLabel": "Access Token / API Key",
-      "tokenPlaceholder": "Paste your token here...",
-      "howToGet": "How to get your token:",
-      "instructions": [
-        "Go to {{channel}} Developer Portal",
-        "Create a new app or use existing one",
-        "Generate an access token",
-        "Copy and paste it above"
-      ],
-      "connectButton": "Connect",
-      "testingTitle": "Connecting...",
-      "testingMessage": "Please wait while we verify your credentials",
+      "oauthButton": {
+        "facebook": "Connect with Facebook",
+        "instagram": "Connect with Instagram",
+        "whatsapp": "Connect with WhatsApp"
+      },
+      "oauthHowItWorks": "How this works",
+      "oauthSteps": {
+        "facebook": [
+          "Facebook will ask for your Page permissions",
+          "Select your Facebook Page",
+          "EasyMod connects automatically"
+        ],
+        "instagram": [
+          "Instagram will ask for your account permissions",
+          "Confirm your Business account",
+          "EasyMod connects automatically"
+        ],
+        "whatsapp": [
+          "WhatsApp Business Manager will open",
+          "Select your Business phone number",
+          "EasyMod connects automatically"
+        ]
+      },
+      "oauthPrivacyNote": "We never see your Facebook password",
+      "waitingTitle": {
+        "facebook": "Waiting for Facebook...",
+        "instagram": "Waiting for Instagram...",
+        "whatsapp": "Waiting for WhatsApp..."
+      },
+      "waitingMessage": "Grant permissions on the page, then close the window",
+      "cancelWaiting": "Cancel",
       "successTitle": "Connection Successful!",
-      "successMessage": "Your channel is now active and ready to receive messages",
+      "successMessage": "{{channel}} messages will now appear here",
+      "aiActiveNotice": "AI auto-reply is now active",
       "doneButton": "Done"
     },
     "errors": {
-      "tokenRequired": "Please enter an access token",
-      "connectionFailed": "Connection failed. Check your token.",
-      "loadFailed": "Failed to load channels"
+      "connectionFailed": "Connection failed. Please try again.",
+      "loadFailed": "Failed to load channels",
+      "oauthInitFailed": "Could not start connection. Please try again.",
+      "refreshFailed": "Failed to refresh channels"
     },
     "successToast": "{{channel}} connected successfully!"
   },
@@ -1107,5 +1150,26 @@
     },
     "paid": "Paid",
     "pending": "Pending"
+  },
+  "bd_lite": {
+    "todayQueue": "Today's Queue",
+    "focusAttention": "Focus on what needs attention",
+    "needsReply": "Needs Reply",
+    "pendingPayment": "Pending bKash/Nagad",
+    "toCourier": "To Courier (Pathao/Steadfast)",
+    "actionNeeded": "Action Needed: Potential RTO",
+    "riskCount": "{{count}} Risk",
+    "attemptedDelivery": "Attempted delivery twice",
+    "phoneUnreachable": "Customer phone unreachable",
+    "callHub": "Call Hub",
+    "contactBuyer": "Contact Buyer"
+  },
+  "rto": {
+    "highRisk": "High RTO Risk Detected",
+    "mediumRisk": "Medium Return Risk",
+    "highRiskDetail": "This number has {{count}} failed delivery records in recent network checks. Advance payment recommended.",
+    "mediumRiskDetail": "Buyer address lacks detail. Verify phone number during routing.",
+    "requestAdvance": "Request Partial Advance",
+    "callBuyer": "Call Buyer"
   }
 }

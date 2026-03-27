@@ -7,6 +7,7 @@ const DashboardLayout = lazy(() => import("./components/DashboardLayout"));
 const Dashboard = lazy(() => import("./components/Dashboard"));
 const UnifiedInbox = lazy(() => import("./components/UnifiedInbox"));
 const Channels = lazy(() => import("./components/Channels"));
+const OAuthCallbackPage = lazy(() => import("./components/OAuthCallbackPage"));
 const Products = lazy(() => import("./components/Products"));
 const Orders = lazy(() => import("./components/Orders"));
 const Reports = lazy(() => import("./components/Reports"));
@@ -125,6 +126,7 @@ export const router = createBrowserRouter([
 			{ index: true, Component: withSuspense(Dashboard) },
 			{ path: "inbox", Component: withSuspense(UnifiedInbox) },
 			{ path: "channels", Component: withSuspense(Channels) },
+			{ path: "channels/oauth-callback", Component: withSuspense(OAuthCallbackPage) },
 			{
 				path: "manage-shop",
 				Component: withSuspense(ManageShop),

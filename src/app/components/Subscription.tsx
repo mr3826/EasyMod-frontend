@@ -45,6 +45,23 @@ export default function Subscription() {
     }
   });
 
+  const [billingPeriodStart, setBillingPeriodStart] = useState<string | null>(null);
+
+  // Forecast: days until conversations limit hit at current burn rate
+  const conversationForecastDays = (() => {
+    if (!billingPeriodStart) return null;
+    const { used, limit } = usage.conversations;
+    if (limit < 0 || used === 0) return null;
+    const start = new Date(billingPeriodStart);
+    const now = new Date();
+    const daysElapsed = Math.max(1, (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const burnRate = used / daysElapsed; // conversations/day
+    if (burnRate === 0) return null;
+    const remaining = limit - used;
+    if (remaining <= 0) return 0;
+    return Math.floor(remaining / burnRate);
+  })();
+
   const [usage, setUsage] = useState({
     conversations: {
       used: 0,
@@ -124,6 +141,7 @@ export default function Subscription() {
         }
         setBillingCycle(subscription.billing_cycle === 'yearly' ? 'yearly' : 'monthly');
         setTrialEndsAt(subscription.trial_ends_at || null);
+        setBillingPeriodStart(subscription.current_period_start || subscription.created_at || null);
 
         // Update usage
         setUsage({
@@ -545,6 +563,18 @@ export default function Subscription() {
             <p className="text-xs text-gray-500 mt-3">
               {t('subscription.extraUsageNote')}
             </p>
+          )}
+          {conversationForecastDays !== null && conversationForecastDays <= 7 && usage.conversations.status !== 'exceeded' && (
+            <div className="mt-3 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <TrendingUp className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <p className="text-xs text-amber-800 font-medium">
+                {conversationForecastDays === 0
+                  ? 'আপনি limit এ পৌঁছে গেছেন!'
+                  : `এই হারে চললে ${conversationForecastDays} দিনের মধ্যে limit শেষ হবে।`}
+                {' '}
+                <span className="underline cursor-pointer">Upgrade করুন</span>
+              </p>
+            </div>
           )}
         </div>
 

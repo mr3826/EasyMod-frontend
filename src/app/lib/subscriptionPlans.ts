@@ -50,6 +50,32 @@ export const subscriptionPlans: SubscriptionPlanDefinition[] = [
     ],
   },
   {
+    id: "starter",
+    name: "Starter",
+    description: "নতুন সেলারদের জন্য — RTO Shield সহ Facebook শপ শুরু করুন।",
+    monthlyPrice: 299,
+    yearlyPrice: 2990,
+    limits: {
+      conversations: 300,
+      orders: 150,
+      products: 200,
+    },
+    features: {
+      image_understanding: false,
+      advanced_ai: false,
+      priority_support: false,
+      custom_branding: false,
+    },
+    highlights: [
+      "৩০০ AI কথোপকথন / মাস",
+      "১৫০ অর্ডার / মাস",
+      "RTO Shield সুরক্ষা",
+      "Facebook চ্যানেল",
+      "Banglish AI টোন",
+    ],
+    popular: true,
+  },
+  {
     id: "growth",
     name: "Growth",
     description: "বড় হওয়া শপের জন্য RTO Shield ও Pathao ইন্টিগ্রেশন।",
@@ -73,7 +99,6 @@ export const subscriptionPlans: SubscriptionPlanDefinition[] = [
       "Pathao ডেলিভারি ইন্টিগ্রেশন",
       "ইমেজ আন্ডারস্ট্যান্ডিং",
     ],
-    popular: true,
   },
   {
     id: "pro",

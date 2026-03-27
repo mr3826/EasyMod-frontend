@@ -729,53 +729,96 @@
   "channels": {
     "title": "চ্যানেল",
     "subtitle": "আপনার যোগাযোগের চ্যানেলগুলো পরিচালনা করুন",
-    "connectChannel": "চ্যানেল সংযুক্ত করুন",
+    "connectChannel": "চ্যানেল যোগ করুন",
     "errorTitle": "চ্যানেল লোড করতে সমস্যা",
     "noChannels": "কোনো চ্যানেল সংযুক্ত নেই",
     "noChannelsHint": "কাস্টমারের বার্তা পেতে প্রথম চ্যানেল সংযুক্ত করুন।",
-    "connectFirst": "প্রথম চ্যানেল সংযুক্ত করুন",
+    "connectFirst": "প্রথম চ্যানেল যোগ করুন",
     "messagesToday": "আজকের বার্তা",
     "lastSync": "সর্বশেষ সিঙ্ক",
     "statusActive": "সক্রিয়",
     "statusInactive": "নিষ্ক্রিয়",
     "statusError": "ত্রুটি",
-    "configure": "কনফিগার করুন",
+    "configure": "সেটিংস",
+    "refreshed": "চ্যানেল রিফ্রেশ হয়েছে",
     "connectModal": {
-      "title": "নতুন চ্যানেল সংযুক্ত করুন",
-      "subtitle": "কাস্টমারের সাথে যোগাযোগের প্ল্যাটফর্ম বেছে নিন",
+      "title": "চ্যানেল সংযুক্ত করুন",
+      "subtitle": "Facebook, Instagram বা WhatsApp — কোনটা দিয়ে কাস্টমার আসে সেটা বেছে নিন",
       "steps": {
         "select": "বেছে নিন",
-        "authorize": "অনুমোদন",
-        "test": "পরীক্ষা",
+        "connect": "সংযুক্ত করুন",
+        "pageSelect": "Page বেছে নিন",
         "complete": "সম্পন্ন"
       },
+      "back": "পিছনে",
+      "comingSoon": "শীঘ্রই আসছে",
+      "pageSelect": {
+        "title": "কোন Page সংযুক্ত করতে চান?",
+        "hint": "আপনার Facebook account-এ এই Page গুলো পাওয়া গেছে",
+        "noPages": "কোনো Page পাওয়া যায়নি। অন্তত একটি Facebook Page manage করছেন কিনা নিশ্চিত করুন।",
+        "connectButton_one": "{{count}}টি Page সংযুক্ত করুন",
+        "connectButton_other": "{{count}}টি Page সংযুক্ত করুন",
+        "connectButton": "Page সংযুক্ত করুন"
+      },
       "channels": {
-        "facebook": { "name": "Facebook Messenger", "desc": "বার্তা পেতে আপনার Facebook Page সংযুক্ত করুন" },
-        "whatsapp": { "name": "WhatsApp Cloud API", "desc": "কাস্টমার সাপোর্টের জন্য WhatsApp Business সংযুক্ত করুন" },
-        "telegram": { "name": "Telegram Bot", "desc": "আপনার ব্যবসার জন্য Telegram Bot তৈরি করুন" },
-        "webchat": { "name": "Web Chat Widget", "desc": "আপনার ওয়েবসাইটে চ্যাট উইজেট যোগ করুন" }
+        "facebook": {
+          "name": "Facebook Messenger",
+          "description": "Facebook Page এর জন্য — কাস্টমারের DM ও Order নিন",
+          "tagline": "Facebook Page এর জন্য"
+        },
+        "instagram": {
+          "name": "Instagram DM",
+          "description": "Instagram Shop এর জন্য — DM থেকে Order নিন",
+          "tagline": "Instagram Shop এর জন্য"
+        },
+        "whatsapp": {
+          "name": "WhatsApp Business",
+          "description": "WhatsApp Business এর জন্য — সরাসরি WhatsApp-এ অর্ডার",
+          "tagline": "WhatsApp Business এর জন্য"
+        }
       },
       "selectButton": "বেছে নিন",
-      "tokenLabel": "এক্সেস টোকেন / API Key",
-      "tokenPlaceholder": "আপনার টোকেন এখানে পেস্ট করুন...",
-      "howToGet": "টোকেন কীভাবে পাবেন:",
-      "instructions": [
-        "{{channel}} Developer Portal-এ যান",
-        "নতুন অ্যাপ তৈরি করুন বা বিদ্যমান ব্যবহার করুন",
-        "একটি এক্সেস টোকেন তৈরি করুন",
-        "উপরে কপি ও পেস্ট করুন"
-      ],
-      "connectButton": "সংযুক্ত করুন",
-      "testingTitle": "সংযুক্ত হচ্ছে...",
-      "testingMessage": "আপনার ক্রেডেনশিয়াল যাচাই করা হচ্ছে",
-      "successTitle": "সংযোগ সফল!",
-      "successMessage": "আপনার চ্যানেল এখন সক্রিয় এবং বার্তা পাওয়ার জন্য প্রস্তুত",
+      "oauthButton": {
+        "facebook": "Facebook দিয়ে সংযুক্ত করুন",
+        "instagram": "Instagram দিয়ে সংযুক্ত করুন",
+        "whatsapp": "WhatsApp দিয়ে সংযুক্ত করুন"
+      },
+      "oauthHowItWorks": "এটি কীভাবে কাজ করে",
+      "oauthSteps": {
+        "facebook": [
+          "Facebook আপনার Page-এর permission চাইবে",
+          "আপনার Page বেছে নিন",
+          "EasyMod automatically সংযুক্ত হবে"
+        ],
+        "instagram": [
+          "Instagram আপনার account-এর permission চাইবে",
+          "আপনার Business account confirm করুন",
+          "EasyMod automatically সংযুক্ত হবে"
+        ],
+        "whatsapp": [
+          "WhatsApp Business Manager খুলবে",
+          "আপনার Business number বেছে নিন",
+          "EasyMod automatically সংযুক্ত হবে"
+        ]
+      },
+      "oauthPrivacyNote": "আপনার Facebook password আমরা কখনো দেখি না",
+      "waitingTitle": {
+        "facebook": "Facebook-এ অপেক্ষা করছি...",
+        "instagram": "Instagram-এ অপেক্ষা করছি...",
+        "whatsapp": "WhatsApp-এ অপেক্ষা করছি..."
+      },
+      "waitingMessage": "Permission দিয়ে window বন্ধ করুন",
+      "cancelWaiting": "বাতিল করুন",
+      "successTitle": "সংযোগ সফল হয়েছে!",
+      "successMessage": "এখন থেকে {{channel}} বার্তাগুলো এখানে আসবে",
+      "aiActiveNotice": "AI auto-reply এখন সক্রিয়",
       "doneButton": "সম্পন্ন"
     },
     "errors": {
-      "tokenRequired": "একটি এক্সেস টোকেন লিখুন",
-      "connectionFailed": "সংযোগ ব্যর্থ। আপনার টোকেন যাচাই করুন।",
-      "loadFailed": "চ্যানেল লোড করতে ব্যর্থ"
+      "connectionFailed": "সংযোগ ব্যর্থ। আবার চেষ্টা করুন।",
+      "loadFailed": "চ্যানেল লোড করতে ব্যর্থ",
+      "oauthInitFailed": "সংযোগ শুরু করা যায়নি। আবার চেষ্টা করুন।",
+      "refreshFailed": "চ্যানেল রিফ্রেশ করতে ব্যর্থ"
     },
     "successToast": "{{channel}} সফলভাবে সংযুক্ত হয়েছে!"
   },
@@ -1106,5 +1149,26 @@
     },
     "paid": "পরিশোধিত",
     "pending": "অপেক্ষমান"
+  },
+  "bd_lite": {
+    "todayQueue": "আজকের কাজ",
+    "focusAttention": "যেগুলোতে মনোযোগ দেওয়া দরকার",
+    "needsReply": "Reply দিতে হবে",
+    "pendingPayment": "bKash/Nagad বাকি",
+    "toCourier": "Courier এ দিতে হবে",
+    "actionNeeded": "সতর্কতা: RTO ঝুঁকি আছে",
+    "riskCount": "{{count}} ঝুঁকি",
+    "attemptedDelivery": "দুইবার delivery করতে গিয়ে ব্যর্থ",
+    "phoneUnreachable": "Customer এর phone পাওয়া যাচ্ছে না",
+    "callHub": "Hub কে Call করুন",
+    "contactBuyer": "Buyer এর সাথে যোগাযোগ করুন"
+  },
+  "rto": {
+    "highRisk": "উচ্চ RTO ঝুঁকি",
+    "mediumRisk": "মধ্যম ফেরত ঝুঁকি",
+    "highRiskDetail": "এই নম্বরে সম্প্রতি {{count}} বার delivery ব্যর্থ হয়েছে। Advance payment নেওয়া উচিত।",
+    "mediumRiskDetail": "Buyer এর ঠিকানায় বিস্তারিত কম। Delivery তে পাঠানোর আগে phone verify করুন।",
+    "requestAdvance": "Advance Payment চাইন",
+    "callBuyer": "Buyer কে Call করুন"
   }
 }
