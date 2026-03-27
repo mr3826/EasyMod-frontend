@@ -45,19 +45,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Retrieve secrets from AWS Secrets Manager
+      - name: Set build environment variables
         run: |
-          # Get all secrets for Easy Moderator (stored in ap-south-1)
-          SECRETS_JSON=$(aws secretsmanager get-secret-value \
-            --secret-id "easymoderator/production" \
-            --region ap-south-1 \
-            --query SecretString \
-            --output text)
-          
-          # Export secrets as environment variables
-          echo "VITE_API_BASE_URL=$(echo $SECRETS_JSON | jq -r '.VITE_API_BASE_URL')" >> $GITHUB_ENV
-          echo "VITE_META_APP_ID=$(echo $SECRETS_JSON | jq -r '.VITE_META_APP_ID')" >> $GITHUB_ENV
-          echo "AMPLIFY_APP_ID=$(echo $SECRETS_JSON | jq -r '.AMPLIFY_APP_ID')" >> $GITHUB_ENV
+          # VITE vars are non-secret and committed in .env.production
+          echo "VITE_API_BASE_URL=https://api.easymod.tech" >> $GITHUB_ENV
+          echo "VITE_META_APP_ID=1609451646619088" >> $GITHUB_ENV
+          # AMPLIFY_APP_ID comes from GitHub Actions secret
+          echo "AMPLIFY_APP_ID=${{ secrets.AMPLIFY_APP_ID }}" >> $GITHUB_ENV
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
