@@ -53,6 +53,13 @@ jobs:
           # AMPLIFY_APP_ID comes from GitHub Actions secret
           echo "AMPLIFY_APP_ID=${{ secrets.AMPLIFY_APP_ID }}" >> $GITHUB_ENV
 
+      - name: Preflight Amplify access
+        env:
+          AMPLIFY_APP_ID: ${{ env.AMPLIFY_APP_ID }}
+        run: |
+          set -euo pipefail
+          aws amplify get-app --app-id "$AMPLIFY_APP_ID" --region us-east-1 >/dev/null
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -82,21 +89,48 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
           AMPLIFY_APP_ID: ${{ env.AMPLIFY_APP_ID }}
         run: |
-          DEPLOYMENT=$(aws amplify create-deployment \
-            --app-id "$AMPLIFY_APP_ID" \
-            --branch-name main \
-            --output json)
+          set -euo pipefail
+
+          create_deployment() {
+            aws amplify create-deployment \
+              --app-id "$AMPLIFY_APP_ID" \
+              --branch-name main \
+              --output json
+          }
+
+          for attempt in 1 2 3; do
+            if DEPLOYMENT=$(create_deployment); then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "ERROR: amplify create-deployment failed after 3 attempts"
+              echo "Ensure IAM policy allows amplify:CreateDeployment and amplify:StartDeployment on app/branch resources"
+              exit 1
+            fi
+            echo "Create deployment failed (attempt $attempt). Retrying in 10s..."
+            sleep 10
+          done
 
           JOB_ID=$(echo "$DEPLOYMENT" | jq -r '.jobId')
           UPLOAD_URL=$(echo "$DEPLOYMENT" | jq -r '.zipUploadUrl')
 
           echo "Uploading build artifact..."
-          curl -T dist.zip "$UPLOAD_URL"
+          curl --fail --show-error --silent -T dist.zip "$UPLOAD_URL"
 
           echo "Starting deployment (Job ID: $JOB_ID)..."
-          aws amplify start-deployment \
-            --app-id "$AMPLIFY_APP_ID" \
-            --branch-name main \
-            --job-id "$JOB_ID"
+          for attempt in 1 2 3; do
+            if aws amplify start-deployment \
+              --app-id "$AMPLIFY_APP_ID" \
+              --branch-name main \
+              --job-id "$JOB_ID"; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "ERROR: amplify start-deployment failed after 3 attempts"
+              exit 1
+            fi
+            echo "Start deployment failed (attempt $attempt). Retrying in 10s..."
+            sleep 10
+          done
 
           echo "Deployment triggered successfully."
