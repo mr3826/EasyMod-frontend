@@ -12,36 +12,33 @@ vi.mock('react-router-dom', async (importOriginal) => {
   }
 })
 
-// Mock the API client
 vi.mock('@/app/lib/api', () => ({
   apiClient: {
     getDashboardMetrics: vi.fn().mockResolvedValue({
-      metrics: {
-        totalMessages: 100,
-        activeProducts: 50,
-        ordersToday: 10,
-        conversionRate: 5.0,
-        weeklyChange: 2.5
-      },
-      channels: {
-        active: 3,
-        total: 5
-      },
-      chartData: []
-    })
+      analytics: { llm_calls: 42 }
+    }),
+    getDashboardQueue: vi.fn().mockResolvedValue({
+      unread_count: 3,
+      at_risk_orders: []
+    }),
+    getOrders: vi.fn().mockResolvedValue([
+      { id: 'o1', total: 500, status: 'confirmed', items: [{ name: 'Item A', quantity: 1 }] },
+      { id: 'o2', total: 300, status: 'processing', items: [{ name: 'Item B', quantity: 2 }] },
+    ]),
   }
 }))
 
 describe('Dashboard', () => {
-  it('renders dashboard with metrics', async () => {
+  it('renders dashboard with pulse data', async () => {
     render(<Dashboard />)
 
+    // Wait for async data load — heading is always present after load
     await waitFor(() => {
-      expect(screen.getByText('Channel Status')).toBeInTheDocument()
+      expect(screen.getByText('আজকের অবস্থা')).toBeInTheDocument()
     })
 
-    // Check if metrics are displayed
-    expect(screen.getByText('100')).toBeInTheDocument() // totalMessages
-    expect(screen.getByText('50')).toBeInTheDocument() // activeProducts
+    // Stat cards rendered
+    expect(screen.getByText('আজকের বিক্রি')).toBeInTheDocument()
+    expect(screen.getByText('নিশ্চিত হয়েছে')).toBeInTheDocument()
   })
 })

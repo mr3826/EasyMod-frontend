@@ -91,6 +91,32 @@ export default function Dashboard() {
     return () => window.clearInterval(timer);
   }, []);
 
+  const cards = useMemo(() => {
+    if (!pulseData) {
+      return [];
+    }
+    return [
+      {
+        label: "আজকের বিক্রি",
+        value: formatCurrency(pulseData.todaySales),
+        icon: Wallet,
+        className: "bg-white border border-[#E0E0E0]",
+      },
+      {
+        label: "নিশ্চিত হয়েছে",
+        value: `${pulseData.confirmedOrders} টি অর্ডার`,
+        icon: CheckCircle2,
+        className: "bg-white border border-[#E0E0E0]",
+      },
+      {
+        label: "উত্তর দেওয়া হয়নি",
+        value: `${pulseData.missedReplies} টি মিস`,
+        icon: Clock4,
+        className: "bg-red-50 border border-red-200",
+      },
+    ];
+  }, [pulseData]);
+
   if (isLoading) {
     return (
       <div className="min-h-full bg-[#F8F9FA] p-4 md:p-6">
@@ -123,32 +149,6 @@ export default function Dashboard() {
       </div>
     );
   }
-
-  const cards = useMemo(() => {
-    if (!pulseData) {
-      return [];
-    }
-    return [
-      {
-        label: "আজকের বিক্রি",
-        value: formatCurrency(pulseData.todaySales),
-        icon: Wallet,
-        className: "bg-white border border-[#E0E0E0]",
-      },
-      {
-        label: "নিশ্চিত হয়েছে",
-        value: `${pulseData.confirmedOrders} টি অর্ডার`,
-        icon: CheckCircle2,
-        className: "bg-white border border-[#E0E0E0]",
-      },
-      {
-        label: "উত্তর দেওয়া হয়নি",
-        value: `${pulseData.missedReplies} টি মিস`,
-        icon: Clock4,
-        className: "bg-red-50 border border-red-200",
-      },
-    ];
-  }, [pulseData]);
 
   if (!pulseData) {
     return null;
