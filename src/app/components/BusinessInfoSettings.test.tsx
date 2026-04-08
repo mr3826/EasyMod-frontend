@@ -67,6 +67,7 @@ vi.mock('@/app/lib/api', () => ({
     getShopAISettings:      mockGetShopAISettings,
     updateShopBusinessInfo: mockUpdateShopBusinessInfo,
     updateShopAISettings:   mockUpdateShopAISettings,
+    getAutomationSettings:  vi.fn().mockResolvedValue({ data: null }),
   },
 }));
 
