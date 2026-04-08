@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import UnifiedInbox from '@/app/components/UnifiedInbox'
 import { apiClient } from '@/app/lib/api'
 import { toast } from 'sonner'
@@ -82,7 +83,7 @@ describe('UnifiedInbox 24h window behavior', () => {
       pagination: { page: 1, totalPages: 1 }
     })
 
-    render(<UnifiedInbox />)
+    render(<MemoryRouter><UnifiedInbox /></MemoryRouter>)
 
     await waitFor(() => {
       expect(screen.getByText(/24-hour messaging window closing soon/i)).toBeInTheDocument()
@@ -101,7 +102,7 @@ describe('UnifiedInbox 24h window behavior', () => {
       pagination: { page: 1, totalPages: 1 }
     })
 
-    render(<UnifiedInbox />)
+    render(<MemoryRouter><UnifiedInbox /></MemoryRouter>)
 
     await waitFor(() => {
       expect(screen.getByText(/Messaging window expired/i)).toBeInTheDocument()
@@ -132,7 +133,7 @@ describe('UnifiedInbox 24h window behavior', () => {
       pagination: { page: 1, totalPages: 1 }
     })
 
-    render(<UnifiedInbox />)
+    render(<MemoryRouter><UnifiedInbox /></MemoryRouter>)
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /Unified Inbox/i })).toBeInTheDocument()
@@ -157,7 +158,7 @@ describe('UnifiedInbox 24h window behavior', () => {
       pagination: { page: 1, totalPages: 1 }
     })
 
-    render(<UnifiedInbox />)
+    render(<MemoryRouter><UnifiedInbox /></MemoryRouter>)
 
     await waitFor(() => {
       expect(screen.getByText(/Messaging window expired/i)).toBeInTheDocument()
@@ -221,7 +222,7 @@ describe('UnifiedInbox 24h window behavior', () => {
       pagination: { page: 1, totalPages: 1 }
     })
 
-    render(<UnifiedInbox />)
+    render(<MemoryRouter><UnifiedInbox /></MemoryRouter>)
 
     await waitFor(() => {
       expect(screen.getByText(/AI Suggestion/i)).toBeInTheDocument()

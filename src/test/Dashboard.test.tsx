@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import Dashboard from '@/app/components/Dashboard'
 
 // Mock the API client
@@ -24,7 +25,7 @@ vi.mock('@/app/lib/api', () => ({
 
 describe('Dashboard', () => {
   it('renders dashboard with metrics', async () => {
-    render(<Dashboard />)
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
 
     await waitFor(() => {
       expect(screen.getByText('Channel Status')).toBeInTheDocument()

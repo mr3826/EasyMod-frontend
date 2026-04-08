@@ -179,8 +179,9 @@ describe('BusinessInfoSettings', () => {
 
     await waitFor(() => {
       // automation mode select or label should be visible
-      const automationLabel = screen.queryByText(/automation/i) || screen.queryByText(/AI/i);
-      expect(automationLabel).toBeTruthy();
+      const automationLabels = screen.queryAllByText(/automation/i);
+      const aiLabels = screen.queryAllByText(/AI/i);
+      expect(automationLabels.length > 0 || aiLabels.length > 0).toBe(true);
     });
   });
 
