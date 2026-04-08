@@ -1,9 +1,10 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import {
+  Home, MessageCircle, Grid3X3, ShoppingBag,
   LayoutDashboard, MessageSquare, Package, ShoppingCart, BarChart3,
-  Brain, Target, FolderTree, Store, Check, Plus, LogOut, ChevronUp,
+  Brain, Target, FolderTree, Store, Check, Plus, LogOut,
   X, AlertCircle, CreditCard, Bell, ChevronLeft, ChevronRight, Menu,
-  ChevronDown, User,
+  ChevronDown, User, Megaphone, Shield,
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -29,16 +30,11 @@ export default function DashboardLayout() {
   const { t } = useTranslation();
 
   const navigation = [
-    { name: t('dashboard.nav.dashboard'),    path: appBasePath,                       icon: LayoutDashboard },
-    { name: t('dashboard.nav.inbox'),        path: `${appBasePath}/inbox`,            icon: MessageSquare },
-    { name: t('dashboard.nav.products'),     path: `${appBasePath}/products`,         icon: Package },
-    { name: t('dashboard.nav.categories'),   path: `${appBasePath}/categories`,       icon: FolderTree },
-    { name: t('dashboard.nav.orders'),       path: `${appBasePath}/orders`,           icon: ShoppingCart },
-    { name: t('dashboard.nav.customer'),     path: `${appBasePath}/customers`,        icon: Target },
-    { name: t('dashboard.nav.manageShop'),   path: `${appBasePath}/manage-shop`,      icon: Store },
-    { name: t('dashboard.nav.aiKnowledge'),  path: `${appBasePath}/knowledge`,        icon: Brain },
-    { name: t('dashboard.nav.reports'),      path: `${appBasePath}/reports`,          icon: BarChart3 },
-    { name: t('dashboard.nav.subscription'), path: `${appBasePath}/subscription`,     icon: CreditCard },
+    { name: 'আজকের অবস্থা', path: appBasePath, icon: Home },
+    { name: 'অর্ডারসমূহ', path: `${appBasePath}/orders`, icon: ShoppingBag },
+    { name: 'বার্তা', path: `${appBasePath}/inbox`, icon: MessageCircle },
+    { name: 'পণ্যসমূহ', path: `${appBasePath}/products`, icon: Grid3X3 },
+    { name: 'সেটিংস', path: `${appBasePath}/manage-shop`, icon: Store },
   ];
 
   const [collapsed, setCollapsed] = useState(false);
@@ -121,15 +117,15 @@ export default function DashboardLayout() {
     navigate('/signin');
   };
 
-  const sidebarW = collapsed ? 'w-16' : 'w-64';
-  const mainML   = collapsed ? 'ml-16' : 'ml-64';
+  const sidebarW = collapsed ? 'md:w-16' : 'md:w-64';
+  const mainML = collapsed ? 'md:ml-16' : 'md:ml-64';
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
 
       {/* ─── Sidebar ─────────────────────────────────────────────────── */}
       <aside
-        className={`${sidebarW} bg-white border-r border-gray-200 fixed inset-y-0 left-0 flex flex-col transition-all duration-200 z-30`}
+        className={`${sidebarW} hidden md:flex bg-white border-r border-gray-200 fixed inset-y-0 left-0 flex-col transition-all duration-200 z-30`}
       >
         {/* Logo */}
         <div className="h-14 flex items-center px-4 border-b border-gray-100 shrink-0">
@@ -304,10 +300,35 @@ export default function DashboardLayout() {
         </header>
 
         {/* ─── Page content ──────────────────────────────────────────── */}
-        <main className="flex-1">
+        <main className="flex-1 pb-20 md:pb-0">
           <Outlet />
         </main>
       </div>
+
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2">
+        <ul className="grid grid-cols-5 gap-1">
+          {navigation.map((item) => {
+            const Icon = item.icon;
+            const isActive =
+              location.pathname === item.path ||
+              (item.path !== appBasePath && location.pathname.startsWith(item.path));
+
+            return (
+              <li key={`mobile-${item.path}`}>
+                <Link
+                  to={item.path}
+                  className={`flex min-h-12 flex-col items-center justify-center rounded-lg px-1 text-[11px] font-semibold transition-colors ${
+                    isActive ? 'bg-green-50 text-green-700' : 'text-gray-600'
+                  }`}
+                >
+                  <Icon className="mb-1 h-4 w-4" />
+                  <span className="leading-none">{item.name}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
 
       {/* ─── Create Shop Modal ─────────────────────────────────────── */}
       {showCreateShopPopup && (

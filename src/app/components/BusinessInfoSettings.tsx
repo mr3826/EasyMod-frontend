@@ -124,7 +124,12 @@ export default function BusinessInfoSettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingInfo, setIsSavingInfo] = useState(false);
   const [isSavingAI, setIsSavingAI] = useState(false);
+  const [isSavingAutomation, setIsSavingAutomation] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Automation (n8n) settings
+  const [automationSettings, setAutomationSettings] = useState({ workflow_webhook_url: '', workflow_webhook_secret: '' });
+  const [automationNotice, setAutomationNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // Notices
   const [infoNotice, setInfoNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -155,9 +160,10 @@ export default function BusinessInfoSettings() {
       try {
         setIsLoading(true);
         setLoadError(null);
-        const [infoData, aiData] = await Promise.all([
+        const [infoData, aiData, automationData] = await Promise.all([
           apiClient.getShopBusinessInfo(),
           apiClient.getShopAISettings(),
+          apiClient.getAutomationSettings().catch(() => ({ data: null })),
         ]);
         if (!cancelled) {
           const bi = normalizeBusinessInfo(infoData.businessInfo);
@@ -166,6 +172,12 @@ export default function BusinessInfoSettings() {
           setSavedBusinessInfo(bi);
           setAISettings(ai);
           setSavedAISettings(ai);
+          if (automationData?.data) {
+            setAutomationSettings({
+              workflow_webhook_url: automationData.data.workflow_webhook_url || '',
+              workflow_webhook_secret: ''
+            });
+          }
         }
       } catch (error: any) {
         if (!cancelled) {
@@ -316,31 +328,63 @@ export default function BusinessInfoSettings() {
 
         <div className="space-y-6">
 
-          {/* Row: automation mode + language */}
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Automation Mode</label>
-              <select
-                value={aiSettings.automation_mode}
-                onChange={(e) => setAISettings({ ...aiSettings, automation_mode: e.target.value as ShopAISettings['automation_mode'] })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="AUTO">Auto — send replies automatically</option>
-                <option value="DRAFT">Draft — queue replies for review</option>
-                <option value="MANUAL">Manual — AI off, human replies only</option>
-              </select>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">বট কিভাবে কাজ করবে?</label>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              {([
+                {
+                  mode: 'AUTO' as const,
+                  title: '🤖 সম্পূর্ণ অটো',
+                  desc: 'বট নিজেই রিপ্লাই পাঠাবে',
+                },
+                {
+                  mode: 'DRAFT' as const,
+                  title: '👁️ দেখে পাঠান (Draft)',
+                  desc: 'পাঠানোর আগে আপনাকে দেখাবে',
+                },
+                {
+                  mode: 'MANUAL' as const,
+                  title: '✋ আমিই পাঠাব',
+                  desc: 'বট নিজে থেকে কিছু পাঠাবে না',
+                },
+              ]).map((option) => {
+                const active = aiSettings.automation_mode === option.mode;
+                return (
+                  <button
+                    key={option.mode}
+                    type="button"
+                    onClick={() => setAISettings({ ...aiSettings, automation_mode: option.mode })}
+                    className={`min-h-24 rounded-xl border p-4 text-left transition-colors ${
+                      active ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <p className="mb-1 text-sm font-bold text-gray-900">{option.title}</p>
+                    <p className="text-xs text-gray-600">{option.desc}</p>
+                  </button>
+                );
+              })}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Primary Language</label>
-              <select
-                value={aiSettings.primary_language}
-                onChange={(e) => setAISettings({ ...aiSettings, primary_language: e.target.value as ShopAISettings['primary_language'] })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="mixed">Mixed (Bangla + English)</option>
-                <option value="bn">Bangla only</option>
-                <option value="en">English only</option>
-              </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">বট কিভাবে কথা বলবে?</label>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {([
+                { value: 'mixed' as const, label: 'বন্ধুত্বপূর্ণ বাংলিশ (ডিফল্ট)' },
+                { value: 'bn' as const, label: 'সাধারণ বাংলা' },
+                { value: 'en' as const, label: 'ইংরেজি' },
+              ]).map((lang) => (
+                <button
+                  key={lang.value}
+                  type="button"
+                  onClick={() => setAISettings({ ...aiSettings, primary_language: lang.value })}
+                  className={`min-h-12 rounded-lg border px-3 text-sm font-medium ${
+                    aiSettings.primary_language === lang.value ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-700'
+                  }`}
+                >
+                  {lang.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -348,9 +392,9 @@ export default function BusinessInfoSettings() {
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Confidence Threshold — <span className="font-semibold text-blue-700">{aiSettings.confidence_threshold}%</span>
+                বট কতটা নিশ্চিত হলে নিজে উত্তর পাঠাবে? <span className="font-semibold text-blue-700">{aiSettings.confidence_threshold}%</span>
               </label>
-              <p className="text-xs text-gray-500 mb-2">AI only auto-replies when confidence is above this level.</p>
+              <p className="text-xs text-gray-500 mb-2">আরও সতর্ক ◀━━━●━━━▶ আরও স্বাধীন</p>
               <input
                 type="range"
                 min={0}
@@ -361,7 +405,7 @@ export default function BusinessInfoSettings() {
                 className="w-full accent-blue-600"
               />
               <div className="flex justify-between text-xs text-gray-400 mt-1">
-                <span>0% (all)</span><span>50%</span><span>100% (strict)</span>
+                <span>সতর্ক</span><span>মাঝামাঝি</span><span>স্বাধীন</span>
               </div>
             </div>
             <div>
@@ -483,6 +527,67 @@ export default function BusinessInfoSettings() {
         >
           {isSavingAI ? "Saving…" : "Save AI Settings"}
         </button>
+      </section>
+
+      {/* Automation / n8n Integration */}
+      <section>
+        <div className="flex items-center gap-2 mb-1">
+          <h2 className="text-base font-semibold text-gray-900">Automation Webhook</h2>
+          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">n8n / Make.com</span>
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Connect your n8n workflow at <strong>n8n.hexabyte.tech</strong> to receive message events and trigger BD F-commerce automations (order notifications, Google Sheets sync, etc).
+        </p>
+        {automationNotice && (
+          <div className={`mb-3 px-3 py-2 rounded text-sm ${automationNotice.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+            {automationNotice.message}
+          </div>
+        )}
+        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">n8n Webhook URL</label>
+            <input
+              type="url"
+              value={automationSettings.workflow_webhook_url}
+              onChange={(e) => setAutomationSettings(s => ({ ...s, workflow_webhook_url: e.target.value }))}
+              placeholder="https://n8n.hexabyte.tech/webhook/xxxxxxxx"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+            />
+            <p className="text-xs text-gray-400 mt-1">Paste the Webhook Trigger URL from your n8n workflow here.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Webhook Secret (optional)</label>
+            <input
+              type="password"
+              value={automationSettings.workflow_webhook_secret}
+              onChange={(e) => setAutomationSettings(s => ({ ...s, workflow_webhook_secret: e.target.value }))}
+              placeholder="Leave blank to keep existing secret"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+            />
+            <p className="text-xs text-gray-400 mt-1">Sent as <code>X-Internal-Webhook-Secret</code> header — set the same value in your n8n workflow.</p>
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                setIsSavingAutomation(true);
+                const payload: any = { workflow_webhook_url: automationSettings.workflow_webhook_url };
+                if (automationSettings.workflow_webhook_secret) payload.workflow_webhook_secret = automationSettings.workflow_webhook_secret;
+                await apiClient.updateAutomationSettings(payload);
+                setAutomationSettings(s => ({ ...s, workflow_webhook_secret: '' }));
+                setAutomationNotice({ type: "success", message: "Automation settings saved." });
+                setTimeout(() => setAutomationNotice(null), 3000);
+              } catch (err: any) {
+                setAutomationNotice({ type: "error", message: err?.response?.data?.error?.message || "Failed to save automation settings." });
+              } finally {
+                setIsSavingAutomation(false);
+              }
+            }}
+            disabled={isSavingAutomation}
+            className="px-5 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            {isSavingAutomation ? "Saving…" : "Save Automation Settings"}
+          </button>
+        </div>
       </section>
     </div>
   );

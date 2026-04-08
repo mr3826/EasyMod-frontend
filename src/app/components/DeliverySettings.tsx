@@ -7,7 +7,8 @@ import {
   DeliveryProviderStatus, 
   DeliveryShopSettings,
   PathaoCredentials, 
-  SteadfastCredentials 
+  SteadfastCredentials,
+  RedxCredentials
 } from '../lib/api';
 
 interface ProviderConfig {
@@ -16,7 +17,7 @@ interface ProviderConfig {
   description: string;
   logo: string;
   fields: {
-    name: keyof PathaoCredentials | keyof SteadfastCredentials;
+    name: keyof PathaoCredentials | keyof SteadfastCredentials | keyof RedxCredentials;
     label: string;
     type: 'text' | 'password' | 'email';
     placeholder: string;
@@ -79,6 +80,21 @@ const PROVIDER_CONFIGS: ProviderConfig[] = [
         label: 'Secret Key',
         type: 'password',
         placeholder: 'Enter your Steadfast Secret Key',
+        required: true
+      }
+    ]
+  },
+  {
+    provider: 'redx',
+    display_name: 'RedX Courier',
+    description: 'Nationwide delivery support with RedX tracking',
+    logo: '📍',
+    fields: [
+      {
+        name: 'api_key',
+        label: 'API Key',
+        type: 'password',
+        placeholder: 'Enter your RedX API Key',
         required: true
       }
     ]

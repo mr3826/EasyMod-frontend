@@ -48,7 +48,7 @@ export function withRouteGuard(
       requiredRole,
       requiredAction,
       requiredResource,
-      redirectTo = '/dashboard',
+      redirectTo = '/app',
     } = options;
 
     // Still loading auth
@@ -58,7 +58,7 @@ export function withRouteGuard(
 
     // Not authenticated
     if (!user) {
-      navigate('/login');
+      navigate('/signin');
       return null;
     }
 
@@ -96,7 +96,7 @@ export function withRouteGuard(
  */
 export function AdminRoute({
   children,
-  redirectTo = '/dashboard',
+  redirectTo = '/app',
 }: {
   children: ReactNode;
   redirectTo?: string;
@@ -110,7 +110,7 @@ export function AdminRoute({
   }
 
   if (!user) {
-    navigate('/login');
+    navigate('/signin');
     return null;
   }
 
@@ -127,7 +127,7 @@ export function AdminRoute({
  */
 export function ModeratorRoute({
   children,
-  redirectTo = '/dashboard',
+  redirectTo = '/app',
 }: {
   children: ReactNode;
   redirectTo?: string;
@@ -141,7 +141,7 @@ export function ModeratorRoute({
   }
 
   if (!user) {
-    navigate('/login');
+    navigate('/signin');
     return null;
   }
 
@@ -160,7 +160,7 @@ export function PermissionRoute({
   action,
   resource,
   children,
-  redirectTo = '/dashboard',
+  redirectTo = '/app',
 }: {
   action: string;
   resource: string;
@@ -176,7 +176,7 @@ export function PermissionRoute({
   }
 
   if (!user) {
-    navigate('/login');
+    navigate('/signin');
     return null;
   }
 
@@ -212,7 +212,7 @@ function UnauthorizedScreen() {
         <p className="text-xl text-gray-600 mb-6">Unauthorized</p>
         <p className="text-gray-500 mb-8">You don't have permission to access this page.</p>
         <button
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate('/app')}
           className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           Back to Dashboard

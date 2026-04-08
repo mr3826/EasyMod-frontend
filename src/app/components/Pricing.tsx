@@ -153,17 +153,16 @@ export default function Pricing() {
         {/* Hero */}
         <div className="text-center mb-14">
           <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
-            Simple, honest pricing
+            মসৃণ ও সৎ মূল্য নির্ধারণ
           </h1>
           <p className="text-lg text-gray-500 max-w-xl mx-auto">
-            Pay only for what you use. No hidden fees. Cancel anytime.
-            All plans include AI-powered WhatsApp, Facebook, and Instagram automation.
+            আপনার ব্যবসার আকার অনুযায়ী পরিকল্পনা বেছে নিন। কোনো লুকানো ফি নেই। Growth প্লানে অতিরিক্ত চ্যানেল ৳200/মাস। Partner প্লানে শুধুমাত্র ডেলিভারি অর্ডারে চার্জ।
           </p>
         </div>
 
         {/* Plan cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-16">
-          {subscriptionPlans.map((plan) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-16">
+          {subscriptionPlans.filter(p => p.id !== 'free').map((plan) => (
             <PlanCard
               key={plan.id}
               plan={plan}
@@ -182,7 +181,7 @@ export default function Pricing() {
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left p-4 text-sm font-semibold text-gray-600 w-48">Feature</th>
-                  {subscriptionPlans.map((p) => (
+                  {subscriptionPlans.filter(p => p.id !== 'free').map((p) => (
                     <th key={p.id} className="text-center p-4 text-sm font-semibold text-gray-900">
                       {p.name}
                     </th>
@@ -193,7 +192,7 @@ export default function Pricing() {
                 {FEATURE_ROWS.map(({ label, key }) => (
                   <tr key={key} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                     <td className="p-4 text-sm text-gray-700">{label}</td>
-                    {subscriptionPlans.map((p) => (
+                    {subscriptionPlans.filter(p => p.id !== 'free').map((p) => (
                       <td key={p.id} className="p-4 text-center">
                         {p.features[key] ? (
                           <Check className="w-5 h-5 text-green-600 mx-auto" />
@@ -205,11 +204,12 @@ export default function Pricing() {
                   </tr>
                 ))}
                 <tr className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="p-4 text-sm text-gray-700">Conversations overage</td>
-                  <td className="p-4 text-center text-sm text-gray-500">৳2.5/conv</td>
-                  {subscriptionPlans.slice(1).map((p) => (
-                    <td key={p.id} className="p-4 text-center text-sm text-gray-500">৳2.5/conv</td>
-                  ))}
+                  <td className="p-4 text-sm font-semibold text-gray-900">Growth এ অতিরিক্ত চ্যানেল</td>
+                  <td className="p-4 text-center text-sm text-gray-500">—</td>
+                  <td className="p-4 text-center text-sm text-gray-500">—</td>
+                  <td className="p-4 text-center text-sm text-gray-500">৳200/মাস</td>
+                  <td className="p-4 text-center text-sm text-gray-500">অন্তর্ভুক্ত</td>
+                  <td className="p-4 text-center text-sm text-gray-500">অন্তর্ভুক্ত</td>
                 </tr>
               </tbody>
             </table>
@@ -220,11 +220,11 @@ export default function Pricing() {
         <div className="max-w-2xl mx-auto">
           <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">Frequently asked questions</h2>
           {[
-            { q: "Can I upgrade or downgrade at any time?", a: "Yes. Upgrades take effect immediately with a prorated charge for the remainder of your billing cycle. Downgrades apply at the next billing date." },
-            { q: "What happens if I exceed my conversation limit?", a: "Conversations beyond your plan limit are charged at ৳2.5 each. You'll see the running total in your billing dashboard before the invoice is generated." },
-            { q: "Which payment gateways do you accept?", a: "We accept AamarPay and SSLCommerz — the two most widely used payment gateways in Bangladesh. More options coming soon." },
-            { q: "Is there a free trial?", a: "New shops start on the Free plan with no time limit. We also run promotional trials — check back or contact sales for your team." },
-            { q: "Can I get a VAT or tax invoice?", a: "All invoices include full billing details. Tax calculation features are on our roadmap for Q3 2026." },
+            { q: "কি যেকোনো সময় আপগ্রেড বা ডাউনগ্রেড করতে পারি?", a: "হাঁ। আপগ্রেড অবিলম্বে কার্যকর হয় আপনার বিলিং চক্রের বাকি অংশের জন্য proportinated চার্জ সহ। ডাউনগ্রেড পরবর্তী বিলিং তারিখে প্রযোজ্য।" },
+            { q: "Growth প্লানে অতিরিক্ত চ্যানেল সংযোজন করতে কি খরচ হয়?", a: "হাঁ। প্রতিটি অতিরিক্ত চ্যানেল (4+ পর্যন্ত) মাসে ৳200 খরচ হয়। Scale প্লানে সব চ্যানেল অন্তর্ভুক্ত।" },
+            { q: "Partner প্লানে কীভাবে চার্জ করা হয়?", a: "শুধুমাত্র ডেলিভার অর্ডারে চার্জ করা হয় প্রতিটিতে ৳22। বাতিল, RTO বা অপেক্ষমাণ অর্ডারে কোনো চার্জ নেই। সাপ্তাহিক চালান এবং 14 দিনের পেমেন্ট উইন্ডো।" },
+            { q: "আমি কোন্ পেমেন্ট গেটওয়ে ব্যবহার করতে পারি?", a: "বকেইশ, নগদ, রকেট বা ক্যাশ অন ডেলিভারি। প্রিমিয়াম প্রবাহের জন্য আমাদের বিক্রয় দলের সাথে যোগাযোগ করুন।" },
+            { q: "কি বিনামূল্যে ট্রায়াল আছে?", a: "নতুন শপ Starter প্ল্যানে শুরু করতে পারে অথবা Partner প্লান শূন্য মাসিক ফি সহ।" },
           ].map(({ q, a }) => (
             <div key={q} className="border-b border-gray-100 py-5">
               <p className="font-semibold text-gray-900 mb-1">{q}</p>

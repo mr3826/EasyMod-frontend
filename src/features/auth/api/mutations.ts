@@ -22,13 +22,13 @@ export function useLogin() {
   return useMutation<User, NormalizedApiError, LoginInput>({
     mutationFn: async (input) => {
       const { data } = await httpClient.post<LoginResponse>('/api/auth/login', input);
-      
-      // Store token
-      if (data.data?.token) {
-        localStorage.setItem('auth_token', data.data.token);
+
+      // Auth token is set as an httpOnly cookie by the backend — no localStorage needed.
+      if (!data?.success || !data.data?.user?.id) {
+        throw new Error('Invalid auth response from server');
       }
-      
-      return data.data!.user;
+
+      return data.data.user;
     },
     onSuccess: (user) => {
       // Set profile in cache
@@ -68,10 +68,8 @@ export function useLogout() {
       await httpClient.post('/api/auth/logout', {});
     },
     onSuccess: () => {
-      // Clear token
-      localStorage.removeItem('auth_token');
-      
-      // Clear cache
+      // Token cleared server-side (cookie invalidated by /logout endpoint).
+      // Clear local query cache.
       queryClient.removeQueries({ queryKey: authQueries.all() });
     },
   });
@@ -85,12 +83,9 @@ export function useRefreshToken() {
 
   return useMutation({
     mutationFn: async () => {
+      // Refresh token is sent automatically via httpOnly cookie.
+      // New access token is returned as a cookie; no localStorage involved.
       const { data } = await httpClient.post<LoginResponse>('/api/auth/refresh', {});
-      
-      if (data.data?.token) {
-        localStorage.setItem('auth_token', data.data.token);
-      }
-      
       return data.data!.user;
     },
     onSuccess: (user) => {

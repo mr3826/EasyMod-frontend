@@ -7,7 +7,7 @@ import axios, { AxiosError } from 'axios';
 import { VoiceProcessRequest, VoiceProcessResponse, VoiceProcessError } from '../types';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
-const VOICE_ENDPOINT = `${API_BASE}/ai/voice/process`;
+const VOICE_ENDPOINT = `${API_BASE}/voice/transcribe`;
 
 /**
  * Convert audio blob to base64 or send as FormData

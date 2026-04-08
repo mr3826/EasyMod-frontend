@@ -24,7 +24,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setState(authService.getState());
     });
 
-    return () => unsubscribe();
+    // Handle 401s emitted by the HTTP client — attempt refresh, then redirect
+    const handleUnauthorized = async () => {
+      try {
+        await authService.refreshToken();
+        setState(authService.getState());
+      } catch {
+        await authService.logout();
+        window.location.href = '/login';
+      }
+    };
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
   }, []);
 
   const signin = async (credentials: SigninRequest) => {

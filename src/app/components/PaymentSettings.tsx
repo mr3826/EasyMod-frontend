@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from 'react-i18next';
-import { CreditCard, Wallet, DollarSign, Upload, ChevronDown, ChevronUp, TestTube, X } from "lucide-react";
+import { CreditCard, Wallet, DollarSign, Upload, ChevronDown, ChevronUp, TestTube, X, Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/app/lib/api";
 import { authService } from "@/app/lib/auth";
@@ -12,7 +12,12 @@ interface PaymentGateway {
   description: string;
   enabled: boolean;
   config?: any;
+  requiresContact?: boolean;
 }
+
+const isMfsGateway = (gatewayId: string) => ['bkash', 'nagad', 'rocket'].includes(gatewayId);
+
+const toCanonicalGateway = (gatewayId: string) => (isMfsGateway(gatewayId) ? 'self-mfs' : gatewayId);
 
 export default function PaymentSettings() {
   const { t } = useTranslation();
@@ -25,20 +30,44 @@ export default function PaymentSettings() {
       enabled: true,
     },
     {
+      id: 'bkash',
+      name: t('manageShop.paymentSettings.bkashName'),
+      logo: <Wallet className="w-6 h-6 text-pink-600" />,
+      description: t('manageShop.paymentSettings.bkashDesc'),
+      enabled: false,
+      config: { phone: '', accountType: 'self' },
+    },
+    {
+      id: 'nagad',
+      name: t('manageShop.paymentSettings.nagadName'),
+      logo: <Wallet className="w-6 h-6 text-orange-600" />,
+      description: t('manageShop.paymentSettings.nagadDesc'),
+      enabled: false,
+      config: { phone: '', accountType: 'self' },
+    },
+    {
+      id: 'rocket',
+      name: t('manageShop.paymentSettings.rocketName'),
+      logo: <Wallet className="w-6 h-6 text-purple-600" />,
+      description: t('manageShop.paymentSettings.rocketDesc'),
+      enabled: false,
+      config: { phone: '', accountType: 'self' },
+    },
+    {
       id: 'aamarpay',
       name: t('manageShop.paymentSettings.aamarName'),
-      logo: <CreditCard className="w-6 h-6 text-orange-600" />,
+      logo: <Lock className="w-6 h-6 text-gray-400" />,
       description: t('manageShop.paymentSettings.aamarDesc'),
       enabled: false,
-      config: { storeId: '', secretKey: '', environment: 'sandbox' },
+      requiresContact: true,
     },
     {
       id: 'sslcommerz',
       name: t('manageShop.paymentSettings.sslCommerzName'),
-      logo: <Wallet className="w-6 h-6 text-indigo-600" />,
+      logo: <Lock className="w-6 h-6 text-gray-400" />,
       description: t('manageShop.paymentSettings.sslCommerzDesc'),
       enabled: false,
-      config: { storeId: '', storePassword: '', environment: 'sandbox' },
+      requiresContact: true,
     },
   ]);
 
@@ -75,11 +104,13 @@ export default function PaymentSettings() {
         
         setGateways(prev => prev.map(gw => {
           const config = loadedConfigs.find((c: any) => c.gateway === gw.id);
-          if (config) {
+          const mfsConfig = loadedConfigs.find((c: any) => c.gateway === 'self-mfs' && c.credentials?.mfs_type === gw.id);
+          const matched = config || mfsConfig;
+          if (matched) {
             savedSet.add(gw.id); // Mark gateway as having saved config
             return {
               ...gw,
-              enabled: config.is_enabled,
+              enabled: matched.is_enabled,
               // Don't overwrite config if credentials exist but keep UI fields empty for security
             };
           }
@@ -120,10 +151,27 @@ export default function PaymentSettings() {
       const gateway = gateways.find(gw => gw.id === gatewayId);
       if (!gateway) return;
 
+      // Skip saving for contact-required gateways
+      if (gateway.requiresContact) {
+        setError(t('manageShop.paymentSettings.errors.contactRequired'));
+        return;
+      }
+
       let credentials: any = null;
+      const canonicalGateway = toCanonicalGateway(gatewayId);
 
       // Prepare credentials based on gateway type
-      if (gatewayId === 'aamarpay' && gateway.config) {
+      if (isMfsGateway(gatewayId) && gateway.config) {
+        if (!gateway.config.phone) {
+          setError(t('manageShop.paymentSettings.errors.phoneRequired', 'MFS phone number is required'));
+          return;
+        }
+        credentials = {
+          mfs_type: gatewayId,
+          mfs_number: gateway.config.phone,
+          mfs_mode: gateway.config.accountType || 'self'
+        };
+      } else if (gatewayId === 'aamarpay' && gateway.config) {
         if (!gateway.config.storeId || !gateway.config.secretKey) {
           setError(t('manageShop.paymentSettings.errors.credentialsRequiredAamarPay'));
           return;
@@ -141,11 +189,21 @@ export default function PaymentSettings() {
           store_id: gateway.config.storeId,
           store_password: gateway.config.storePassword
         };
+      } else if (gatewayId === 'self-mfs' && gateway.config) {
+        if (!gateway.config.phone) {
+          setError(t('manageShop.paymentSettings.errors.phoneRequired', 'MFS phone number is required'));
+          return;
+        }
+        credentials = {
+          mfs_type: gateway.config.type || 'bkash',
+          mfs_number: gateway.config.phone,
+          mfs_mode: gateway.config.accountType === 'personal' ? 'self' : 'business'
+        };
       }
 
       // First, test the connection
       const testPayload = {
-        gateway: gatewayId,
+        gateway: canonicalGateway,
         credentials
       };
 
@@ -158,7 +216,7 @@ export default function PaymentSettings() {
 
       // If test successful, save the configuration
       const payload = {
-        gateway: gatewayId,
+        gateway: canonicalGateway,
         credentials,
         config: gatewayId === 'aamarpay' 
           ? { environment: gateway.config?.environment }
@@ -205,7 +263,8 @@ export default function PaymentSettings() {
       const gateway = gateways.find(gw => gw.id === gatewayId);
       if (!gateway) return;
 
-      const response = await apiClient.deletePaymentConfig(gatewayId);
+      const canonicalGateway = toCanonicalGateway(gatewayId);
+      const response = await apiClient.deletePaymentConfig(canonicalGateway);
 
       if (response.success) {
         setSuccess(`✓ ${gateway.name} disconnected successfully!`);
@@ -249,7 +308,7 @@ export default function PaymentSettings() {
       setSavingGateway(id);
 
       const payload = {
-        gateway: id,
+        gateway: toCanonicalGateway(id),
         is_enabled: !gateway.enabled
       };
 
@@ -359,37 +418,50 @@ export default function PaymentSettings() {
                     <div className="text-sm text-gray-600">{gateway.description}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => toggleGateway(gateway.id)}
-                      disabled={(gateway.id !== 'cod' && !savedGateways.has(gateway.id)) || savingGateway === gateway.id}
-                      title={gateway.id !== 'cod' && !savedGateways.has(gateway.id) ? 'Save configuration first' : 'Click to activate/deactivate'}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                        gateway.enabled ? 'bg-blue-600' : 'bg-gray-300'
-                      } ${(gateway.id !== 'cod' && !savedGateways.has(gateway.id)) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          gateway.enabled ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                    {gateway.config && (
-                      <button
-                        onClick={() => toggleExpand(gateway.id)}
-                        className="p-2 text-gray-600 hover:text-gray-900"
+                    {gateway.requiresContact ? (
+                      <a
+                        href="mailto:support@easymod.ai?subject=Integrate AamarPay or SSLCommerz"
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                        title="Contact us for enterprise integration"
                       >
-                        {expandedGateway === gateway.id ? (
-                          <ChevronUp className="w-5 h-5" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5" />
+                        <Mail className="w-4 h-4" />
+                        <span className="text-sm font-medium">Contact us</span>
+                      </a>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => toggleGateway(gateway.id)}
+                          disabled={(gateway.id !== 'cod' && !savedGateways.has(gateway.id)) || savingGateway === gateway.id}
+                          title={gateway.id !== 'cod' && !savedGateways.has(gateway.id) ? 'Save configuration first' : 'Click to activate/deactivate'}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                            gateway.enabled ? 'bg-blue-600' : 'bg-gray-300'
+                          } ${(gateway.id !== 'cod' && !savedGateways.has(gateway.id)) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              gateway.enabled ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                        {gateway.config && (
+                          <button
+                            onClick={() => toggleExpand(gateway.id)}
+                            className="p-2 text-gray-600 hover:text-gray-900"
+                          >
+                            {expandedGateway === gateway.id ? (
+                              <ChevronUp className="w-5 h-5" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5" />
+                            )}
+                          </button>
                         )}
-                      </button>
+                      </>
                     )}
                   </div>
                 </div>
 
                 {/* Configuration Forms */}
-                {expandedGateway === gateway.id && gateway.config && (
+                {expandedGateway === gateway.id && gateway.config && !gateway.requiresContact && (
                   <div className="border-t border-gray-200 p-4 bg-gray-50">
                     {/* AamarPay Config */}
                     {gateway.id === 'aamarpay' && (

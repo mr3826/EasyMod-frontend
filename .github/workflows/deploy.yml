@@ -1,4 +1,4 @@
-name: Deploy to AWS Amplify
+name: Deploy Frontend to GCP Cloud Run
 
 on:
   push:
@@ -6,131 +6,107 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-frontend-main
+  group: deploy-frontend-${{ github.ref }}
   cancel-in-progress: true
+
+# Required for Workload Identity Federation
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: gen-lang-client-0405487706
+  REGION: us-central1
+  REGISTRY: us-central1-docker.pkg.dev
+  REPOSITORY: easymod-frontend
+  SERVICE_NAME: easymod-frontend
+  SERVICE_ACCOUNT: easymod-frontend-sa@gen-lang-client-0405487706.iam.gserviceaccount.com
 
 jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
+      - name: Run unit tests
         run: npm test -- --passWithNoTests --maxWorkers=2
 
-  deploy:
-    name: Build & Deploy
+  build-and-deploy:
+    name: Build, Push & Deploy
     runs-on: ubuntu-latest
     needs: test
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Authenticate to GCP via Workload Identity Federation
+        uses: google-github-actions/auth@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: github-actions-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
 
-      - name: Set build environment variables
-        run: |
-          # VITE vars are non-secret and committed in .env.production
-          echo "VITE_API_BASE_URL=https://api.easymod.tech" >> $GITHUB_ENV
-          echo "VITE_META_APP_ID=1609451646619088" >> $GITHUB_ENV
-          # AMPLIFY_APP_ID comes from GitHub Actions secret
-          echo "AMPLIFY_APP_ID=${{ secrets.AMPLIFY_APP_ID }}" >> $GITHUB_ENV
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
 
-      - name: Preflight Amplify access
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Build and push Docker image
+        id: image
         env:
-          AMPLIFY_APP_ID: ${{ env.AMPLIFY_APP_ID }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/app
         run: |
-          set -euo pipefail
-          aws amplify get-app --app-id "$AMPLIFY_APP_ID" --region us-east-1 >/dev/null
+          IMAGE_TAG="${IMAGE}:${{ github.sha }}"
+          IMAGE_LATEST="${IMAGE}:latest"
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
+          docker build \
+            --build-arg VITE_API_BASE_URL=https://api.easymod.tech \
+            --build-arg VITE_META_APP_ID=${{ secrets.VITE_META_APP_ID }} \
+            --build-arg VITE_ENV=production \
+            -t "$IMAGE_TAG" \
+            -t "$IMAGE_LATEST" \
+            .
 
-      - name: Install dependencies
-        run: npm ci
+          docker push "$IMAGE_TAG"
+          docker push "$IMAGE_LATEST"
 
-      - name: Build
-        run: npm run build
-        env:
-          VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
-          VITE_ENV: production
-          VITE_META_APP_ID: ${{ env.VITE_META_APP_ID }}
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Zip build output
+      - name: Deploy to Cloud Run
         run: |
-          cd dist
-          zip -r ../dist.zip .
-          cd ..
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image="${{ steps.image.outputs.image_tag }}" \
+            --region=${{ env.REGION }} \
+            --service-account=${{ env.SERVICE_ACCOUNT }} \
+            --min-instances=1 \
+            --max-instances=5 \
+            --concurrency=1000 \
+            --cpu=1 \
+            --memory=512Mi \
+            --timeout=60 \
+            --port=8080 \
+            --platform=managed \
+            --allow-unauthenticated
 
-      - name: Deploy to Amplify
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          AMPLIFY_APP_ID: ${{ env.AMPLIFY_APP_ID }}
+      - name: Health check
         run: |
-          set -euo pipefail
+          FRONTEND_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --format="value(status.url)")
 
-          create_deployment() {
-            aws amplify create-deployment \
-              --app-id "$AMPLIFY_APP_ID" \
-              --branch-name main \
-              --output json
-          }
-
-          for attempt in 1 2 3; do
-            if DEPLOYMENT=$(create_deployment); then
-              break
-            fi
-            if [ "$attempt" -eq 3 ]; then
-              echo "ERROR: amplify create-deployment failed after 3 attempts"
-              echo "Ensure IAM policy allows amplify:CreateDeployment and amplify:StartDeployment on app/branch resources"
-              exit 1
-            fi
-            echo "Create deployment failed (attempt $attempt). Retrying in 10s..."
-            sleep 10
-          done
-
-          JOB_ID=$(echo "$DEPLOYMENT" | jq -r '.jobId')
-          UPLOAD_URL=$(echo "$DEPLOYMENT" | jq -r '.zipUploadUrl')
-
-          echo "Uploading build artifact..."
-          curl --fail --show-error --silent -T dist.zip "$UPLOAD_URL"
-
-          echo "Starting deployment (Job ID: $JOB_ID)..."
-          for attempt in 1 2 3; do
-            if aws amplify start-deployment \
-              --app-id "$AMPLIFY_APP_ID" \
-              --branch-name main \
-              --job-id "$JOB_ID"; then
-              break
-            fi
-            if [ "$attempt" -eq 3 ]; then
-              echo "ERROR: amplify start-deployment failed after 3 attempts"
-              exit 1
-            fi
-            echo "Start deployment failed (attempt $attempt). Retrying in 10s..."
-            sleep 10
-          done
-
-          echo "Deployment triggered successfully."
+          STATUS=$(curl -sf "${FRONTEND_URL}/healthz" -o /dev/null -w "%{http_code}" || echo "000")
+          if [ "$STATUS" = "200" ]; then
+            echo "Frontend health check passed"
+          else
+            echo "ERROR: Frontend health check failed (status: $STATUS)"
+            exit 1
+          fi

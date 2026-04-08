@@ -41,6 +41,7 @@ class HttpClient {
     this.client = axios.create({
       baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
       timeout: 30000,
+      withCredentials: true, // send httpOnly auth cookies automatically
       headers: {
         'Content-Type': 'application/json',
       },
@@ -50,15 +51,9 @@ class HttpClient {
   }
 
   private setupInterceptors() {
-    // Request interceptor - Add auth token and shop ID
+    // Request interceptor - Add shop ID (auth travels via httpOnly cookie)
     this.client.interceptors.request.use(
       (config: ExtendedAxiosRequestConfig) => {
-        // Inject auth token
-        const token = localStorage.getItem('auth_token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-
         // Inject shop ID (if available and not explicitly skipped)
         if (this.currentShopId && !config.__skipShopId) {
           config.headers['X-Shop-ID'] = this.currentShopId;
@@ -93,10 +88,9 @@ class HttpClient {
           }
         }
 
-        // Handle 401 Unauthorized - Redirect to login
+        // Handle 401 Unauthorized - signal auth context to attempt refresh
         if (error.response?.status === 401) {
-          localStorage.removeItem('auth_token');
-          window.location.href = '/login';
+          window.dispatchEvent(new CustomEvent('auth:unauthorized'));
         }
 
         // Normalize and re-throw error

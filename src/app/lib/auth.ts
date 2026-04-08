@@ -146,6 +146,10 @@ export class AuthService {
     return newShop;
   }
 
+  async refreshToken(): Promise<void> {
+    await apiClient.refreshToken();
+  }
+
   async logout(): Promise<void> {
     // Call backend to blacklist the token and clear httpOnly cookies
     await apiClient.logout();

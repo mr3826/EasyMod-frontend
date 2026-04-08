@@ -214,6 +214,8 @@ export interface OrderItem {
 export interface Order {
   id: string;
   customerName: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
   items: OrderItem[];
   total: number;
   status: 'draft' | 'confirmed' | 'processing' | 'completed' | 'cancelled';
@@ -249,6 +251,8 @@ function transformOrderFromBackend(backendOrder: any): Order {
   return {
     id: backendOrder.id,
     customerName: backendOrder.customer_name || backendOrder.customer?.name || 'Walk-in Customer',
+    customerPhone: backendOrder.customer_phone || backendOrder.customer?.number || backendOrder.customer?.phone || '',
+    deliveryAddress: backendOrder.delivery_address || backendOrder.customer?.address || '',
     items: rawItems.map((item: any) => ({
       productId: item.product_id || item.productId,
       productName: item.product?.name || item.productName,
@@ -349,6 +353,46 @@ export interface Message {
   updated_at: string;
 }
 
+export interface CampaignSegmentFilter {
+  minOrders?: number;
+  paymentMethod?: string;
+  requireConsent?: boolean;
+  recipientCap?: number;
+}
+
+export interface Campaign {
+  id: string;
+  shop_id: string;
+  name: string;
+  message_template: string;
+  segment_filter: CampaignSegmentFilter;
+  status: 'draft' | 'scheduled' | 'running' | 'completed' | 'failed';
+  scheduled_at?: string | null;
+  total_recipients: number;
+  sent_count: number;
+  failed_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CampaignStats {
+  id: string;
+  name: string;
+  status: Campaign['status'];
+  scheduled_at?: string | null;
+  total_recipients: number;
+  sent_count: number;
+  failed_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCampaignRequest {
+  name: string;
+  message_template: string;
+  segment_filter?: CampaignSegmentFilter;
+}
+
 export interface ResponseTemplate {
   id: string;
   name: string;
@@ -381,7 +425,7 @@ export interface MetaIntegrationStatus {
 }
 
 // Delivery provider types
-export type DeliveryProvider = 'pathao' | 'steadfast';
+export type DeliveryProvider = 'pathao' | 'steadfast' | 'redx';
 
 export interface DeliveryProviderStatus {
   provider: DeliveryProvider;
@@ -431,7 +475,11 @@ export interface SteadfastCredentials {
   secret_key: string;
 }
 
-export type DeliveryCredentials = PathaoCredentials | SteadfastCredentials;
+export interface RedxCredentials {
+  api_key: string;
+}
+
+export type DeliveryCredentials = PathaoCredentials | SteadfastCredentials | RedxCredentials;
 
 export interface ConnectDeliveryProviderRequest {
   provider: DeliveryProvider;
@@ -704,6 +752,16 @@ class ApiClient {
   // Dashboard endpoints
   async getDashboardMetrics(period = 30): Promise<DashboardMetrics> {
     const response: AxiosResponse<ApiResponse<DashboardMetrics>> = await this.client.get('/dashboard/metrics', { params: { period } });
+    return response.data.data;
+  }
+
+  async getDashboardQueue(): Promise<{
+    unread_count: number;
+    pending_payment_count: number;
+    ready_to_dispatch_count: number;
+    at_risk_orders: { id: string; customer_name: string; customer_phone: string; status: string; tracking_id: string | null }[];
+  }> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/dashboard/queue');
     return response.data.data;
   }
 
@@ -1055,6 +1113,34 @@ class ApiClient {
     return response.data.data as Conversation;
   }
 
+  // Campaign endpoints
+  async getCampaigns(): Promise<Campaign[]> {
+    const response: AxiosResponse<ApiResponse<Campaign[]>> = await this.client.get('/campaigns');
+    return response.data.data || [];
+  }
+
+  async createCampaign(payload: CreateCampaignRequest): Promise<Campaign> {
+    const response: AxiosResponse<ApiResponse<Campaign>> = await this.client.post('/campaigns', payload);
+    return response.data.data;
+  }
+
+  async scheduleCampaign(campaignId: string, scheduledAt: string): Promise<Campaign> {
+    const response: AxiosResponse<ApiResponse<Campaign>> = await this.client.patch(`/campaigns/${campaignId}/schedule`, {
+      scheduledAt,
+    });
+    return response.data.data;
+  }
+
+  async runCampaign(campaignId: string): Promise<Campaign> {
+    const response: AxiosResponse<ApiResponse<Campaign>> = await this.client.post(`/campaigns/${campaignId}/run`);
+    return response.data.data;
+  }
+
+  async getCampaignStats(campaignId: string): Promise<CampaignStats> {
+    const response: AxiosResponse<ApiResponse<CampaignStats>> = await this.client.get(`/campaigns/${campaignId}/stats`);
+    return response.data.data;
+  }
+
   // Audit log endpoints
   async createAuditLog(entry: Pick<AuditLog, 'action' | 'resource_type' | 'resource_id'> & { old_values?: any; new_values?: any; metadata?: any }): Promise<AuditLog> {
     const response: AxiosResponse<ApiResponse<AuditLog>> = await this.client.post('/audit/log', entry);
@@ -1182,6 +1268,28 @@ class ApiClient {
   }): Promise<any> {
     await this.initCsrfToken();
     const response: AxiosResponse<ApiResponse<any>> = await this.client.put('/subscription/plan', payload);
+    return response.data;
+  }
+
+  // Automation settings (n8n / Make.com webhook URL per shop)
+  async getAutomationSettings(): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/shop/automation');
+    return response.data;
+  }
+
+  async updateAutomationSettings(settings: { workflow_webhook_url?: string; workflow_webhook_secret?: string }): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.put('/shop/automation', settings);
+    return response.data;
+  }
+
+  // BD Settings (Bangladesh-specific: MFS, Google Sheets)
+  async getBdSettings(): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.get('/shop/bd-settings');
+    return response.data;
+  }
+
+  async updateBdSettings(settings: any): Promise<any> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.client.put('/shop/bd-settings', settings);
     return response.data;
   }
 

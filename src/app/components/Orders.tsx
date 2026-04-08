@@ -48,6 +48,8 @@ export default function Orders() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showCreateOrder, setShowCreateOrder] = useState(false);
   const [showProductSelector, setShowProductSelector] = useState(false);
+  const [detailNote, setDetailNote] = useState('');
+  const [conversationSnippets, setConversationSnippets] = useState<string[]>([]);
   // Bug #14: inline product search — no separate modal needed
   const [productSearchQuery, setProductSearchQuery] = useState('');
 
@@ -136,6 +138,33 @@ export default function Orders() {
 
     fetchData();
   }, [dateFilter, searchQuery, filterStatus]);
+
+  useEffect(() => {
+    const loadConversationSnippet = async () => {
+      if (!selectedOrder?.customerName) {
+        setConversationSnippets([]);
+        return;
+      }
+      try {
+        const list = await apiClient.getConversations({ search: selectedOrder.customerName, limit: 1 });
+        const firstConv = list.conversations?.[0];
+        if (!firstConv) {
+          setConversationSnippets([]);
+          return;
+        }
+        const messagesResult = await apiClient.getMessages(firstConv.id, { page: 1, limit: 3 });
+        const snippets = (messagesResult.messages || [])
+          .slice(-3)
+          .map((msg) => msg.content)
+          .filter(Boolean);
+        setConversationSnippets(snippets);
+      } catch {
+        setConversationSnippets([]);
+      }
+    };
+
+    loadConversationSnippet();
+  }, [selectedOrder?.id, selectedOrder?.customerName]);
 
   const filteredOrders = orders.filter(order => {
     if (filterStatus === 'all') {
@@ -485,82 +514,57 @@ export default function Orders() {
         </div>
       </div>
 
-      {/* Orders Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.orderId')}</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.customer')}</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.items')}</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.total')}</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.channel')}</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.status')}</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RTO</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t('orders.columns.actions')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {filteredOrders.map((order) => (
-              <tr key={order.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 text-sm font-mono text-gray-900">{order.id}</td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs">
-                      {order.customerName.charAt(0)}
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-900">{order.customerName}</span>
-                      {order.rto_risk === 'high' && (
-                        <span className="ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-                          <AlertTriangle className="w-3 h-3" /> {t('customers.highRTO')}
-                        </span>
-                      )}
-                      {order.rto_risk === 'medium' && (
-                        <span className="ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-                          <AlertTriangle className="w-3 h-3" /> {t('customers.medRTO')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-500">{t('orders.itemCount', { count: order.items.length })}</td>
-                <td className="px-6 py-4 text-sm font-semibold text-gray-900">{formatCurrency(order.total)}</td>
-                <td className="px-6 py-4">
-                  <span className="text-sm text-gray-600 capitalize">{order.channel}</span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`px-3 py-1 rounded-full text-sm ${statusColors[order.status]}`}>
-                    {order.status}
+      {/* Orders Cards */}
+      <div className="space-y-3">
+        {filteredOrders.length === 0 ? (
+          <div className="rounded-xl border border-gray-200 bg-white p-6 text-center text-sm font-medium text-gray-600">
+            কোনো অর্ডার পাওয়া যায়নি।
+          </div>
+        ) : (
+          filteredOrders.map((order) => (
+            <article key={order.id} className="rounded-2xl border border-gray-200 bg-white p-4">
+              <div className="mb-2 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-base font-bold text-gray-900">{order.customerName}</p>
+                  <p className="text-xs text-gray-500">#{order.id}</p>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusColors[order.status]}`}>
+                  {order.status}
+                </span>
+              </div>
+
+              <p className="text-sm text-gray-800">
+                {order.items[0]?.productName || 'পণ্য উল্লেখ নেই'} × {order.items[0]?.quantity || 1} ·{' '}
+                <span className="font-bold">{formatCurrency(order.total)}</span>
+              </p>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                <span className="rounded-md bg-gray-100 px-2 py-1">📍 {order.channel}</span>
+                <span className="rounded-md bg-gray-100 px-2 py-1">🕐 {formatDate(order.createdAt)}</span>
+                {order.rto_risk === 'high' && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-2 py-1 font-semibold text-red-700">
+                    <AlertTriangle className="h-3 w-3" /> {t('customers.highRTO')}
                   </span>
-                </td>
-                <td className="px-6 py-4">
-                  {order.rto_risk === 'high' && (
-                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-red-100 text-red-700 border border-red-200">
-                      <AlertTriangle className="w-3 h-3" /> HIGH
-                    </span>
-                  )}
-                  {order.rto_risk === 'medium' && (
-                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
-                      <AlertTriangle className="w-3 h-3" /> MED
-                    </span>
-                  )}
-                  {(!order.rto_risk || order.rto_risk === 'low' || order.rto_risk === 'safe') && (
-                    <span className="text-gray-300 text-xs">—</span>
-                  )}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <button
-                    onClick={() => setSelectedOrder(order)}
-                    className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                )}
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setSelectedOrder(order)}
+                  className="min-h-12 rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700"
+                >
+                  বিস্তারিত দেখুন
+                </button>
+                <button
+                  onClick={() => setSelectedOrder(order)}
+                  className="min-h-12 rounded-xl bg-[#1DB954] px-3 text-sm font-semibold text-white"
+                >
+                  ট্র্যাক করুন
+                </button>
+              </div>
+            </article>
+          ))
+        )}
       </div>
 
       {/* Create Order Modal */}
@@ -927,6 +931,28 @@ export default function Orders() {
                   <span className="text-gray-600">{t('orders.detailModal.name')}:</span>
                   <span className="text-gray-900 font-medium">{selectedOrder.customerName}</span>
                 </div>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {selectedOrder.customerPhone ? (
+                    <>
+                      <a
+                        href={`tel:${selectedOrder.customerPhone}`}
+                        className="min-h-12 rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700"
+                      >
+                        কল করুন
+                      </a>
+                      <a
+                        href={`https://wa.me/88${selectedOrder.customerPhone.replace(/\D/g, '').replace(/^88/, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="min-h-12 rounded-lg bg-[#1DB954] px-3 py-2 text-sm font-semibold text-white"
+                      >
+                        WhatsApp
+                      </a>
+                    </>
+                  ) : (
+                    <span className="text-xs text-gray-500">গ্রাহকের নম্বর পাওয়া যায়নি</span>
+                  )}
+                </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">{t('orders.detailModal.channel')}:</span>
                   <span className="text-gray-900 font-medium capitalize">{selectedOrder.channel}</span>
@@ -938,6 +964,41 @@ export default function Orders() {
                   </span>
                 </div>
               </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <h3 className="font-semibold text-gray-900 mb-3">ডেলিভারি ঠিকানা</h3>
+              <p className="text-sm text-gray-700 mb-3">{selectedOrder.deliveryAddress || 'ঠিকানা এখনো যোগ করা হয়নি'}</p>
+              {selectedOrder.deliveryAddress && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedOrder.deliveryAddress)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block rounded-lg border border-gray-200 bg-white p-3 text-sm font-semibold text-blue-700"
+                >
+                  ম্যাপে দেখুন
+                </a>
+              )}
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <h3 className="font-semibold text-gray-900 mb-3">পেমেন্ট অবস্থা</h3>
+              <p className="text-sm font-medium text-gray-700">{selectedOrder.payment_status || 'COD pending'}</p>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <h3 className="font-semibold text-gray-900 mb-3">কাস্টমার চ্যাট (শেষ ৩ বার্তা)</h3>
+              {conversationSnippets.length === 0 ? (
+                <p className="text-sm text-gray-500">কোনো চ্যাট snippet পাওয়া যায়নি।</p>
+              ) : (
+                <div className="space-y-2">
+                  {conversationSnippets.map((line, idx) => (
+                    <p key={`${selectedOrder.id}-msg-${idx}`} className="rounded-lg bg-white p-3 text-sm text-gray-700 border border-gray-200">
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Order Meta Information */}
@@ -1012,12 +1073,41 @@ export default function Orders() {
               </div>
             </div>
 
+            <div className="mb-6">
+              <h3 className="font-semibold text-gray-900 mb-3">নোট</h3>
+              <textarea
+                value={detailNote}
+                onChange={(e) => setDetailNote(e.target.value)}
+                rows={3}
+                placeholder="এখানে অর্ডার নোট লিখুন"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm"
+              />
+            </div>
+
             <div className="flex gap-3">
               <button
                 onClick={() => setSelectedOrder(null)}
                 className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 {t('orders.detailModal.close')}
+              </button>
+              <button
+                onClick={() => setError('কুরিয়ার বুকিং ইন্টিগ্রেশন এই ধাপে সক্রিয় হবে।')}
+                className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                কুরিয়ার বুক করুন
+              </button>
+              <button
+                onClick={() => handleUpdateStatus(selectedOrder.id, 'cancelled')}
+                className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                বাতিল করুন
+              </button>
+              <button
+                onClick={() => setError(detailNote ? 'নোট সংরক্ষণ API পরের ধাপে যুক্ত হবে।' : 'নোট লিখে আবার চেষ্টা করুন।')}
+                className="flex-1 px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-black"
+              >
+                নোট লিখুন
               </button>
               {selectedOrder.status === 'draft' && (
                 <>

@@ -1,54 +1,102 @@
-import { useState, useEffect } from "react";
-import { useTranslation } from 'react-i18next';
-import { ArrowUp, ArrowDown, MessageSquare, Package, ShoppingCart, TrendingUp } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { AlertTriangle, Bot, CheckCircle2, Clock4, Loader2, Wallet } from "lucide-react";
 import { apiClient } from "../lib/api";
 
+type PulseData = {
+  todaySales: number;
+  confirmedOrders: number;
+  missedReplies: number;
+  botReplies: number;
+  needsAttention: number;
+  atRiskCount: number;
+  lastFiveOrders: Awaited<ReturnType<typeof apiClient.getOrders>>;
+};
 
 export default function Dashboard() {
-  const { t } = useTranslation();
-  const [dashboardData, setDashboardData] = useState<any>(null);
+  const navigate = useNavigate();
+  const [pulseData, setPulseData] = useState<PulseData | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch dashboard data on mount
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("bn-BD", {
+      style: "currency",
+      currency: "BDT",
+      maximumFractionDigits: 0,
+    }).format(Number.isFinite(value) ? value : 0);
+
+  const formatOrderStatus = (status: string) => {
+    switch (status) {
+      case "confirmed":
+      case "completed":
+        return { label: "নিশ্চিত ✅", className: "text-[#43A047] bg-green-50" };
+      case "cancelled":
+        return { label: "বাতিল ❌", className: "text-[#E53935] bg-red-50" };
+      case "processing":
+        return { label: "পেন্ডিং 🕐", className: "text-[#FB8C00] bg-orange-50" };
+      default:
+        return { label: "পেমেন্ট বাকি 💳", className: "text-[#FB8C00] bg-orange-50" };
+    }
+  };
+
+  const refreshPulse = async (isInitialLoad = false) => {
+    try {
+      if (isInitialLoad) {
         setIsLoading(true);
-        setError(null);
-        const data = await apiClient.getDashboardMetrics();
-        setDashboardData(data);
-      } catch (error: any) {
-        setError(error.response?.data?.error?.message || 'Failed to load dashboard data');
-      } finally {
+      }
+      setError(null);
+
+      const [metrics, queue, todayOrders] = await Promise.all([
+        apiClient.getDashboardMetrics(),
+        apiClient.getDashboardQueue(),
+        apiClient.getOrders({
+          start_date: new Date().toISOString().slice(0, 10),
+          end_date: new Date().toISOString().slice(0, 10),
+          limit: 20,
+        }),
+      ]);
+
+      const todaySales = todayOrders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
+      const confirmedOrders = todayOrders.filter(
+        (order) => order.status === "confirmed" || order.status === "completed",
+      ).length;
+
+      setPulseData({
+        todaySales,
+        confirmedOrders,
+        missedReplies: queue.unread_count || 0,
+        botReplies: metrics.analytics?.llm_calls || 0,
+        needsAttention: queue.unread_count || 0,
+        atRiskCount: queue.at_risk_orders?.length || 0,
+        lastFiveOrders: todayOrders.slice(0, 5),
+      });
+      setLastUpdatedAt(new Date());
+    } catch (loadError: any) {
+      setError(loadError?.response?.data?.error?.message || "Dashboard load failed.");
+    } finally {
+      if (isInitialLoad) {
         setIsLoading(false);
       }
-    };
+    }
+  };
 
-    fetchDashboardData();
+  useEffect(() => {
+    refreshPulse(true);
+    const timer = window.setInterval(() => {
+      refreshPulse(false);
+    }, 60000);
+
+    return () => window.clearInterval(timer);
   }, []);
 
   if (isLoading) {
     return (
-      <div className="p-8">
-        <div className="mb-8">
-          <div className="h-8 bg-gray-200 rounded w-48 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-64"></div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-white rounded-xl p-6 border border-gray-200">
-              <div className="animate-pulse">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
-                  <div className="h-4 bg-gray-200 rounded w-16"></div>
-                </div>
-                <div className="h-8 bg-gray-200 rounded w-20 mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-24"></div>
-              </div>
-            </div>
-          ))}
+      <div className="min-h-full bg-[#F8F9FA] p-4 md:p-6">
+        <div className="mb-4 flex items-center gap-2 text-gray-600">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm font-semibold">আজকের অবস্থা লোড হচ্ছে...</span>
         </div>
       </div>
     );
@@ -56,203 +104,177 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <div className="p-8">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-          <div className="flex items-center gap-3">
-            <div className="text-red-600">⚠️</div>
-            <div>
-              <h3 className="font-semibold text-red-900">{t('dashboard.home.error')}</h3>
-              <p className="text-red-700">{error}</p>
+      <div className="min-h-full bg-[#F8F9FA] p-4 md:p-6">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 text-red-600" />
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-red-900">ড্যাশবোর্ড লোড করা যায়নি</h3>
+              <p className="text-sm text-red-700">{error}</p>
             </div>
           </div>
           <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            onClick={() => refreshPulse(true)}
+            className="mt-4 min-h-12 rounded-xl bg-red-600 px-4 text-sm font-semibold text-white"
           >
-            {t('common.retry')}
+            আবার চেষ্টা করুন
           </button>
         </div>
       </div>
     );
   }
 
-  const metrics = dashboardData ? [
-    {
-      name: t('dashboard.home.metrics.totalMessages'),
-      value: dashboardData.metrics.totalMessages.toString(),
-      change: null as string | null,
-      trend: null as 'up' | 'down' | null,
-      icon: MessageSquare,
-      color: 'blue',
-    },
-    {
-      name: t('dashboard.home.metrics.activeProducts'),
-      value: dashboardData.metrics.activeProducts.toString(),
-      change: null as string | null,
-      trend: null as 'up' | 'down' | null,
-      icon: Package,
-      color: 'purple',
-    },
-    {
-      name: t('dashboard.home.metrics.ordersToday'),
-      value: dashboardData.metrics.ordersToday.toString(),
-      change: `${dashboardData.metrics.weeklyChange >= 0 ? '+' : ''}${dashboardData.metrics.weeklyChange.toFixed(1)}%`,
-      trend: dashboardData.metrics.weeklyChange >= 0 ? 'up' : 'down',
-      icon: ShoppingCart,
-      color: 'green',
-    },
-    {
-      name: t('dashboard.home.metrics.conversionRate'),
-      value: `${dashboardData.metrics.conversionRate}%`,
-      change: null as string | null,
-      trend: null as 'up' | 'down' | null,
-      icon: TrendingUp,
-      color: 'orange',
-    },
-  ] : [];
+  const cards = useMemo(() => {
+    if (!pulseData) {
+      return [];
+    }
+    return [
+      {
+        label: "আজকের বিক্রি",
+        value: formatCurrency(pulseData.todaySales),
+        icon: Wallet,
+        className: "bg-white border border-[#E0E0E0]",
+      },
+      {
+        label: "নিশ্চিত হয়েছে",
+        value: `${pulseData.confirmedOrders} টি অর্ডার`,
+        icon: CheckCircle2,
+        className: "bg-white border border-[#E0E0E0]",
+      },
+      {
+        label: "উত্তর দেওয়া হয়নি",
+        value: `${pulseData.missedReplies} টি মিস`,
+        icon: Clock4,
+        className: "bg-red-50 border border-red-200",
+      },
+    ];
+  }, [pulseData]);
 
-  const insights = dashboardData ? [
-    {
-      id: '1',
-      title: t('dashboard.home.insights.performance'),
-      description: t('dashboard.home.insights.performanceMsg', { products: dashboardData.metrics.activeProducts, orders: dashboardData.metrics.ordersToday }),
-      type: 'info' as const,
-    },
-    {
-      id: '2',
-      title: t('dashboard.home.insights.channelActivity'),
-      description: t('dashboard.home.insights.channelMsg', { active: dashboardData.channels.active, total: dashboardData.channels.total }),
-      type: 'success' as const,
-    },
-    {
-      id: '3',
-      title: t('dashboard.home.insights.weeklyTrend'),
-      description: t('dashboard.home.insights.weeklyMsg', { percent: Math.abs(dashboardData.metrics.weeklyChange), direction: dashboardData.metrics.weeklyChange >= 0 ? t('dashboard.home.insights.increased') : t('dashboard.home.insights.decreased') }),
-      type: 'warning' as const,
-    },
-  ] : [];
-
-  const realChartData = dashboardData?.chartData ?? [];
+  if (!pulseData) {
+    return null;
+  }
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">{t('dashboard.home.title')}</h1>
-        <p className="text-gray-600 mt-1">{t('dashboard.home.subtitle')}</p>
-      </div>
-
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {metrics.length === 0 ? (
-          <div className="col-span-full bg-white rounded-xl p-6 border border-gray-200 text-center text-gray-500">
-            {t('dashboard.home.noMetrics')}
-          </div>
-        ) : (
-          metrics.map((metric) => {
-            const Icon = metric.icon;
-            const bgColor = `bg-${metric.color}-100`;
-            const textColor = `text-${metric.color}-600`;
-            
-            return (
-              <div key={metric.name} className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-shadow">
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`w-12 h-12 rounded-lg ${bgColor} flex items-center justify-center`}>
-                    <Icon className={`w-6 h-6 ${textColor}`} />
-                  </div>
-                  {metric.change && metric.trend && (
-                    <div className={`flex items-center gap-1 text-sm ${
-                      metric.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {metric.trend === 'up' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                      <span>{metric.change}</span>
-                    </div>
-                  )}
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900">{metric.value}</h3>
-                <p className="text-gray-600 text-sm mt-1">{metric.name}</p>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Orders Chart */}
-        <div className="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('dashboard.home.ordersChart')}</h2>
-          {realChartData.length === 0 ? (
-            <div className="h-[300px] flex items-center justify-center text-gray-500">
-              {t('dashboard.home.noChartData')}
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={realChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="date" stroke="#9ca3af" />
-                <YAxis stroke="#9ca3af" />
-                <Tooltip />
-                <Line 
-                  type="monotone" 
-                  dataKey="orders" 
-                  stroke="#3b82f6" 
-                  strokeWidth={3}
-                  dot={{ fill: '#3b82f6', r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
+    <div className="min-h-full bg-[#F8F9FA] p-4 md:p-6">
+      <div className="mb-4 flex items-end justify-between">
+        <div>
+          <h1 className="text-xl font-extrabold text-gray-900 md:text-2xl">আজকের অবস্থা</h1>
+          <p className="text-sm text-gray-600">শপের দ্রুত আপডেট, এক নজরে</p>
         </div>
+        <button
+          onClick={() => refreshPulse(false)}
+          className="min-h-12 rounded-xl border border-[#E0E0E0] bg-white px-3 text-sm font-semibold text-gray-700"
+        >
+          রিফ্রেশ
+        </button>
+      </div>
 
-        {/* Channel Status */}
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('dashboard.home.channelStatus')}</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">{t('dashboard.home.activeChannels')}</span>
-              <span className="text-2xl font-bold text-gray-900">{dashboardData?.channels?.active || 0}/{dashboardData?.channels?.total || 0}</span>
-            </div>
-            <div className="text-center py-8">
-              <div className="text-4xl mb-2">📡</div>
-              <p className="text-gray-600 text-sm">
-                {(dashboardData?.channels?.active || 0) > 0
-                  ? t('dashboard.home.channelsActive', { active: dashboardData.channels.active, total: dashboardData.channels.total })
-                  : t('dashboard.home.noActiveChannels')
+      <section className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+        {cards.map((card, index) => {
+          const Icon = card.icon;
+          const isMissCard = index === 2;
+
+          return (
+            <button
+              key={card.label}
+              onClick={() => {
+                if (isMissCard) {
+                  navigate("/app/inbox?tab=needs_review");
                 }
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+              }}
+              className={`${card.className} min-h-[112px] rounded-2xl p-4 text-left ${isMissCard ? "cursor-pointer" : "cursor-default"}`}
+              type="button"
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <Icon className="h-5 w-5 text-gray-700" />
+                {isMissCard && <span className="text-xs font-bold text-red-700">দেখুন</span>}
+              </div>
+              <p className="text-2xl font-black text-gray-900 md:text-3xl">{card.value}</p>
+              <p className="mt-1 text-sm font-semibold text-gray-600">{card.label}</p>
+            </button>
+          );
+        })}
+      </section>
 
-      {/* AI Insights */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.home.aiInsights')}</h2>
-          <span className="text-sm text-gray-500">{t('dashboard.home.updatedAgo')}</span>
+      <section className="mb-4 rounded-2xl border border-[#E0E0E0] bg-white p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <Bot className="h-5 w-5 text-[#1DB954]" />
+          <h2 className="text-base font-bold text-gray-900">বট অ্যাক্টিভিটি</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {insights.length === 0 ? (
-            <div className="col-span-full text-center text-gray-500">
-              No insights available from the backend.
-            </div>
-          ) : (
-            insights.map((insight) => {
-              const colors = {
-                success: 'bg-green-50 border-green-200 text-green-700',
-                info: 'bg-blue-50 border-blue-200 text-blue-700',
-                warning: 'bg-yellow-50 border-yellow-200 text-yellow-700',
-              };
-              
+        <div className="grid gap-2 md:grid-cols-2">
+          <div className="rounded-xl bg-green-50 p-3 text-sm font-semibold text-green-800">
+            বট আজ {pulseData.botReplies} জনকে উত্তর দিয়েছে ✅
+          </div>
+          <button
+            onClick={() => navigate("/app/inbox?tab=needs_review")}
+            className="min-h-12 rounded-xl bg-amber-50 p-3 text-left text-sm font-semibold text-amber-800"
+            type="button"
+          >
+            আপনাকে দেখতে হবে এমন: {pulseData.needsAttention} টি ⚠️
+          </button>
+        </div>
+      </section>
+
+      {pulseData.atRiskCount > 0 && (
+        <section className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4">
+          <button
+            onClick={() => navigate("/app/orders")}
+            type="button"
+            className="w-full text-left text-sm font-bold text-red-800"
+          >
+            ⚠️ {pulseData.atRiskCount} জন কাস্টমার ঝুঁকিপূর্ণ - এক্ষুনি দেখুন
+          </button>
+        </section>
+      )}
+
+      <section className="rounded-2xl border border-[#E0E0E0] bg-white p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-bold text-gray-900">সর্বশেষ ৫টি অর্ডার</h2>
+          <button
+            onClick={() => navigate("/app/orders")}
+            className="min-h-12 rounded-xl px-3 text-sm font-semibold text-[#1DB954]"
+            type="button"
+          >
+            সব দেখুন
+          </button>
+        </div>
+
+        {pulseData.lastFiveOrders.length === 0 ? (
+          <p className="rounded-xl bg-gray-50 p-4 text-sm font-medium text-gray-600">আজকে এখনো কোনো অর্ডার আসেনি।</p>
+        ) : (
+          <div className="space-y-2">
+            {pulseData.lastFiveOrders.map((order) => {
+              const firstItem = order.items[0];
+              const status = formatOrderStatus(order.status);
+
               return (
-                <div key={insight.id} className={`p-4 rounded-lg border ${colors[insight.type]}`}>
-                  <h3 className="font-semibold mb-1">{insight.title}</h3>
-                  <p className="text-sm opacity-80">{insight.description}</p>
-                </div>
+                <button
+                  key={order.id}
+                  onClick={() => navigate("/app/orders")}
+                  type="button"
+                  className="w-full rounded-xl border border-[#E0E0E0] bg-white p-3 text-left"
+                >
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">{order.customerName}</p>
+                      <p className="text-sm text-gray-600">
+                        {firstItem?.productName || "পণ্য উল্লেখ নেই"} · {formatCurrency(Number(order.total) || 0)}
+                      </p>
+                    </div>
+                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ${status.className}`}>
+                      {status.label}
+                    </span>
+                  </div>
+                </button>
               );
-            })
-          )}
-        </div>
-      </div>
+            })}
+          </div>
+        )}
+
+        <p className="mt-3 text-xs font-medium text-gray-500">
+          Live update প্রতি 60 সেকেন্ডে {lastUpdatedAt ? `· শেষ আপডেট ${lastUpdatedAt.toLocaleTimeString("bn-BD")}` : ""}
+        </p>
+      </section>
     </div>
   );
 }

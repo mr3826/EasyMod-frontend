@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, ChangeEvent } from "react";
 import { Send, Bot, User, CheckCircle2, Edit3, Loader2, Search, UserCheck, Tag, AlertTriangle, Clock, Lock, ChevronUp, ArrowLeft, Zap, Paperclip, Mic, StopCircle, X, FileText } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { apiClient, Conversation, Message, ResponseTemplate } from "../lib/api";
 import { useSubscriptionFeatures } from "../lib/useSubscriptionFeatures";
@@ -15,6 +16,7 @@ const channelIcons: Record<string, string> = {
 
 export default function UnifiedInbox() {
   const { t } = useTranslation();
+  const location = useLocation();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -66,6 +68,14 @@ export default function UnifiedInbox() {
     loadConversations();
     loadTemplates();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab === 'needs_review') {
+      setFilterTab('needs_review');
+    }
+  }, [location.search]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

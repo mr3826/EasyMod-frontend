@@ -104,20 +104,20 @@
       "getStarted": "Get Started",
       "plans": [
         {
-          "id": "free", "name": "Free", "price": "৳0", "keyFeature": "Basic AI Chat", "popular": false,
-          "features": ["100 AI conversations/mo", "50 orders/mo", "Basic AI Chat", "1 channel"]
+          "id": "starter", "name": "Starter", "price": "৳499", "keyFeature": "AI Inbox + RTO Shield", "popular": false,
+          "features": ["1 Facebook Channel", "RTO Shield Protection", "Auto-Reply AI", "7-day Analytics", "Priority Support"]
         },
         {
-          "id": "growth", "name": "Growth", "price": "৳999", "keyFeature": "RTO Shield + Pathao", "popular": true,
-          "features": ["1,000 AI conversations/mo", "500 orders/mo", "RTO Shield protection", "Pathao integration", "Image understanding"]
+          "id": "growth", "name": "Growth", "price": "৳1,499", "keyFeature": "Auto-Reply + Broadcast + 3 Channels", "popular": true,
+          "features": ["Up to 3 channels (FB, IG, WA)", "+৳200/mo per extra channel", "Comment Auto-Reply", "Broadcast Campaigns", "Advanced RTO Shield"]
         },
         {
-          "id": "pro", "name": "Pro", "price": "৳2,499", "keyFeature": "All Channels + Analytics", "popular": false,
-          "features": ["5,000 AI conversations/mo", "2,000 orders/mo", "All channels (FB, IG, WA)", "Advanced Analytics", "Priority support"]
+          "id": "scale", "name": "Scale", "price": "৳3,499", "keyFeature": "Everything + API + Catalog Sync", "popular": false,
+          "features": ["Unlimited Channels", "API Access", "WhatsApp Catalog Sync", "Advanced Tone Control", "Priority Access to New Features"]
         },
         {
-          "id": "business", "name": "Business", "price": "৳5,999", "keyFeature": "White-label + API", "popular": false,
-          "features": ["Unlimited conversations", "Unlimited orders", "White-label branding", "API access", "Dedicated support manager"]
+          "id": "partner", "name": "Partner", "price": "৳0", "keyFeature": "Zero monthly fee. Pay ৳22 per delivered order.", "popular": false,
+          "features": ["No Monthly Fee", "Charge only on delivery (not on cancelled/RTO)", "All features included", "Weekly invoicing", "14-day payment window"]
         }
       ]
     },
@@ -1019,10 +1019,18 @@
       "gatewaysSubtitle": "Enable and configure payment methods for your customers",
       "codName": "Cash on Delivery",
       "codDesc": "Accept cash payment on delivery",
+      "bkashName": "bKash",
+      "bkashDesc": "Accept payments via bKash mobile wallet",
+      "nagadName": "Nagad",
+      "nagadDesc": "Accept payments via Nagad mobile banking",
+      "rocketName": "Rocket",
+      "rocketDesc": "Accept payments via Rocket digital wallet",
       "aamarName": "AamarPay",
-      "aamarDesc": "Accept card payments, mobile banking & more",
+      "aamarDesc": "Enterprise integration - Contact us for setup",
       "sslCommerzName": "SSLCommerz",
-      "sslCommerzDesc": "Accept cards, mobile banking and internet banking",
+      "sslCommerzDesc": "Enterprise integration - Contact us for setup",
+      "contactUsTitle": "Contact Us for Integration",
+      "contactUsMessage": "This payment method is available as an enterprise integration. Please contact our support team to set up {{gatewayName}} for your shop.",
       "defaultPaymentMessage": "Payment instructions will be sent after order confirmation.",
       "storeId": "Store ID",
       "storeIdPlaceholder": "Enter Store ID",
@@ -1030,6 +1038,18 @@
       "secretKeyPlaceholder": "Enter Secret Key",
       "storePassword": "Store Password",
       "storePasswordPlaceholder": "Enter Store Password",
+      "merchantId": "Merchant ID",
+      "merchantIdPlaceholder": "Enter Merchant ID",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Enter API Key",
+      "publicKey": "Public Key",
+      "publicKeyPlaceholder": "Enter Public Key",
+      "serviceId": "Service ID",
+      "serviceIdPlaceholder": "Enter Service ID",
+      "username": "Username",
+      "usernamePlaceholder": "Enter Username",
+      "password": "Password",
+      "passwordPlaceholder": "Enter Password",
       "environment": "Environment",
       "sandbox": "Sandbox (Testing)",
       "live": "Live (Production)",
