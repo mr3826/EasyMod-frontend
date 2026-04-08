@@ -1,7 +1,16 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
 import Dashboard from '@/app/components/Dashboard'
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return {
+    ...actual,
+    useNavigate: () => vi.fn(),
+    useLocation: () => ({ pathname: '/', search: '', hash: '', state: null }),
+    useParams: () => ({}),
+  }
+})
 
 // Mock the API client
 vi.mock('@/app/lib/api', () => ({
@@ -25,7 +34,7 @@ vi.mock('@/app/lib/api', () => ({
 
 describe('Dashboard', () => {
   it('renders dashboard with metrics', async () => {
-    render(<MemoryRouter><Dashboard /></MemoryRouter>)
+    render(<Dashboard />)
 
     await waitFor(() => {
       expect(screen.getByText('Channel Status')).toBeInTheDocument()
