@@ -103,7 +103,7 @@ jobs:
             --region=${{ env.REGION }} \
             --format="value(status.url)")
 
-          STATUS=$(curl -sf "${FRONTEND_URL}/healthz" -o /dev/null -w "%{http_code}" || echo "000")
+          STATUS=$(curl -sf "${FRONTEND_URL}/health" -o /dev/null -w "%{http_code}" || echo "000")
           if [ "$STATUS" = "200" ]; then
             echo "Frontend health check passed"
           else
