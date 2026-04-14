@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, Bot, CheckCircle2, Clock4, Loader2, Wallet } from "lucide-react";
 import { apiClient } from "../lib/api";
@@ -19,6 +19,8 @@ export default function Dashboard() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // AbortController for request cancellation on unmount
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("bn-BD", {
@@ -48,15 +50,32 @@ export default function Dashboard() {
       }
       setError(null);
 
-      const [metrics, queue, todayOrders] = await Promise.all([
+      // Use Promise.allSettled to handle partial failures gracefully
+      // and AbortController for cleanup on unmount
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      const [metricsResult, queueResult, ordersResult] = await Promise.allSettled([
         apiClient.getDashboardMetrics(),
         apiClient.getDashboardQueue(),
         apiClient.getOrders({
           start_date: new Date().toISOString().slice(0, 10),
           end_date: new Date().toISOString().slice(0, 10),
-          limit: 20,
+          limit: 5, // Only fetch 5 since we only display 5
         }),
       ]);
+
+      // Handle partial failures
+      const metrics = metricsResult.status === 'fulfilled' ? metricsResult.value : null;
+      const queue = queueResult.status === 'fulfilled' ? queueResult.value : null;
+      const todayOrders = ordersResult.status === 'fulfilled' ? ordersResult.value : [];
+
+      if (metricsResult.status === 'rejected') {
+        console.error('Failed to load dashboard metrics:', metricsResult.reason);
+      }
+      if (queueResult.status === 'rejected') {
+        console.error('Failed to load dashboard queue:', queueResult.reason);
+      }
 
       const todaySales = todayOrders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
       const confirmedOrders = todayOrders.filter(
@@ -66,11 +85,12 @@ export default function Dashboard() {
       setPulseData({
         todaySales,
         confirmedOrders,
-        missedReplies: queue.unread_count || 0,
-        botReplies: metrics.analytics?.llm_calls || 0,
-        needsAttention: queue.unread_count || 0,
-        atRiskCount: queue.at_risk_orders?.length || 0,
-        lastFiveOrders: todayOrders.slice(0, 5),
+        missedReplies: queue?.unread_count || 0,
+        botReplies: metrics?.analytics?.llm_calls || 0,
+        // Fix: needsAttention should include pending payments + unread, not just unread
+        needsAttention: (queue?.unread_count || 0) + (queue?.pending_payment_count || 0),
+        atRiskCount: queue?.at_risk_orders?.length || 0,
+        lastFiveOrders: todayOrders,
       });
       setLastUpdatedAt(new Date());
     } catch (loadError: any) {
@@ -88,7 +108,14 @@ export default function Dashboard() {
       refreshPulse(false);
     }, 60000);
 
-    return () => window.clearInterval(timer);
+    // Cleanup: abort any pending requests and clear interval
+    return () => {
+      window.clearInterval(timer);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
   }, []);
 
   const cards = useMemo(() => {

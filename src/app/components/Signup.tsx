@@ -178,7 +178,6 @@ export default function Signup() {
                 {subscriptionPlans.map((plan) => {
                   const isSelected = plan.id === selectedPlanId;
                   const price = getPlanPrice(plan, billingAnnual ? "yearly" : "monthly");
-                  const isFree = plan.id === 'free';
                   return (
                     <button
                       key={plan.id}
@@ -196,11 +195,6 @@ export default function Signup() {
                         {plan.popular && (
                           <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-600 text-white">
                             {t('auth.signup.popular')}
-                          </span>
-                        )}
-                        {isFree && (
-                          <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                            {t('auth.signup.free')}
                           </span>
                         )}
                       </div>

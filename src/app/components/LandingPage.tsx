@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import LanguageToggle from "./LanguageToggle";
+import { subscriptionPlans } from "@/app/lib/subscriptionPlans";
 
 const gradientText: React.CSSProperties = {
   background: "linear-gradient(135deg, #60A5FA 0%, #34D399 100%)",
@@ -14,10 +15,6 @@ export default function LandingPage() {
 
   const features = t('landing.features.items', { returnObjects: true }) as {
     icon: string; title: string; desc: string; colorClass: string;
-  }[];
-
-  const plans = t('landing.pricing.plans', { returnObjects: true }) as {
-    id: string; name: string; price: string; keyFeature: string; popular: boolean; features: string[];
   }[];
 
   const testimonials = t('landing.testimonials.items', { returnObjects: true }) as {
@@ -87,7 +84,7 @@ export default function LandingPage() {
             to="/signup"
             className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors shadow-sm"
           >
-            {t('landing.nav.startFree')}
+            {t('landing.nav.getStarted')}
           </Link>
         </div>
       </nav>
@@ -187,7 +184,7 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {plans.map((plan) => (
+            {subscriptionPlans.map((plan) => (
               <div
                 key={plan.id}
                 className={`plan-card relative flex flex-col rounded-2xl p-6 ${
@@ -207,14 +204,16 @@ export default function LandingPage() {
                 <div className="mb-5 pt-1">
                   <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
                   <div className="mt-2 flex items-end gap-1">
-                    <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
+                    <span className="text-4xl font-bold text-gray-900">
+                      ৳{plan.monthlyPrice.toLocaleString()}
+                    </span>
                     <span className="mb-1 text-sm text-gray-400">{t('landing.pricing.perMonth')}</span>
                   </div>
-                  <p className="mt-2 text-xs font-semibold text-blue-600">{plan.keyFeature}</p>
+                  <p className="mt-2 text-xs font-semibold text-blue-600">{plan.description}</p>
                 </div>
 
                 <ul className="mb-6 flex-1 space-y-2.5">
-                  {plan.features.map((feat) => (
+                  {plan.highlights.map((feat) => (
                     <li key={feat} className="flex items-start gap-2 text-sm text-gray-600">
                       <span className="mt-0.5 shrink-0 text-green-500">✓</span>
                       <span>{feat}</span>

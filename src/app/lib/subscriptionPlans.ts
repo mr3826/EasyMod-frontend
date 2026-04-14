@@ -26,30 +26,6 @@ export const UNLIMITED = -1;
 
 export const subscriptionPlans: SubscriptionPlanDefinition[] = [
   {
-    id: "free",
-    name: "Free",
-    description: "নতুন শপের জন্য বেসিক AI চ্যাট।",
-    monthlyPrice: 0,
-    yearlyPrice: 0,
-    limits: {
-      conversations: 100,
-      orders: 50,
-      products: 100,
-    },
-    features: {
-      image_understanding: false,
-      advanced_ai: false,
-      priority_support: false,
-      custom_branding: false,
-    },
-    highlights: [
-      "১০০ AI কথোপকথন / মাস",
-      "৫০ অর্ডার / মাস",
-      "বেসিক AI চ্যাট",
-      "১ চ্যানেল",
-    ],
-  },
-  {
     id: "starter",
     name: "Starter",
     description: "আপনার প্রথম AI সেলস টিম — ঘুমের মধ্যেও অর্ডার আসবে।",

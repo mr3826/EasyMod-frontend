@@ -16,9 +16,9 @@ function PlanCard({
   plan: SubscriptionPlanDefinition;
   onSelect: () => void;
 }) {
-  const isFree = plan.monthlyPrice === 0;
   const isStarter = plan.id === "starter";
   const isPopular = plan.popular && !isStarter;
+  const isPartner = plan.id === "partner";
 
   return (
     <div
@@ -55,21 +55,20 @@ function PlanCard({
       </div>
 
       <div className="mb-5">
-        {isFree ? (
+        <div className="flex items-end gap-1">
           <span className={`text-4xl font-extrabold ${isStarter || isPopular ? "text-white" : "text-gray-900"}`}>
-            Free
+            {isPartner ? "৳0" : `৳${plan.monthlyPrice.toLocaleString()}`}
           </span>
-        ) : (
-          <div className="flex items-end gap-1">
-            <span className={`text-4xl font-extrabold ${isStarter || isPopular ? "text-white" : "text-gray-900"}`}>
-              ৳{plan.monthlyPrice.toLocaleString()}
-            </span>
-            <span className={`text-sm mb-1 ${isStarter ? "text-green-100" : isPopular ? "text-blue-100" : "text-gray-500"}`}>/mo</span>
-          </div>
-        )}
-        {!isFree && (
+          <span className={`text-sm mb-1 ${isStarter ? "text-green-100" : isPopular ? "text-blue-100" : "text-gray-500"}`}>/mo</span>
+        </div>
+        {!isPartner && (
           <p className={`text-xs mt-1 ${isStarter ? "text-green-100" : isPopular ? "text-blue-100" : "text-gray-400"}`}>
-            or ৳{plan.yearlyPrice.toLocaleString()}/yr · save 2 months free
+            or ৳{plan.yearlyPrice.toLocaleString()}/yr · save 2 months
+          </p>
+        )}
+        {isPartner && (
+          <p className={`text-xs mt-1 text-gray-400`}>
+            ৳22 per delivered order only
           </p>
         )}
       </div>
@@ -105,12 +104,10 @@ function PlanCard({
             ? "bg-white text-green-700 hover:bg-green-50"
             : isPopular
             ? "bg-white text-blue-600 hover:bg-blue-50"
-            : isFree
-            ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
             : "bg-blue-600 text-white hover:bg-blue-700"
         }`}
       >
-        {isFree ? "Get started free" : `Start ${plan.name}`}
+        {`Start ${plan.name}`}
         <ArrowRight className="w-4 h-4" />
       </button>
     </div>
@@ -162,7 +159,7 @@ export default function Pricing() {
 
         {/* Plan cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-16">
-          {subscriptionPlans.filter(p => p.id !== 'free').map((plan) => (
+          {subscriptionPlans.map((plan) => (
             <PlanCard
               key={plan.id}
               plan={plan}
@@ -181,7 +178,7 @@ export default function Pricing() {
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left p-4 text-sm font-semibold text-gray-600 w-48">Feature</th>
-                  {subscriptionPlans.filter(p => p.id !== 'free').map((p) => (
+                  {subscriptionPlans.map((p) => (
                     <th key={p.id} className="text-center p-4 text-sm font-semibold text-gray-900">
                       {p.name}
                     </th>
@@ -192,7 +189,7 @@ export default function Pricing() {
                 {FEATURE_ROWS.map(({ label, key }) => (
                   <tr key={key} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                     <td className="p-4 text-sm text-gray-700">{label}</td>
-                    {subscriptionPlans.filter(p => p.id !== 'free').map((p) => (
+                    {subscriptionPlans.map((p) => (
                       <td key={p.id} className="p-4 text-center">
                         {p.features[key] ? (
                           <Check className="w-5 h-5 text-green-600 mx-auto" />
@@ -236,13 +233,13 @@ export default function Pricing() {
         {/* CTA */}
         <div className="mt-16 bg-blue-600 rounded-2xl p-10 text-center text-white">
           <h2 className="text-3xl font-extrabold mb-3">Ready to automate your shop?</h2>
-          <p className="text-blue-100 mb-6">Start free. No credit card required.</p>
+          <p className="text-blue-100 mb-6">Pick a plan and start today. No hidden fees.</p>
           <button
             onClick={() => navigate("/signup")}
             className="inline-flex items-center gap-2 bg-white text-blue-600 font-bold px-8 py-3 rounded-xl hover:bg-blue-50 transition-colors"
           >
             <Zap className="w-4 h-4" />
-            Create your free account
+            Get started now
           </button>
         </div>
       </main>
