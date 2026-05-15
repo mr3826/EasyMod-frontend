@@ -32,13 +32,7 @@ jobs:
           npm run test:unit -- \
             --passWithNoTests \
             --exclude 'src/api/domains/__tests__/**' \
-            --exclude 'src/test/CSRFIntegration.test.tsx' \
-            --exclude 'src/test/Channels.test.tsx' \
-            --exclude 'src/test/SignIn.test.tsx' \
-            --exclude 'src/test/Subscription.test.tsx' \
-            --exclude 'src/app/components/BusinessInfoForm.test.tsx' \
-            --exclude 'src/app/components/Products.test.tsx' \
-            --exclude 'src/app/components/__tests__/PaymentSettings.test.tsx'
+            --exclude 'src/test/CSRFIntegration.test.tsx'
 
   build-and-deploy:
     name: Build & Deploy

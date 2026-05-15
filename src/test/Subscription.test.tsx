@@ -3,6 +3,40 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import Subscription from '@/app/components/Subscription'
 
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, options?: any) => {
+      if (options?.returnObjects) return []
+      if (key === 'subscription.planTitle' && options?.plan) return `${options.plan} Plan`
+      if (key === 'subscription.price' && options?.price) return `৳${options.price}`
+      if (key === 'subscription.nextBilling' && options?.date) return `Next billing: ${options.date}`
+      const map: Record<string, string> = {
+        'subscription.title': 'Plan & Billing',
+        'subscription.noData': 'No subscription data',
+        'subscription.paid': 'Paid',
+        'subscription.pending': 'Pending',
+        'subscription.currentPlan': 'Current Plan',
+        'subscription.plansTitle': 'Available Plans',
+        'subscription.plansSubtitle': 'Choose a plan',
+        'subscription.invoicesTitle': 'Invoices',
+        'subscription.invoiceDisclaimer': 'Invoice disclaimer',
+        'subscription.invoiceNote': 'Invoice note',
+        'subscription.requestInvoice': 'Request Invoice',
+        'subscription.planIncludes': 'Plan includes',
+        'subscription.invoiceColumns.id': 'ID',
+        'subscription.invoiceColumns.period': 'Period',
+        'subscription.invoiceColumns.type': 'Type',
+        'subscription.invoiceColumns.amount': 'Amount',
+        'subscription.invoiceColumns.status': 'Status',
+        'subscription.invoiceColumns.action': 'Action',
+        'common.active': 'Active',
+        'common.inactive': 'Inactive',
+      }
+      return map[key] ?? key
+    },
+  }),
+}))
+
 // Mock the API client
 vi.mock('@/api', () => ({
   apiClient: {
