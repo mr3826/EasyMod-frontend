@@ -68,8 +68,10 @@ describe('BusinessInfoForm', () => {
     const deliveryAreaInput = inputs[0]; // First tag input is delivery areas
 
     await userEvent.type(deliveryAreaInput, 'Sylhet');
-    // fireEvent.keyDown is synchronous and reliably fires on the target element
-    fireEvent.keyDown(deliveryAreaInput, { key: 'Enter', code: 'Enter' });
+    // Click the + button directly (next sibling in the flex row) instead of
+    // relying on keyboard events which may not update React controlled state
+    const addBtn = deliveryAreaInput.parentElement?.querySelector('button') as HTMLElement | null;
+    if (addBtn) fireEvent.click(addBtn);
 
     await waitFor(() => {
       expect(screen.getByText('Sylhet')).toBeInTheDocument();

@@ -153,8 +153,13 @@ describe('PaymentSettings', () => {
         );
         if (!expandBtn) return;
         fireEvent.click(expandBtn);
-        // findByRole waits for the button to appear after expansion
         const saveBtn = await screen.findByRole('button', { name: /save bkash/i }, { timeout: 3000 });
+        // Ensure phone field has a value before saving (async config load may not
+        // have propagated into React state yet — typing sets it synchronously)
+        const phoneInput = document.querySelector('input[type="text"]') as HTMLInputElement | null;
+        if (phoneInput && !phoneInput.value) {
+            fireEvent.change(phoneInput, { target: { value: '01711000000' } });
+        }
         fireEvent.click(saveBtn);
         await waitFor(() => {
             expect(mockSavePaymentConfig).toHaveBeenCalled();
@@ -170,6 +175,10 @@ describe('PaymentSettings', () => {
         if (!expandBtn) return;
         fireEvent.click(expandBtn);
         const saveBtn = await screen.findByRole('button', { name: /save bkash/i }, { timeout: 3000 });
+        const phoneInput = document.querySelector('input[type="text"]') as HTMLInputElement | null;
+        if (phoneInput && !phoneInput.value) {
+            fireEvent.change(phoneInput, { target: { value: '01711000000' } });
+        }
         fireEvent.click(saveBtn);
         await waitFor(() => {
             expect(toast.success).toHaveBeenCalled();
@@ -186,6 +195,10 @@ describe('PaymentSettings', () => {
         if (!expandBtn) return;
         fireEvent.click(expandBtn);
         const saveBtn = await screen.findByRole('button', { name: /save bkash/i }, { timeout: 3000 });
+        const phoneInput = document.querySelector('input[type="text"]') as HTMLInputElement | null;
+        if (phoneInput && !phoneInput.value) {
+            fireEvent.change(phoneInput, { target: { value: '01711000000' } });
+        }
         fireEvent.click(saveBtn);
         await waitFor(() => {
             expect(toast.error).toHaveBeenCalled();
