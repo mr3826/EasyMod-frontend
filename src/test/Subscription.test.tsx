@@ -39,40 +39,35 @@ vi.mock('react-i18next', () => ({
 }))
 
 // Mock the API client
+// Note: apiClient methods return response.data.data (the inner payload), not the full HTTP envelope.
 vi.mock('@/api', () => ({
   apiClient: {
     getSubscription: vi.fn().mockResolvedValue({
-      success: true,
-      data: {
-        subscription: {
-          plan_name: 'Pro',
-          plan_price: '29.99',
-          billing_cycle: 'monthly',
-          next_billing_date: '2024-02-01',
-          status: 'active',
-          features: { image_understanding: true }
-        },
-        usage: {
-          conversations: { used: 10, limit: 100, status: 'safe' },
-          orders: { used: 5, limit: 50, status: 'safe' },
-          products: { used: 20, limit: 100, status: 'safe' }
-        },
-        extra_usage: { conversations: 0, charge: 0 }
+      subscription: {
+        plan_name: 'Pro',
+        plan_price: '29.99',
+        billing_cycle: 'monthly',
+        next_billing_date: '2024-02-01',
+        status: 'active',
+        features: { image_understanding: true }
+      },
+      usage: {
+        conversations: { used: 10, limit: 100, status: 'safe' },
+        orders: { used: 5, limit: 50, status: 'safe' },
+        products: { used: 20, limit: 100, status: 'safe' }
+      },
+      extra_usage: { conversations: 0, charge: 0 }
+    }),
+    getSubscriptionInvoices: vi.fn().mockResolvedValue([
+      {
+        invoice_number: '1',
+        billing_period: 'Jan 2024',
+        amount: '29.99',
+        status: 'paid',
+        invoice_type: 'subscription',
+        created_at: '2024-01-01'
       }
-    }),
-    getSubscriptionInvoices: vi.fn().mockResolvedValue({
-      success: true,
-      data: [
-        {
-          invoice_number: '1',
-          billing_period: 'Jan 2024',
-          amount: '29.99',
-          status: 'paid',
-          invoice_type: 'subscription',
-          created_at: '2024-01-01'
-        }
-      ]
-    }),
+    ]),
     purchaseConversationPack: vi.fn().mockResolvedValue({ success: true }),
     updateSubscriptionPlan: vi.fn().mockResolvedValue({ success: true }),
   }

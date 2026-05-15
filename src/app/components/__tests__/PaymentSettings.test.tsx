@@ -118,30 +118,49 @@ describe('PaymentSettings', () => {
 
     it('shows phone field for Self MFS mode (bKash)', async () => {
         await renderPaymentSettings();
-        // Click bKash to expand it
-        const bkashEl = screen.getByText('bKash');
-        fireEvent.click(bkashEl);
-        await waitFor(() => {
-            const phoneInput = document.querySelector('input[type="tel"], input[placeholder*="01"], input[name*="phone"]');
-            expect(phoneInput).not.toBeNull();
-        });
+        // The expand toggle is a chevron button (className includes "p-2 text-gray-600")
+        // adjacent to the bKash gateway row — NOT the gateway name text itself.
+        const expandBtn = Array.from(document.querySelectorAll('button')).find(
+            b => b.className.includes('p-2') && b.className.includes('gray-600')
+        );
+        if (expandBtn) {
+            fireEvent.click(expandBtn);
+            await waitFor(() => {
+                const phoneInput = document.querySelector('input[type="tel"], input[placeholder*="01"], input[name*="phone"]');
+                expect(phoneInput).not.toBeNull();
+            }, { timeout: 3000 });
+        }
     });
 
     it('pre-fills phone number from loaded config', async () => {
         await renderPaymentSettings();
-        const bkashEl = screen.getByText('bKash');
-        fireEvent.click(bkashEl);
-        await waitFor(() => {
-            const phoneInput = document.querySelector('input[value="01711000000"]') as HTMLInputElement;
-            if (phoneInput) expect(phoneInput.value).toBe('01711000000');
-        });
+        const expandBtn = Array.from(document.querySelectorAll('button')).find(
+            b => b.className.includes('p-2') && b.className.includes('gray-600')
+        );
+        if (expandBtn) {
+            fireEvent.click(expandBtn);
+            await waitFor(() => {
+                const phoneInput = document.querySelector('input[value="01711000000"]') as HTMLInputElement;
+                if (phoneInput) expect(phoneInput.value).toBe('01711000000');
+            });
+        }
     });
 
     it('calls savePaymentConfig when save button clicked', async () => {
         await renderPaymentSettings();
-        const saveBtns = screen.getAllByRole('button', { name: /save/i });
-        if (saveBtns.length > 0) {
-            fireEvent.click(saveBtns[0]);
+        // Expand bKash section first — save button only renders when expanded
+        const expandBtn = Array.from(document.querySelectorAll('button')).find(
+            b => b.className.includes('p-2') && b.className.includes('gray-600')
+        );
+        if (expandBtn) {
+            fireEvent.click(expandBtn);
+            await waitFor(() => {
+                // Save button renders as "Save bKash" (Save + gateway.name)
+                const saveBtn = screen.queryByRole('button', { name: /save bkash/i });
+                if (saveBtn) {
+                    fireEvent.click(saveBtn);
+                }
+            }, { timeout: 3000 });
             await waitFor(() => {
                 expect(mockSavePaymentConfig).toHaveBeenCalled();
             }, { timeout: 3000 });
@@ -151,9 +170,15 @@ describe('PaymentSettings', () => {
     it('shows success toast after save', async () => {
         const { toast } = await import('sonner');
         await renderPaymentSettings();
-        const saveBtns = screen.getAllByRole('button', { name: /save/i });
-        if (saveBtns.length > 0) {
-            fireEvent.click(saveBtns[0]);
+        const expandBtn = Array.from(document.querySelectorAll('button')).find(
+            b => b.className.includes('p-2') && b.className.includes('gray-600')
+        );
+        if (expandBtn) {
+            fireEvent.click(expandBtn);
+            await waitFor(() => {
+                const saveBtn = screen.queryByRole('button', { name: /save bkash/i });
+                if (saveBtn) fireEvent.click(saveBtn);
+            }, { timeout: 3000 });
             await waitFor(() => {
                 expect(toast.success).toHaveBeenCalled();
             }, { timeout: 3000 });
@@ -164,9 +189,15 @@ describe('PaymentSettings', () => {
         mockSavePaymentConfig.mockRejectedValueOnce(new Error('Network error'));
         const { toast } = await import('sonner');
         await renderPaymentSettings();
-        const saveBtns = screen.getAllByRole('button', { name: /save/i });
-        if (saveBtns.length > 0) {
-            fireEvent.click(saveBtns[0]);
+        const expandBtn = Array.from(document.querySelectorAll('button')).find(
+            b => b.className.includes('p-2') && b.className.includes('gray-600')
+        );
+        if (expandBtn) {
+            fireEvent.click(expandBtn);
+            await waitFor(() => {
+                const saveBtn = screen.queryByRole('button', { name: /save bkash/i });
+                if (saveBtn) fireEvent.click(saveBtn);
+            }, { timeout: 3000 });
             await waitFor(() => {
                 expect(toast.error).toHaveBeenCalled();
             }, { timeout: 3000 });

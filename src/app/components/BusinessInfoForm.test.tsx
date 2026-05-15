@@ -68,8 +68,8 @@ describe('BusinessInfoForm', () => {
     const deliveryAreaInput = inputs[0]; // First tag input is delivery areas
 
     await userEvent.type(deliveryAreaInput, 'Sylhet');
-    // Press Enter to add — avoids having to locate the icon-only + button
-    await userEvent.keyboard('{Enter}');
+    // fireEvent.keyDown is synchronous and reliably fires on the target element
+    fireEvent.keyDown(deliveryAreaInput, { key: 'Enter', code: 'Enter' });
 
     await waitFor(() => {
       expect(screen.getByText('Sylhet')).toBeInTheDocument();

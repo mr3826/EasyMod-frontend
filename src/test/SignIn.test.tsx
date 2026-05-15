@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import SignIn from '@/app/components/SignIn'
 
@@ -62,9 +63,11 @@ describe('SignIn', () => {
     const passwordInput = screen.getByLabelText(/password/i)
     const submitButton = screen.getByRole('button', { name: /sign in/i })
 
-    fireEvent.change(emailInput, { target: { value: 'test@example.com' } })
-    fireEvent.change(passwordInput, { target: { value: 'password123' } })
-    fireEvent.click(submitButton)
+    // userEvent fires real keystroke events so react-hook-form tracks values
+    // via onChange even when the Input component lacks forwardRef
+    await userEvent.type(emailInput, 'test@example.com')
+    await userEvent.type(passwordInput, 'password123')
+    await userEvent.click(submitButton)
 
     await waitFor(() => {
       expect(mockSignin).toHaveBeenCalledWith({
