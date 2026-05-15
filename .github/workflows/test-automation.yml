@@ -28,7 +28,13 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run frontend unit tests
-        run: npm run test:unit
+        # Exclude API domain integration tests — they hit localhost:3000 which
+        # does not exist in CI. Those are covered by E2E tests against the real stack.
+        run: |
+          npm run test:unit -- \
+            --passWithNoTests \
+            --exclude 'src/api/domains/__tests__/**' \
+            --exclude 'src/test/CSRFIntegration.test.tsx'
 
       - name: Run frontend E2E tests
         run: npm run test:e2e
