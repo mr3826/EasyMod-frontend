@@ -19,7 +19,8 @@ jobs:
   health-alerts:
     name: Health Check Alerts
     runs-on: ubuntu-latest
-    
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
     steps:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
