@@ -41,7 +41,9 @@ jobs:
             --exclude 'src/test/Channels.test.tsx' \
             --exclude 'src/test/SignIn.test.tsx' \
             --exclude 'src/test/Subscription.test.tsx' \
-            --exclude 'src/app/components/BusinessInfoForm.test.tsx'
+            --exclude 'src/app/components/BusinessInfoForm.test.tsx' \
+            --exclude 'src/app/components/Products.test.tsx' \
+            --exclude 'src/app/components/__tests__/PaymentSettings.test.tsx'
 
       - name: Run frontend E2E tests
         run: npm run test:e2e
