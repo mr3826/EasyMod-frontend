@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BusinessInfoForm from './BusinessInfoForm';
 import type { BusinessInfo } from '../lib/knowledgeTypes';
@@ -67,12 +67,16 @@ describe('BusinessInfoForm', () => {
     const inputs = screen.getAllByPlaceholderText(/e\.g\./i);
     const deliveryAreaInput = inputs[0]; // First tag input is delivery areas
 
-    // fireEvent.change reliably fires the React onChange synthetic event
-    // and updates the TagInput's 'draft' controlled state
-    fireEvent.change(deliveryAreaInput, { target: { value: 'Sylhet' } });
-    // Click the + button directly via DOM — it's the next sibling in the flex row
-    const addBtn = deliveryAreaInput.parentElement?.querySelector('button') as HTMLElement | null;
-    if (addBtn) fireEvent.click(addBtn);
+    // Wrap change + click in act() so React 18 flushes state (draft='Sylhet')
+    // before add() reads it — without act, batching may leave draft='' at click time
+    await act(async () => {
+      fireEvent.change(deliveryAreaInput, { target: { value: 'Sylhet' } });
+    });
+    // getAllByRole re-queries after state flush; [0] = delivery areas + button
+    const addButtons = screen.getAllByRole('button', { name: '' });
+    await act(async () => {
+      fireEvent.click(addButtons[0]);
+    });
 
     await waitFor(() => {
       expect(screen.getByText('Sylhet')).toBeInTheDocument();

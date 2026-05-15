@@ -166,8 +166,7 @@ describe('PaymentSettings', () => {
         }, { timeout: 3000 });
     });
 
-    it('shows success toast after save', async () => {
-        const { toast } = await import('sonner');
+    it('shows success message after save', async () => {
         await renderPaymentSettings();
         const expandBtn = Array.from(document.querySelectorAll('button')).find(
             b => b.className.includes('p-2') && b.className.includes('gray-600')
@@ -180,14 +179,14 @@ describe('PaymentSettings', () => {
             fireEvent.change(phoneInput, { target: { value: '01711000000' } });
         }
         fireEvent.click(saveBtn);
+        // Component uses setSuccess (not toast) — check DOM for success text
         await waitFor(() => {
-            expect(toast.success).toHaveBeenCalled();
+            expect(screen.getByText(/verified and saved/i)).toBeInTheDocument();
         }, { timeout: 3000 });
     });
 
-    it('shows error toast when save fails', async () => {
+    it('shows error message when save fails', async () => {
         mockSavePaymentConfig.mockRejectedValueOnce(new Error('Network error'));
-        const { toast } = await import('sonner');
         await renderPaymentSettings();
         const expandBtn = Array.from(document.querySelectorAll('button')).find(
             b => b.className.includes('p-2') && b.className.includes('gray-600')
@@ -200,8 +199,9 @@ describe('PaymentSettings', () => {
             fireEvent.change(phoneInput, { target: { value: '01711000000' } });
         }
         fireEvent.click(saveBtn);
+        // Component uses setError (not toast) — check DOM for error text
         await waitFor(() => {
-            expect(toast.error).toHaveBeenCalled();
+            expect(screen.getByText(/saveConfigFailed|save.*failed|error/i)).toBeInTheDocument();
         }, { timeout: 3000 });
     });
 
