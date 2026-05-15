@@ -67,9 +67,10 @@ describe('BusinessInfoForm', () => {
     const inputs = screen.getAllByPlaceholderText(/e\.g\./i);
     const deliveryAreaInput = inputs[0]; // First tag input is delivery areas
 
-    await userEvent.type(deliveryAreaInput, 'Sylhet');
-    // Click the + button directly (next sibling in the flex row) instead of
-    // relying on keyboard events which may not update React controlled state
+    // fireEvent.change reliably fires the React onChange synthetic event
+    // and updates the TagInput's 'draft' controlled state
+    fireEvent.change(deliveryAreaInput, { target: { value: 'Sylhet' } });
+    // Click the + button directly via DOM — it's the next sibling in the flex row
     const addBtn = deliveryAreaInput.parentElement?.querySelector('button') as HTMLElement | null;
     if (addBtn) fireEvent.click(addBtn);
 

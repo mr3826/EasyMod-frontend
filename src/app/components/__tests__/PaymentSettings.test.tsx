@@ -154,9 +154,9 @@ describe('PaymentSettings', () => {
         if (!expandBtn) return;
         fireEvent.click(expandBtn);
         const saveBtn = await screen.findByRole('button', { name: /save bkash/i }, { timeout: 3000 });
-        // Ensure phone field has a value before saving (async config load may not
-        // have propagated into React state yet — typing sets it synchronously)
-        const phoneInput = document.querySelector('input[type="text"]') as HTMLInputElement | null;
+        // Phone input is type="tel" (not type="text") — ensure it has a value
+        // before saving in case async config load hasn't propagated into state yet
+        const phoneInput = document.querySelector('input[type="tel"]') as HTMLInputElement | null;
         if (phoneInput && !phoneInput.value) {
             fireEvent.change(phoneInput, { target: { value: '01711000000' } });
         }
@@ -175,7 +175,7 @@ describe('PaymentSettings', () => {
         if (!expandBtn) return;
         fireEvent.click(expandBtn);
         const saveBtn = await screen.findByRole('button', { name: /save bkash/i }, { timeout: 3000 });
-        const phoneInput = document.querySelector('input[type="text"]') as HTMLInputElement | null;
+        const phoneInput = document.querySelector('input[type="tel"]') as HTMLInputElement | null;
         if (phoneInput && !phoneInput.value) {
             fireEvent.change(phoneInput, { target: { value: '01711000000' } });
         }
@@ -195,7 +195,7 @@ describe('PaymentSettings', () => {
         if (!expandBtn) return;
         fireEvent.click(expandBtn);
         const saveBtn = await screen.findByRole('button', { name: /save bkash/i }, { timeout: 3000 });
-        const phoneInput = document.querySelector('input[type="text"]') as HTMLInputElement | null;
+        const phoneInput = document.querySelector('input[type="tel"]') as HTMLInputElement | null;
         if (phoneInput && !phoneInput.value) {
             fireEvent.change(phoneInput, { target: { value: '01711000000' } });
         }
