@@ -62,24 +62,18 @@ describe('BusinessInfoForm', () => {
   });
 
   it('adds delivery area via tag input', async () => {
+    // userEvent.setup() is the v14 API — properly handles React 18 controlled
+    // inputs and flushes state between keystrokes so draft is current when Enter fires
+    const user = userEvent.setup();
     render(<BusinessInfoForm {...defaultProps} />);
 
     const inputs = screen.getAllByPlaceholderText(/e\.g\./i);
-    const deliveryAreaInput = inputs[0]; // First tag input is delivery areas
-
-    // Wrap change + click in act() so React 18 flushes state (draft='Sylhet')
-    // before add() reads it — without act, batching may leave draft='' at click time
-    await act(async () => {
-      fireEvent.change(deliveryAreaInput, { target: { value: 'Sylhet' } });
-    });
-    // getAllByRole re-queries after state flush; [0] = delivery areas + button
-    const addButtons = screen.getAllByRole('button', { name: '' });
-    await act(async () => {
-      fireEvent.click(addButtons[0]);
-    });
+    await user.type(inputs[0], 'Sylhet');
+    await user.keyboard('{Enter}');
 
     await waitFor(() => {
-      expect(screen.getByText('Sylhet')).toBeInTheDocument();
+      // Use regex matcher to tolerate whitespace or mixed-content span wrappers
+      expect(screen.getByText(/^Sylhet$/)).toBeInTheDocument();
     });
   });
 
