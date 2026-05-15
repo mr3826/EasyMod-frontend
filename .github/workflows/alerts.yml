@@ -2,6 +2,8 @@ name: Health Alert Notifications
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
   schedule:
     # Run health check alerts every 10 minutes
     - cron: '*/10 * * * *'
