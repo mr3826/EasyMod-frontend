@@ -66,14 +66,13 @@ describe('BusinessInfoForm', () => {
     render(<BusinessInfoForm {...defaultProps} />);
 
     const inputs = screen.getAllByPlaceholderText(/e\.g\./i);
-    // Explicitly click to focus, then type — ensures the input is focused
-    // before userEvent begins firing keystrokes
-    await user.click(inputs[0]);
     await user.type(inputs[0], 'Sylhet');
-    await user.keyboard('{Enter}');
 
-    // Use document.body.textContent for the most permissive assertion —
-    // tolerates any wrapper element or whitespace around the tag text
+    // Click the + button via userEvent (wraps in act, flushes React state)
+    // rather than pressing Enter — more reliable across jsdom/React 18 versions
+    const addBtns = screen.getAllByRole('button', { name: '' });
+    await user.click(addBtns[0]); // addBtns[0] = delivery areas + button
+
     await waitFor(() => {
       expect(document.body.textContent).toContain('Sylhet');
     }, { timeout: 2000 });
