@@ -16,9 +16,15 @@ const {
 } = vi.hoisted(() => ({
     mockGetPaymentConfig: vi.fn().mockResolvedValue({
         success: true,
-        data: {
-            bkash: { enabled: true, phone: '01711000000', accountType: 'self' },
-        }
+        // Component expects an array: Array.isArray(response.data) ? response.data : []
+        // Each entry: { gateway: 'self-mfs', credentials: { mfs_type, mfs_number, mfs_mode }, is_enabled }
+        data: [
+            {
+                gateway: 'self-mfs',
+                credentials: { mfs_type: 'bkash', mfs_number: '01711000000', mfs_mode: 'self' },
+                is_enabled: true,
+            },
+        ],
     }),
     mockSavePaymentConfig: vi.fn().mockResolvedValue({ success: true, data: {} }),
     mockGetShop: vi.fn().mockResolvedValue({ success: true, data: { id: 'shop-1', name: 'Test Shop' } }),
@@ -77,9 +83,13 @@ describe('PaymentSettings', () => {
         vi.clearAllMocks();
         mockGetPaymentConfig.mockResolvedValue({
             success: true,
-            data: {
-                bkash: { enabled: true, phone: '01711000000', accountType: 'self' },
-            }
+            data: [
+                {
+                    gateway: 'self-mfs',
+                    credentials: { mfs_type: 'bkash', mfs_number: '01711000000', mfs_mode: 'self' },
+                    is_enabled: true,
+                },
+            ],
         });
     });
 

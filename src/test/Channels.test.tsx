@@ -102,6 +102,7 @@ it('ignores OAuth postMessage events from wrong origin', async () => {
 
     window.dispatchEvent(new MessageEvent('message', {
       origin: 'https://evil.example.com',
+      source: window as any,
       data: { type: 'OAUTH_SUCCESS', code: 'abc', state: 's'.repeat(64) }
     }))
 
@@ -130,6 +131,7 @@ it('ignores OAuth postMessage events from wrong origin', async () => {
 
     window.dispatchEvent(new MessageEvent('message', {
       origin: window.location.origin,
+      source: window as any,
       data: { type: 'OAUTH_ERROR', error: 'OAuth denied by user' }
     }))
 
@@ -167,6 +169,7 @@ it('ignores OAuth postMessage events from wrong origin', async () => {
 
     window.dispatchEvent(new MessageEvent('message', {
       origin: window.location.origin,
+      source: window as any,
       data: { type: 'OAUTH_SUCCESS', code: 'abc', state: 's'.repeat(64) }
     }))
 

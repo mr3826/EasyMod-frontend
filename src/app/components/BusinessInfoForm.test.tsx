@@ -63,19 +63,14 @@ describe('BusinessInfoForm', () => {
 
   it('adds delivery area via tag input', async () => {
     render(<BusinessInfoForm {...defaultProps} />);
-    
-    // Find the delivery areas section (second TagInput)
+
     const inputs = screen.getAllByPlaceholderText(/e\.g\./i);
     const deliveryAreaInput = inputs[0]; // First tag input is delivery areas
-    
+
     await userEvent.type(deliveryAreaInput, 'Sylhet');
-    
-    // Find and click add button
-    const addButtons = screen.getAllByRole('button', { name: '' });
-    const addButton = addButtons[0];
-    
-    fireEvent.click(addButton);
-    
+    // Press Enter to add — avoids having to locate the icon-only + button
+    await userEvent.keyboard('{Enter}');
+
     await waitFor(() => {
       expect(screen.getByText('Sylhet')).toBeInTheDocument();
     });
@@ -92,13 +87,14 @@ describe('BusinessInfoForm', () => {
     };
 
     render(<BusinessInfoForm {...defaultProps} initialData={initialData} />);
-    
+
     expect(screen.getByText('Dhaka')).toBeInTheDocument();
-    
-    // Click the X button on the tag
-    const removeButton = screen.getByRole('button', { name: '' });
-    fireEvent.click(removeButton);
-    
+
+    // With a tag present there are multiple icon-only buttons (X + two +).
+    // The X on the Dhaka tag is the first one in DOM order.
+    const emptyNameButtons = screen.getAllByRole('button', { name: '' });
+    fireEvent.click(emptyNameButtons[0]);
+
     await waitFor(() => {
       expect(screen.queryByText('Dhaka')).not.toBeInTheDocument();
     });
