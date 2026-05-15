@@ -1,4 +1,4 @@
-name: Deploy Frontend to GCP Cloud Run
+name: Deploy Frontend to Digital Ocean
 
 on:
   push:
@@ -11,14 +11,10 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write
+  packages: write
 
 env:
-  PROJECT_ID: gen-lang-client-0405487706
-  REGION: us-central1
-  REGISTRY: us-central1-docker.pkg.dev
-  REPOSITORY: easymod-frontend
-  SERVICE_NAME: easymod-frontend
+  GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/easymod-frontend
 
 jobs:
   test:
@@ -56,87 +52,71 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Authenticate to GCP via Workload Identity Federation
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: github-actions-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Cache Docker layers
-        uses: actions/cache@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image tag
+        id: meta
+        run: |
+          SHORT="${GITHUB_SHA::8}"
+          echo "image_tag=${{ env.GHCR_IMAGE }}:${SHORT}" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
-        id: image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          build-args: |
+            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+            VITE_META_APP_ID=${{ secrets.VITE_META_APP_ID }}
+            VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
+            VITE_ENV=production
+          tags: |
+            ${{ steps.meta.outputs.image_tag }}
+            ${{ env.GHCR_IMAGE }}:latest
+          cache-from: type=registry,ref=${{ env.GHCR_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.GHCR_IMAGE }}:buildcache,mode=max
+
+      - name: Deploy to DO Droplet
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: root
+          key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
+          timeout: 120s
+          envs: GHCR_IMAGE,IMAGE_TAG,GH_ACTOR,GH_TOKEN
+          script: |
+            set -e
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+
+            echo "Pulling frontend: $IMAGE_TAG"
+            docker pull "$IMAGE_TAG"
+            docker tag "$IMAGE_TAG" "$GHCR_IMAGE:latest"
+
+            cd /opt/easymod
+            export GHCR_IMAGE_FRONTEND="$GHCR_IMAGE:latest"
+            export GHCR_IMAGE_BACKEND="${GHCR_IMAGE_BACKEND:-$(docker inspect easymod-backend-1 --format='{{index .Config.Image}}' 2>/dev/null || echo ghcr.io/mr3826/easymod-backend:latest)}"
+            docker compose -f docker-compose.prod.yml up -d frontend --no-build --remove-orphans
+
+            for i in $(seq 1 12); do
+              STATUS=$(curl -sf http://localhost:8080/health -o /dev/null -w "%{http_code}" || echo "000")
+              if [ "$STATUS" = "200" ]; then echo "Health check passed (attempt $i)"; break; fi
+              echo "Attempt $i: $STATUS — retrying in 5s..."
+              sleep 5
+              if [ "$i" = "12" ]; then echo "ERROR: Health check failed"; exit 1; fi
+            done
+
+            docker image prune -f
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/app
-        run: |
-          IMAGE_TAG="${IMAGE}:${{ github.sha }}"
-          IMAGE_LATEST="${IMAGE}:latest"
-
-          docker buildx build \
-            --platform linux/amd64 \
-            --build-arg VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }} \
-            --build-arg VITE_META_APP_ID=${{ secrets.VITE_META_APP_ID }} \
-            --build-arg VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }} \
-            --build-arg VITE_ENV=production \
-            --cache-from type=local,src=/tmp/.buildx-cache \
-            --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
-            --tag "$IMAGE_TAG" \
-            --tag "$IMAGE_LATEST" \
-            --push \
-            .
-
-          # Move cache to avoid ever-growing cache
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-
-          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy to Cloud Run
-        run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image=${{ steps.image.outputs.image_tag }} \
-            --region=${{ env.REGION }} \
-            --platform=managed \
-            --allow-unauthenticated \
-            --port=8080 \
-            --memory=512Mi \
-            --cpu=1 \
-            --min-instances=0 \
-            --max-instances=10 \
-            --quiet
-
-      - name: Verify deployment
-        run: |
-          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
-            --region=${{ env.REGION }} \
-            --format="value(status.url)")
-          echo "Deployed to: $SERVICE_URL"
-
-          for i in $(seq 1 10); do
-            STATUS=$(curl -sf "${SERVICE_URL}/health" -o /dev/null -w "%{http_code}" || echo "000")
-            if [ "$STATUS" = "200" ]; then
-              echo "Health check passed (attempt $i)"
-              break
-            fi
-            echo "Attempt $i: HTTP $STATUS — retrying in 5s..."
-            sleep 5
-            if [ "$i" = "10" ]; then
-              echo "Health check failed after 50s"
-              exit 1
-            fi
-          done
+          GHCR_IMAGE: ${{ env.GHCR_IMAGE }}
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
