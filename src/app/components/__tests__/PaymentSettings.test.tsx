@@ -148,23 +148,17 @@ describe('PaymentSettings', () => {
 
     it('calls savePaymentConfig when save button clicked', async () => {
         await renderPaymentSettings();
-        // Expand bKash section first — save button only renders when expanded
         const expandBtn = Array.from(document.querySelectorAll('button')).find(
             b => b.className.includes('p-2') && b.className.includes('gray-600')
         );
-        if (expandBtn) {
-            fireEvent.click(expandBtn);
-            await waitFor(() => {
-                // Save button renders as "Save bKash" (Save + gateway.name)
-                const saveBtn = screen.queryByRole('button', { name: /save bkash/i });
-                if (saveBtn) {
-                    fireEvent.click(saveBtn);
-                }
-            }, { timeout: 3000 });
-            await waitFor(() => {
-                expect(mockSavePaymentConfig).toHaveBeenCalled();
-            }, { timeout: 3000 });
-        }
+        if (!expandBtn) return;
+        fireEvent.click(expandBtn);
+        // findByRole waits for the button to appear after expansion
+        const saveBtn = await screen.findByRole('button', { name: /save bkash/i }, { timeout: 3000 });
+        fireEvent.click(saveBtn);
+        await waitFor(() => {
+            expect(mockSavePaymentConfig).toHaveBeenCalled();
+        }, { timeout: 3000 });
     });
 
     it('shows success toast after save', async () => {
@@ -173,16 +167,13 @@ describe('PaymentSettings', () => {
         const expandBtn = Array.from(document.querySelectorAll('button')).find(
             b => b.className.includes('p-2') && b.className.includes('gray-600')
         );
-        if (expandBtn) {
-            fireEvent.click(expandBtn);
-            await waitFor(() => {
-                const saveBtn = screen.queryByRole('button', { name: /save bkash/i });
-                if (saveBtn) fireEvent.click(saveBtn);
-            }, { timeout: 3000 });
-            await waitFor(() => {
-                expect(toast.success).toHaveBeenCalled();
-            }, { timeout: 3000 });
-        }
+        if (!expandBtn) return;
+        fireEvent.click(expandBtn);
+        const saveBtn = await screen.findByRole('button', { name: /save bkash/i }, { timeout: 3000 });
+        fireEvent.click(saveBtn);
+        await waitFor(() => {
+            expect(toast.success).toHaveBeenCalled();
+        }, { timeout: 3000 });
     });
 
     it('shows error toast when save fails', async () => {
@@ -192,16 +183,13 @@ describe('PaymentSettings', () => {
         const expandBtn = Array.from(document.querySelectorAll('button')).find(
             b => b.className.includes('p-2') && b.className.includes('gray-600')
         );
-        if (expandBtn) {
-            fireEvent.click(expandBtn);
-            await waitFor(() => {
-                const saveBtn = screen.queryByRole('button', { name: /save bkash/i });
-                if (saveBtn) fireEvent.click(saveBtn);
-            }, { timeout: 3000 });
-            await waitFor(() => {
-                expect(toast.error).toHaveBeenCalled();
-            }, { timeout: 3000 });
-        }
+        if (!expandBtn) return;
+        fireEvent.click(expandBtn);
+        const saveBtn = await screen.findByRole('button', { name: /save bkash/i }, { timeout: 3000 });
+        fireEvent.click(saveBtn);
+        await waitFor(() => {
+            expect(toast.error).toHaveBeenCalled();
+        }, { timeout: 3000 });
     });
 
     it('does not crash when API returns empty data', async () => {

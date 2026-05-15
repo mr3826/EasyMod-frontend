@@ -1,8 +1,15 @@
+import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import SignIn from '@/app/components/SignIn'
+
+// Input component doesn't use forwardRef, so react-hook-form can't attach its
+// ref and read DOM values at submit time. Mock it with a proper forwardRef wrapper.
+vi.mock('@/app/components/ui/input', () => ({
+  Input: React.forwardRef((props: any, ref: any) => <input ref={ref} {...props} />),
+}))
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
