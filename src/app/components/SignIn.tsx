@@ -53,6 +53,7 @@ export default function SignIn() {
     } catch (err: any) {
       setError('root', {
         message:
+          err.message ||
           err.response?.data?.error?.message ||
           err.response?.data?.message ||
           t('auth.signin.errors.invalidCredentials'),
