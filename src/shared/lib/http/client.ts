@@ -274,7 +274,6 @@ class HttpClient {
     try {
       const response = await this.client.get('/api/csrf');
       this.csrfToken = response.data?.csrfToken || null;
-      console.log('🔐 CSRF Token initialized:', this.csrfToken ? 'Success' : 'Failed');
     } catch (error) {
       console.error('❌ CSRF Token initialization failed:', error);
       // Clear token so it can be retried on next call
