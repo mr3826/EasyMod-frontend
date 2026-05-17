@@ -66,8 +66,13 @@ class HttpClient {
         const method = (config.method || 'get').toUpperCase();
         const isMutation = !['GET', 'HEAD', 'OPTIONS'].includes(method);
 
-        // Initialize CSRF token for mutations if not already present
-        if (isMutation && !this.csrfToken && !config.__csrfInit) {
+        // Initialize CSRF token for mutations if not already present.
+        // Skip for /auth/refresh — that endpoint is authenticated by httpOnly cookie
+        // and doesn't need CSRF. More critically, including it creates a deadlock:
+        // refresh POST → CSRF init → GET /api/csrf → 401 → queued for refresh →
+        // refresh POST waiting for CSRF → circular dependency never resolves.
+        const isRefreshRequest = config.url?.includes('/auth/refresh');
+        if (isMutation && !this.csrfToken && !config.__csrfInit && !isRefreshRequest) {
           config.__csrfInit = true;
           await this.initCsrfToken();
         }
@@ -109,11 +114,15 @@ class HttpClient {
         // Never attempt refresh for signin/signup/2fa-verify — a 401 there means wrong
         // credentials, not an expired token; attempting refresh adds 5-10s of latency
         // before the error is shown and emits a spurious auth:unauthorized event.
+        // Never attempt refresh for /api/csrf — that endpoint is public; if it 401s,
+        // treating it as expired-token creates the same CSRF-refresh circular deadlock
+        // described in the request interceptor above.
         const isRefreshEndpoint = config.url?.includes('/auth/refresh');
         const isAuthEndpoint = config.url?.includes('/auth/signin') ||
           config.url?.includes('/auth/signup') ||
           config.url?.includes('/auth/2fa/verify');
-        if (status === 401 && !config.__retry && !isRefreshEndpoint && !isAuthEndpoint) {
+        const isCsrfEndpoint = config.url?.includes('/api/csrf');
+        if (status === 401 && !config.__retry && !isRefreshEndpoint && !isAuthEndpoint && !isCsrfEndpoint) {
           config.__retry = true;
 
           try {
@@ -149,7 +158,9 @@ class HttpClient {
         // Retry transient failures (429 rate limit, 5xx server errors).
         // Never retry the refresh endpoint itself — a 429 there means the token is
         // locked out and retrying only burns more rate-limit budget before the redirect.
-        if (!isRefreshEndpoint && (status === 429 || (status && status >= 500 && status < 600))) {
+        // Never retry auth endpoints (signin/signup) on 429 — the lockout message
+        // should be shown immediately; retrying adds 5-15s of invisible latency.
+        if (!isRefreshEndpoint && !isAuthEndpoint && (status === 429 || (status && status >= 500 && status < 600))) {
           const retryCount = config.__retryCount || 0;
           if (retryCount < 2) {
             config.__retryCount = retryCount + 1;
