@@ -29,6 +29,7 @@ const SignIn = lazy(() => import("./components/SignIn"));
 const Signup = lazy(() => import("./components/Signup"));
 const ForgotPassword = lazy(() => import("./components/ForgotPassword"));
 const ResetPassword = lazy(() => import("./components/ResetPassword"));
+const TwoFactorVerify = lazy(() => import("./components/TwoFactorVerify"));
 const RouteError = lazy(() => import("./components/RouteError"));
 const Subscription = lazy(() => import("./components/Subscription"));
 const PrivacyPolicy = lazy(() => import("./components/PrivacyPolicy"));
@@ -37,9 +38,14 @@ const LandingPage = lazy(() => import("./components/LandingPage"));
 const Pricing = lazy(() => import("./components/Pricing"));
 const UsersPage = lazy(() => import("./features/users/components/UsersPage"));
 
+// Phase 4 — Comment-to-DM page
+const CommentToDmPage = lazy(() => import("./components/CommentToDm"));
+
 // BD-Lite specific imports
 const BDSellerShell = lazy(() => import("./components/bd-lite/BDSellerShell"));
 const TodayQueueDashboard = lazy(() => import("./components/bd-lite/TodayQueueDashboard"));
+const BDInbox = lazy(() => import("./components/bd-lite/BDInbox"));
+const BDOrders = lazy(() => import("./components/bd-lite/BDOrders"));
 
 const NotFound = lazy(() => import("./components/NotFound"));
 
@@ -69,6 +75,13 @@ export const router = createBrowserRouter([
 		path: "/signin",
 		Component: withSuspense(SignIn),
 		loader: publicLoader,
+		errorElement: createElement(RouteError),
+	},
+	{
+		// No publicLoader guard — the user arrives here mid-login (not yet authenticated).
+		// The component itself guards against direct navigation by checking pendingTwoFactor.
+		path: "/2fa-verify",
+		Component: withSuspense(TwoFactorVerify),
 		errorElement: createElement(RouteError),
 	},
 	{
@@ -124,6 +137,7 @@ export const router = createBrowserRouter([
 			{ index: true, Component: withSuspense(Dashboard) },
 			{ path: "inbox", Component: withSuspense(UnifiedInbox) },
 			{ path: "channels", Component: withSuspense(Channels) },
+				{ path: "channels/comment-to-dm", Component: withSuspense(CommentToDmPage) },
 			{
 				path: "manage-shop",
 				Component: withSuspense(ManageShop),
@@ -164,8 +178,8 @@ export const router = createBrowserRouter([
 		errorElement: createElement(RouteError),
 		children: [
 			{ index: true, Component: withSuspense(TodayQueueDashboard) },
-			{ path: "inbox", Component: withSuspense(UnifiedInbox) },
-			{ path: "orders", Component: withSuspense(Orders) },
+			{ path: "inbox", Component: withSuspense(BDInbox) },
+			{ path: "orders", Component: withSuspense(BDOrders) },
 			{ path: "settings", Component: withSuspense(BusinessInfoSettings) },
 		],
 	},
