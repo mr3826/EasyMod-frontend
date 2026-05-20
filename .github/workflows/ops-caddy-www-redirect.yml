@@ -1,0 +1,198 @@
+name: Ops — Caddy www→apex redirect
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'inspect (dump current Caddyfile) or apply (perform www→apex redirect change)'
+        required: true
+        type: choice
+        options:
+          - inspect
+          - apply
+        default: inspect
+
+concurrency:
+  group: ops-caddy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  caddy-op:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run on droplet
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: root
+          key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
+          timeout: 60s
+          command_timeout: 120s
+          envs: MODE
+          script_stop: true
+          script: |
+            set -euo pipefail
+            MODE="${{ github.event.inputs.mode }}"
+            echo "=== Mode: $MODE ==="
+
+            # Locate Caddyfile (host install or docker)
+            CADDY_FILE=""
+            for p in /etc/caddy/Caddyfile /opt/easymod/Caddyfile /opt/easymod/caddy/Caddyfile; do
+              if [ -f "$p" ]; then CADDY_FILE="$p"; break; fi
+            done
+
+            CADDY_CONTAINER=""
+            if command -v docker >/dev/null 2>&1; then
+              CADDY_CONTAINER=$(docker ps --format '{{.Names}}' | grep -i caddy | head -n1 || true)
+            fi
+
+            if [ -z "$CADDY_FILE" ] && [ -n "$CADDY_CONTAINER" ]; then
+              # Try to find Caddyfile inside the container
+              for p in /etc/caddy/Caddyfile /etc/Caddyfile /srv/Caddyfile; do
+                if docker exec "$CADDY_CONTAINER" test -f "$p" 2>/dev/null; then
+                  CADDY_FILE="container:$p"; break
+                fi
+              done
+            fi
+
+            echo "Detected Caddyfile: ${CADDY_FILE:-NONE}"
+            echo "Detected Caddy container: ${CADDY_CONTAINER:-NONE}"
+
+            read_caddyfile() {
+              if [[ "$CADDY_FILE" == container:* ]]; then
+                docker exec "$CADDY_CONTAINER" cat "${CADDY_FILE#container:}"
+              else
+                cat "$CADDY_FILE"
+              fi
+            }
+
+            write_caddyfile() {
+              local src="$1"
+              if [[ "$CADDY_FILE" == container:* ]]; then
+                docker cp "$src" "$CADDY_CONTAINER:${CADDY_FILE#container:}"
+              else
+                cp "$src" "$CADDY_FILE"
+              fi
+            }
+
+            validate_caddy() {
+              if [[ "$CADDY_FILE" == container:* ]]; then
+                docker exec "$CADDY_CONTAINER" caddy validate --config "${CADDY_FILE#container:}" --adapter caddyfile
+              else
+                caddy validate --config "$CADDY_FILE" --adapter caddyfile
+              fi
+            }
+
+            reload_caddy() {
+              if [[ "$CADDY_FILE" == container:* ]]; then
+                docker exec "$CADDY_CONTAINER" caddy reload --config "${CADDY_FILE#container:}" --adapter caddyfile
+              elif systemctl is-active --quiet caddy; then
+                systemctl reload caddy
+              else
+                echo "ERROR: caddy not running as systemd service and no container detected" >&2
+                exit 1
+              fi
+            }
+
+            if [ -z "$CADDY_FILE" ]; then
+              echo "ERROR: could not locate Caddyfile on host or in container" >&2
+              echo "--- /etc/caddy listing ---"
+              ls -la /etc/caddy 2>/dev/null || true
+              echo "--- /opt/easymod listing ---"
+              ls -la /opt/easymod 2>/dev/null || true
+              echo "--- docker compose services ---"
+              docker ps --format 'table {{.Names}}\t{{.Image}}' 2>/dev/null || true
+              exit 1
+            fi
+
+            case "$MODE" in
+              inspect)
+                echo "=== Full Caddyfile ==="
+                read_caddyfile
+                echo "=== End Caddyfile ==="
+                ;;
+
+              apply)
+                TS=$(date +%s)
+                TMP_ORIG="/tmp/Caddyfile.orig.$TS"
+                TMP_NEW="/tmp/Caddyfile.new.$TS"
+                BACKUP="/tmp/Caddyfile.bak.$TS"
+
+                read_caddyfile > "$TMP_ORIG"
+                cp "$TMP_ORIG" "$BACKUP"
+                echo "Backup saved at $BACKUP"
+
+                # Idempotency check: if redirect already present, exit clean.
+                if grep -qE '^[[:space:]]*www\.easymod\.tech[[:space:]]*\{[[:space:]]*$' "$TMP_ORIG" \
+                   && grep -A3 -E '^[[:space:]]*www\.easymod\.tech[[:space:]]*\{' "$TMP_ORIG" \
+                      | grep -qE 'redir[[:space:]]+https://easymod\.tech'; then
+                  echo "www.easymod.tech redirect already present — nothing to do."
+                  exit 0
+                fi
+
+                # Use awk to remove any existing www.easymod.tech { ... } block (single-host form),
+                # and to split combined host forms like "www.easymod.tech, easymod.tech {" into apex-only.
+                awk '
+                  BEGIN { skip = 0; depth = 0 }
+                  # Lone single-host www block start
+                  /^[[:space:]]*www\.easymod\.tech[[:space:]]*\{[[:space:]]*$/ {
+                    skip = 1; depth = 1; next
+                  }
+                  # Combined host with comma — strip the www host from the host list
+                  /^[[:space:]]*(www\.easymod\.tech[[:space:]]*,[[:space:]]*easymod\.tech|easymod\.tech[[:space:]]*,[[:space:]]*www\.easymod\.tech)[[:space:]]*\{[[:space:]]*$/ {
+                    print "easymod.tech {"
+                    next
+                  }
+                  {
+                    if (skip) {
+                      # track brace depth to find end of skipped block
+                      for (i = 1; i <= length($0); i++) {
+                        c = substr($0, i, 1)
+                        if (c == "{") depth++
+                        else if (c == "}") depth--
+                      }
+                      if (depth <= 0) { skip = 0 }
+                      next
+                    }
+                    print
+                  }
+                ' "$TMP_ORIG" > "$TMP_NEW.stripped"
+
+                # Append the new redirect block.
+                {
+                  cat "$TMP_NEW.stripped"
+                  printf '\nwww.easymod.tech {\n    redir https://easymod.tech{uri} permanent\n}\n'
+                } > "$TMP_NEW"
+
+                echo "=== Diff (orig → new) ==="
+                diff -u "$TMP_ORIG" "$TMP_NEW" || true
+                echo "=== End diff ==="
+
+                # Stage the new file
+                write_caddyfile "$TMP_NEW"
+
+                # Validate; on failure restore backup before exiting
+                if ! validate_caddy; then
+                  echo "Validation failed — restoring backup."
+                  write_caddyfile "$BACKUP"
+                  exit 1
+                fi
+
+                reload_caddy
+                echo "Caddy reloaded. Waiting 3s before in-droplet curl check..."
+                sleep 3
+
+                set +e
+                LOC=$(curl -sk -o /dev/null -w '%{http_code} %{redirect_url}' -H 'Host: www.easymod.tech' https://127.0.0.1/ --resolve www.easymod.tech:443:127.0.0.1 || true)
+                echo "Local probe www.easymod.tech: $LOC"
+                set -e
+
+                echo "Done."
+                ;;
+
+              *)
+                echo "Unknown mode: $MODE" >&2; exit 1 ;;
+            esac
