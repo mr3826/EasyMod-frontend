@@ -70,12 +70,21 @@ jobs:
             export GHCR_IMAGE_FRONTEND="easymod-frontend:latest"
             export GHCR_IMAGE_BACKEND="$(docker inspect easymod-backend-1 --format='{{index .Config.Image}}' 2>/dev/null || echo ghcr.io/mr3826/easymod-backend:latest)"
             docker compose --env-file .env.prod -f docker-compose.prod.yml up -d frontend --no-build --pull never --force-recreate --remove-orphans
-            for i in $(seq 1 12); do
-              if docker exec easymod-frontend-1 wget -q -O /dev/null http://localhost:8080/health 2>/dev/null; then
-                echo "Health check passed (attempt $i)"; break
-              fi
-              echo "Attempt $i: frontend not ready -- retrying in 5s..."
+            CID=$(docker compose --env-file .env.prod -f docker-compose.prod.yml ps -q frontend)
+            echo "frontend container id: $CID"
+            docker ps --filter "id=$CID" --format 'status: {{.Status}} names: {{.Names}}'
+            HEALTHY=0
+            for i in $(seq 1 18); do
+              IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$CID" 2>/dev/null)
+              if [ -n "$IP" ] && curl -sf "http://$IP:8080/health" -o /dev/null; then HEALTHY=1; fi
+              if [ "$HEALTHY" = "0" ] && docker exec "$CID" wget -q -O /dev/null http://127.0.0.1:8080/health 2>/dev/null; then HEALTHY=1; fi
+              if [ "$HEALTHY" = "1" ]; then echo "Health check passed (attempt $i)"; break; fi
+              echo "Attempt $i: frontend not ready (ip=$IP) -- retrying in 5s..."
               sleep 5
-              if [ "$i" = "12" ]; then echo "ERROR: Health check failed"; exit 1; fi
             done
+            if [ "$HEALTHY" = "0" ]; then
+              echo "ERROR: Health check failed"
+              docker logs --tail 50 "$CID" 2>&1 || true
+              exit 1
+            fi
             docker image prune -f
