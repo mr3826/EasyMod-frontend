@@ -41,6 +41,7 @@ export default function Subscription() {
     status: 'active',
     features: {
       imageUnderstanding: false,
+      aiAutoReply: true,
     }
   });
 
@@ -151,7 +152,8 @@ export default function Subscription() {
           }),
           status: subscription.status,
           features: {
-            imageUnderstanding: subscription.features?.image_understanding || false
+            imageUnderstanding: subscription.features?.image_understanding || false,
+            aiAutoReply: subscription.features?.ai_auto_reply ?? true,
           }
         });
 
@@ -227,6 +229,7 @@ export default function Subscription() {
   };
 
   const planFeatures = [
+    'AI Auto-Reply & Chatbot',
     'Image-based product understanding',
     'Product question answering',
     'Order draft creation',
