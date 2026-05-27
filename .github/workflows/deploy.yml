@@ -53,33 +53,30 @@ jobs:
         run: scp -i ~/.ssh/deploy_key /tmp/frontend.tar.gz root@${{ secrets.DO_HOST }}:/tmp/
 
       - name: Load and restart frontend on droplet
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DO_HOST }}
-          username: root
-          key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
-          timeout: 120s
-          script: |
-            set -e
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@${{ secrets.DO_HOST }} << 'ENDSSH'
+          set -e
 
-            # Free disk space before loading the new image
-            docker image prune -f || true
-            docker container prune -f || true
+          # Free disk space before loading new image
+          docker image prune -f || true
+          docker container prune -f || true
 
-            docker load < /tmp/frontend.tar.gz
-            rm -f /tmp/frontend.tar.gz
+          docker load < /tmp/frontend.tar.gz
+          rm -f /tmp/frontend.tar.gz
 
-            cd /opt/easymod
-            export GHCR_IMAGE_FRONTEND="easymod-frontend:latest"
-            export GHCR_IMAGE_BACKEND="$(docker inspect easymod-backend-1 --format='{{.Config.Image}}' 2>/dev/null || echo ghcr.io/mr3826/easymod-backend:latest)"
-            docker compose -f docker-compose.prod.yml up -d frontend --no-build --pull never --remove-orphans
+          cd /opt/easymod
+          GHCR_IMAGE_FRONTEND="easymod-frontend:latest"
+          GHCR_IMAGE_BACKEND="$(docker inspect easymod-backend-1 --format='{{.Config.Image}}' 2>/dev/null || echo ghcr.io/mr3826/easymod-backend:latest)"
+          export GHCR_IMAGE_FRONTEND GHCR_IMAGE_BACKEND
+          docker compose -f docker-compose.prod.yml up -d frontend --no-build --pull never --remove-orphans
 
-            for i in $(seq 1 12); do
-              STATUS=$(curl -sf http://localhost:8080/health -o /dev/null -w "%{http_code}" || echo "000")
-              if [ "$STATUS" = "200" ]; then echo "Health check passed (attempt $i)"; break; fi
-              echo "Attempt $i: $STATUS — retrying in 5s..."
-              sleep 5
-              if [ "$i" = "12" ]; then echo "ERROR: Health check failed"; exit 1; fi
-            done
+          for i in $(seq 1 12); do
+            STATUS=$(curl -sf http://localhost:8080/health -o /dev/null -w "%{http_code}" || echo "000")
+            if [ "$STATUS" = "200" ]; then echo "Health check passed (attempt $i)"; break; fi
+            echo "Attempt $i: $STATUS — retrying in 5s..."
+            sleep 5
+            if [ "$i" = "12" ]; then echo "ERROR: Health check failed"; exit 1; fi
+          done
 
-            docker image prune -f
+          docker image prune -f
+          ENDSSH
