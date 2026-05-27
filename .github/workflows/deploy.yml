@@ -50,34 +50,34 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.DO_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Transfer image to droplet
-        run: scp -i ~/.ssh/deploy_key /tmp/frontend.tar.gz root@${{ secrets.DO_HOST }}:/tmp/
-
-      - name: Load and restart frontend on droplet
+      - name: Write deploy script
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@${{ secrets.DO_HOST }} << 'ENDSSH'
+          cat > /tmp/deploy-frontend.sh << 'SCRIPT'
+          #!/bin/bash
           set -e
-
-          # Free disk space before loading new image
           docker image prune -f || true
           docker container prune -f || true
-
           docker load < /tmp/frontend.tar.gz
           rm -f /tmp/frontend.tar.gz
-
           cd /opt/easymod
           GHCR_IMAGE_FRONTEND="easymod-frontend:latest"
-          GHCR_IMAGE_BACKEND="$(docker inspect easymod-backend-1 --format='{{.Config.Image}}' 2>/dev/null || echo ghcr.io/mr3826/easymod-backend:latest)"
+          GHCR_IMAGE_BACKEND=$(docker inspect easymod-backend-1 --format='{{.Config.Image}}' 2>/dev/null || echo 'ghcr.io/mr3826/easymod-backend:latest')
           export GHCR_IMAGE_FRONTEND GHCR_IMAGE_BACKEND
           docker compose -f docker-compose.prod.yml up -d frontend --no-build --pull never --remove-orphans
-
           for i in $(seq 1 12); do
             STATUS=$(curl -sf http://localhost:8080/health -o /dev/null -w "%{http_code}" || echo "000")
             if [ "$STATUS" = "200" ]; then echo "Health check passed (attempt $i)"; break; fi
-            echo "Attempt $i: $STATUS — retrying in 5s..."
+            echo "Attempt $i: $STATUS -- retrying in 5s..."
             sleep 5
             if [ "$i" = "12" ]; then echo "ERROR: Health check failed"; exit 1; fi
           done
-
           docker image prune -f
-          ENDSSH
+          SCRIPT
+
+      - name: Transfer image and deploy script to droplet
+        run: |
+          scp -i ~/.ssh/deploy_key /tmp/frontend.tar.gz root@${{ secrets.DO_HOST }}:/tmp/
+          scp -i ~/.ssh/deploy_key /tmp/deploy-frontend.sh root@${{ secrets.DO_HOST }}:/tmp/
+
+      - name: Load and restart frontend on droplet
+        run: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@${{ secrets.DO_HOST }} 'bash /tmp/deploy-frontend.sh && rm -f /tmp/deploy-frontend.sh'
