@@ -61,6 +61,11 @@ jobs:
           timeout: 120s
           script: |
             set -e
+
+            # Free disk space before loading the new image
+            docker image prune -f || true
+            docker container prune -f || true
+
             docker load < /tmp/frontend.tar.gz
             rm -f /tmp/frontend.tar.gz
 
