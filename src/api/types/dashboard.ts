@@ -56,6 +56,7 @@ export interface ShopAISettings {
   max_auto_order_value: number;
   ask_email: boolean;
   primary_language: string;
+  tone_persona: 'friendly_bd' | 'shop_assistant' | 'formal';
   required_fields: {
     customer_name: boolean;
     mobile_number: boolean;

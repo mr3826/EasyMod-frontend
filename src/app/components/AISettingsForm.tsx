@@ -10,6 +10,7 @@ const defaultAISettings: ShopAISettings = {
   max_auto_order_value: 5000,
   ask_email: false,
   primary_language: "mixed",
+  tone_persona: "friendly_bd",
   required_fields: {
     customer_name: true,
     mobile_number: true,
@@ -190,6 +191,31 @@ export default function AISettingsForm({ initialData, onSave }: AISettingsFormPr
                 <span className="font-bold">{lang.value}</span>
                 {' — '}
                 <span className="text-xs">{lang.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">বটের ব্যক্তিত্ব (Tone &amp; Persona)</label>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {([
+              { value: 'friendly_bd' as const, label: '😊 বন্ধুসুলভ (ডিফল্ট)', desc: 'উষ্ণ, অনানুষ্ঠানিক বাংলিশ' },
+              { value: 'shop_assistant' as const, label: '🛍️ দোকান সহকারী', desc: 'সাহায্যকারী, পণ্যমুখী' },
+              { value: 'formal' as const, label: '👔 আনুষ্ঠানিক', desc: 'পেশাদার, ব্যবসায়িক ভাষা' },
+            ]).map((persona) => (
+              <button
+                key={persona.value}
+                type="button"
+                onClick={() => setAISettings({ ...aiSettings, tone_persona: persona.value })}
+                className={`rounded-lg border px-3 py-3 text-left text-sm transition-colors ${
+                  aiSettings.tone_persona === persona.value
+                    ? 'border-purple-500 bg-purple-50'
+                    : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <p className="font-medium text-gray-900">{persona.label}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{persona.desc}</p>
               </button>
             ))}
           </div>

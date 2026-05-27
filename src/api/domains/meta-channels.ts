@@ -172,6 +172,35 @@ export async function pingMetaChannel(channelId: string): Promise<MetaChannelPin
   return res.data.data;
 }
 
+export interface MetaChannelSettings {
+  aiAutoReply: boolean;
+  automationMode: 'AI_ACTIVE' | 'AI_SUGGEST_ONLY' | 'DRAFT' | 'MANUAL' | 'HUMAN_ACTIVE';
+  confidenceThresholdSend: number;
+  confidenceThresholdSuggest: number;
+  allowOrderCreation: boolean;
+  commentToDmEnabled: boolean;
+  commentToDmKeywords: string[];
+  purposeLabel: string | null;
+}
+
+export async function getChannelSettings(channelId: string): Promise<MetaChannelSettings> {
+  const res: AxiosResponse<ApiResponse<MetaChannelSettings>> = await httpClient.get(
+    `${BASE}/${channelId}/settings`,
+  );
+  return res.data.data;
+}
+
+export async function updateChannelSettings(
+  channelId: string,
+  patch: Partial<MetaChannelSettings>,
+): Promise<MetaChannelSettings> {
+  const res: AxiosResponse<ApiResponse<MetaChannelSettings>> = await httpClient.patch(
+    `${BASE}/${channelId}/settings`,
+    patch,
+  );
+  return res.data.data;
+}
+
 export async function getMetaChannelConsentSummary(
   channelId: string,
 ): Promise<MetaChannelConsentSummary> {

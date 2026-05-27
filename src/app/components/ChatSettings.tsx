@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
-import { MessageSquare, Instagram, CheckCircle, Clock, X, AlertCircle, ChevronDown, Loader2, Shield, Cpu, Lock, Plus } from "lucide-react";
+import { MessageSquare, Instagram, CheckCircle, Clock, X, AlertCircle, ChevronDown, Loader2, Shield, Cpu, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   listMetaChannels,
   disconnectMetaChannel,
+  getChannelSettings,
+  updateChannelSettings,
   type MetaChannel,
+  type MetaChannelSettings,
 } from "@/api/domains/meta-channels";
 import { useSubscriptionFeatures } from "../lib/useSubscriptionFeatures";
 
@@ -30,6 +33,9 @@ export default function ChatSettings() {
   const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
   const [showManageModal, setShowManageModal] = useState(false);
   const [managedChannel, setManagedChannel] = useState<Channel | null>(null);
+  const [channelSettings, setChannelSettings] = useState<MetaChannelSettings | null>(null);
+  const [channelSettingsDraft, setChannelSettingsDraft] = useState<MetaChannelSettings | null>(null);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState<Channel | null>(null);
   const [showToast, setShowToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -130,13 +136,39 @@ export default function ChatSettings() {
     }
   };
 
-  const handleManageChannel = (channel: Channel) => {
+  const handleManageChannel = async (channel: Channel) => {
     setManagedChannel({
       ...channel,
       connectedAccount: channel.connectedAccount || '',
       lastRefreshedAt: channel.lastRefreshedAt || '',
     });
+    setChannelSettings(null);
+    setChannelSettingsDraft(null);
     setShowManageModal(true);
+    if (channel.id !== channel.platform) {
+      try {
+        const s = await getChannelSettings(channel.id);
+        setChannelSettings(s);
+        setChannelSettingsDraft(s);
+      } catch {
+        // settings panel stays hidden if fetch fails
+      }
+    }
+  };
+
+  const handleSaveChannelSettings = async () => {
+    if (!managedChannel || !channelSettingsDraft) return;
+    try {
+      setIsSavingSettings(true);
+      const updated = await updateChannelSettings(managedChannel.id, channelSettingsDraft);
+      setChannelSettings(updated);
+      setChannelSettingsDraft(updated);
+      setShowToast({ type: 'success', message: 'Channel settings saved.' });
+    } catch (err: any) {
+      setShowToast({ type: 'error', message: err.response?.data?.error?.message || 'Failed to save settings.' });
+    } finally {
+      setIsSavingSettings(false);
+    }
   };
 
   const formatDate = (dateString?: string) => {
@@ -316,7 +348,7 @@ export default function ChatSettings() {
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
               {/* Connection Info */}
               <div>
                 <h4 className="font-medium text-gray-900 mb-3">Connection Info</h4>
@@ -348,6 +380,61 @@ export default function ChatSettings() {
                 </div>
               </div>
 
+              {/* Per-channel AI Settings */}
+              {channelSettingsDraft && (
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-3">চ্যানেল AI সেটিংস</h4>
+                  <p className="text-xs text-gray-500 mb-3">এই সেটিংসগুলো শুধু এই চ্যানেলের জন্য প্রযোজ্য — শপের ডিফল্ট সেটিংস ওভাররাইড করবে।</p>
+                  <div className="space-y-4">
+                    {/* Automation mode */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">অটোমেশন মোড</label>
+                      <select
+                        value={channelSettingsDraft.automationMode}
+                        onChange={(e) => setChannelSettingsDraft({ ...channelSettingsDraft, automationMode: e.target.value as MetaChannelSettings['automationMode'] })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="AI_ACTIVE">AI Active — সম্পূর্ণ অটো রিপ্লাই</option>
+                        <option value="AI_SUGGEST_ONLY">AI Suggest Only — পরামর্শ দেবে, পাঠাবে না</option>
+                        <option value="DRAFT">Draft — এজেন্ট রিভিউ করে পাঠাবে</option>
+                        <option value="MANUAL">Manual — শুধু মানুষ রিপ্লাই করবে</option>
+                      </select>
+                    </div>
+                    {/* Toggles */}
+                    <div className="flex flex-wrap gap-5">
+                      {([
+                        { key: 'aiAutoReply' as const, label: 'AI Auto-Reply চালু' },
+                        { key: 'allowOrderCreation' as const, label: 'Order তৈরি করতে দাও' },
+                        { key: 'commentToDmEnabled' as const, label: 'Comment-to-DM চালু' },
+                      ]).map(({ key, label }) => (
+                        <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
+                          <div
+                            onClick={() => setChannelSettingsDraft({ ...channelSettingsDraft, [key]: !channelSettingsDraft[key] })}
+                            className={`relative w-9 h-5 rounded-full transition-colors ${channelSettingsDraft[key] ? 'bg-blue-600' : 'bg-gray-300'}`}
+                          >
+                            <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${channelSettingsDraft[key] ? 'translate-x-4' : ''}`} />
+                          </div>
+                          <span className="text-sm text-gray-700">{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {/* Purpose label */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">চ্যানেল লেবেল (ঐচ্ছিক)</label>
+                      <input
+                        type="text"
+                        maxLength={64}
+                        value={channelSettingsDraft.purposeLabel ?? ''}
+                        onChange={(e) => setChannelSettingsDraft({ ...channelSettingsDraft, purposeLabel: e.target.value || null })}
+                        placeholder="যেমন: Sales, Live Selling, Regional"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">একাধিক চ্যানেল থাকলে পার্থক্য করতে সাহায্য করে</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Permissions & Safety */}
               <div className="bg-gray-50 rounded-lg p-3">
                 <div className="flex items-start space-x-2">
@@ -373,6 +460,17 @@ export default function ChatSettings() {
               >
                 Close
               </button>
+              {channelSettingsDraft && (
+                <button
+                  onClick={handleSaveChannelSettings}
+                  disabled={isSavingSettings}
+                  className={`px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors ${
+                    isSavingSettings ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {isSavingSettings ? 'Saving…' : 'Save Settings'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -389,42 +487,30 @@ export default function ChatSettings() {
             <p className="text-sm text-gray-500">Choose the language model used for AI auto-replies and suggestions</p>
           </div>
         </div>
-        {!planFeatures.advanced_ai ? (
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <Lock className="w-5 h-5 text-gray-400 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-gray-700">Available on PACKAGE_2 and PARTNER plans</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                <a href="/subscription" className="text-purple-600 hover:underline">Upgrade your plan</a> to unlock AI model selection and advanced AI features.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white border border-blue-200 rounded-lg p-6 bg-blue-50">
-            <div className="space-y-4">
-              <div className="bg-white border border-blue-300 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <Cpu className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">AI Model: Auto-Selected Based on Your Plan</p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      EasyMod automatically selects the best AI model for your subscription tier. No configuration needed.
-                    </p>
-                  </div>
+        <div className="bg-white border border-blue-200 rounded-lg p-6 bg-blue-50">
+          <div className="space-y-4">
+            <div className="bg-white border border-blue-300 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Cpu className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">AI Model: Auto-Selected for Best Performance</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    EasyMod automatically selects the best AI model for your shop. No configuration needed.
+                  </p>
                 </div>
               </div>
-              <div className="text-xs text-gray-600 space-y-2">
-                <p className="font-medium text-gray-700">Model Selection Strategy:</p>
-                <ul className="space-y-1 ml-3 list-disc list-inside">
-                  <li><span className="font-medium">PACKAGE_1:</span> Fast &amp; cost-effective (GPT-4o-mini)</li>
-                  <li><span className="font-medium">PACKAGE_2:</span> Balanced speed &amp; intelligence (mix of models)</li>
-                  <li><span className="font-medium">PARTNER:</span> Advanced reasoning &amp; efficiency (Claude with caching)</li>
-                </ul>
-                <p className="mt-3 text-blue-700 font-medium">This optimization reduces costs while improving response quality</p>
-              </div>
+            </div>
+            <div className="text-xs text-gray-600 space-y-2">
+              <p className="font-medium text-gray-700">Model Selection Strategy:</p>
+              <ul className="space-y-1 ml-3 list-disc list-inside">
+                <li><span className="font-medium">PACKAGE_1:</span> Fast &amp; cost-effective (GPT-4o-mini)</li>
+                <li><span className="font-medium">PACKAGE_2:</span> Balanced speed &amp; intelligence (mix of models)</li>
+                <li><span className="font-medium">PARTNER:</span> Advanced reasoning &amp; efficiency (Claude with caching)</li>
+              </ul>
+              <p className="mt-3 text-blue-700 font-medium">This optimization reduces costs while improving response quality</p>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Disconnect Confirmation Dialog */}
