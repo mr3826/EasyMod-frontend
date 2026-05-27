@@ -71,9 +71,10 @@ jobs:
             export GHCR_IMAGE_BACKEND="$(docker inspect easymod-backend-1 --format='{{index .Config.Image}}' 2>/dev/null || echo ghcr.io/mr3826/easymod-backend:latest)"
             docker compose --env-file .env.prod -f docker-compose.prod.yml up -d frontend --no-build --pull never --force-recreate --remove-orphans
             for i in $(seq 1 12); do
-              STATUS=$(curl -sf http://localhost:8080/health -o /dev/null -w "%{http_code}" || echo "000")
-              if [ "$STATUS" = "200" ]; then echo "Health check passed (attempt $i)"; break; fi
-              echo "Attempt $i: $STATUS -- retrying in 5s..."
+              if docker exec easymod-frontend-1 wget -q -O /dev/null http://localhost:8080/health 2>/dev/null; then
+                echo "Health check passed (attempt $i)"; break
+              fi
+              echo "Attempt $i: frontend not ready -- retrying in 5s..."
               sleep 5
               if [ "$i" = "12" ]; then echo "ERROR: Health check failed"; exit 1; fi
             done
