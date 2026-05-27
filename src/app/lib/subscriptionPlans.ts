@@ -116,6 +116,12 @@ export const findPlanByName = (name: string) =>
     (plan) => plan.name.toLowerCase() === name.toLowerCase()
   );
 
+/** Match by plan code (e.g. "PACKAGE_1" → Package 1 plan). */
+export const findPlanByCode = (code: string) =>
+  subscriptionPlans.find(
+    (plan) => plan.id.toLowerCase() === code.toLowerCase()
+  );
+
 export const getPlanPrice = (
   plan: SubscriptionPlanDefinition,
   billingCycle: BillingCycle
