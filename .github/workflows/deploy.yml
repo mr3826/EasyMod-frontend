@@ -59,6 +59,7 @@ jobs:
           host: ${{ secrets.DO_HOST }}
           username: root
           key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
+          insecure: true
           timeout: 120s
           script: |
             set -e
