@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback, useRef, ChangeEvent, memo } from "react";
 import React from "react";
-import { Send, Bot, User, CheckCircle2, Edit3, Loader2, Search, UserCheck, Tag, AlertTriangle, Clock, Lock, ChevronUp, ArrowLeft, Zap, Paperclip, Mic, StopCircle, X, FileText, MessageCircle } from "lucide-react";
+import { Send, Bot, User, CheckCircle2, Edit3, Loader2, Search, UserCheck, Tag, AlertTriangle, Clock, ChevronUp, ArrowLeft, Zap, Paperclip, Mic, StopCircle, X, FileText, MessageCircle } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { apiClient } from "@/api";
 import type { Conversation, Message, ResponseTemplate } from "@/api/types/conversation";
 import type { ShopAgent } from "@/api/types/dashboard";
-import { useSubscriptionFeatures } from "../lib/useSubscriptionFeatures";
 import { useTranslation } from 'react-i18next';
 import { useInboxSSE } from "../lib/useInboxSSE";
 
@@ -154,7 +153,6 @@ export default function UnifiedInbox() {
     { id: 'fallback-10', name: 'Dispatch Today', content: 'আপনার product টি ready। আজকেই dispatch করব। 🚚' },
   ];
   const quickReplyTemplates = templates.length > 0 ? templates : FALLBACK_TEMPLATES;
-  const { features: planFeatures } = useSubscriptionFeatures();
 
   // Load conversations on mount
   useEffect(() => {
@@ -879,36 +877,25 @@ export default function UnifiedInbox() {
                         {t('inbox.resolve')}
                       </button>
                     )}
-                    {planFeatures.advanced_ai ? (
-                      <button
-                        onClick={handleToggleHITL}
-                        disabled={togglingHITL}
-                        title={selectedConversation.hitl ? t('inbox.humanTooltip') : t('inbox.aiTooltip')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          selectedConversation.hitl
-                            ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                            : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                        }`}
-                      >
-                        {togglingHITL ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : selectedConversation.hitl ? (
-                          <UserCheck className="w-4 h-4" />
-                        ) : (
-                          <Bot className="w-4 h-4" />
-                        )}
-                        {selectedConversation.hitl ? t('inbox.agentHandling') : t('inbox.aiActive')}
-                      </button>
-                    ) : (
-                      <a
-                        href="/subscription"
-                        title="Upgrade to PACKAGE_2 or PARTNER plan to unlock AI features"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
-                      >
-                        <Lock className="w-4 h-4" />
-                        {t('inbox.upgradeForAI')}
-                      </a>
-                    )}
+                    <button
+                      onClick={handleToggleHITL}
+                      disabled={togglingHITL}
+                      title={selectedConversation.hitl ? t('inbox.humanTooltip') : t('inbox.aiTooltip')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        selectedConversation.hitl
+                          ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                          : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                      }`}
+                    >
+                      {togglingHITL ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : selectedConversation.hitl ? (
+                        <UserCheck className="w-4 h-4" />
+                      ) : (
+                        <Bot className="w-4 h-4" />
+                      )}
+                      {selectedConversation.hitl ? t('inbox.agentHandling') : t('inbox.aiActive')}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -973,7 +960,7 @@ export default function UnifiedInbox() {
               </div>
 
               {/* AI Suggestion Panel */}
-              {planFeatures.advanced_ai && hasAiSuggestion && (
+              {hasAiSuggestion && (
                 <div className={`mx-4 rounded-t-lg border px-4 py-3 ${
                   (() => {
                     const pct = Math.round((aiConfidence ?? 0) * 100);

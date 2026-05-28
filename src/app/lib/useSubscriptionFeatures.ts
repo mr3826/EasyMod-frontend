@@ -22,11 +22,13 @@ let cachedResult: UseSubscriptionFeaturesResult | null = null;
 let fetchPromise: Promise<void> | null = null;
 let cacheListeners: Array<() => void> = [];
 
+// AI features are available on every package — packages differ only by the
+// monthly conversation quota. Fail open so no plan/API state ever locks AI.
 const defaultFeatures: SubscriptionFeatures = {
-  image_understanding: false,
-  advanced_ai: false,
-  priority_support: false,
-  custom_branding: false,
+  image_understanding: true,
+  advanced_ai: true,
+  priority_support: true,
+  custom_branding: true,
 };
 
 async function fetchAndCache(): Promise<void> {

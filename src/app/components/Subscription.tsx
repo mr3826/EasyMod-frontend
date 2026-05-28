@@ -7,7 +7,6 @@ import { Switch } from "@/app/components/ui/switch";
 import { toast } from "sonner";
 import { apiClient } from "@/api";
 import { subscriptionPlans, getPlanPrice, findPlanByName, type BillingCycle } from "@/app/lib/subscriptionPlans";
-import { FeatureGate } from "@/app/components/FeatureGate";
 
 interface Invoice {
   id: string;       // invoice_number (displayed)
@@ -760,29 +759,25 @@ export default function Subscription() {
               </div>
             ))}
           </div>
-          {/* Contextual upgrade gates for locked features */}
-          <FeatureGate feature="image_understanding" featureLabel="Image Understanding" requiredPlan="PACKAGE_2">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 border border-blue-100">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <TrendingUp className="w-4 h-4 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">Image Understanding</p>
-                <p className="text-xs text-gray-500">AI reads product images to answer customer questions</p>
-              </div>
+          {/* Included AI features — available on every package */}
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 border border-blue-100">
+            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-4 h-4 text-blue-600" />
             </div>
-          </FeatureGate>
-          <FeatureGate feature="advanced_ai" featureLabel="Advanced AI" requiredPlan="PACKAGE_2">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-purple-50 border border-purple-100 mt-2">
-              <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
-                <MessageSquare className="w-4 h-4 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">Advanced AI</p>
-                <p className="text-xs text-gray-500">Higher accuracy responses + 30 req/min rate limit</p>
-              </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Image Understanding</p>
+              <p className="text-xs text-gray-500">AI reads product images to answer customer questions</p>
             </div>
-          </FeatureGate>
+          </div>
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-purple-50 border border-purple-100 mt-2">
+            <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+              <MessageSquare className="w-4 h-4 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Advanced AI</p>
+              <p className="text-xs text-gray-500">Higher accuracy responses + 30 req/min rate limit</p>
+            </div>
+          </div>
         </div>
       </div>
 

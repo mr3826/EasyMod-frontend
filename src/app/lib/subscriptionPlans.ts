@@ -43,7 +43,7 @@ export const subscriptionPlans: SubscriptionPlanDefinition[] = [
       image_understanding: true,
       advanced_ai: true,
       priority_support: true,
-      custom_branding: false,
+      custom_branding: true,
       comment_auto_reply: true,
     },
     highlights: [
@@ -70,7 +70,7 @@ export const subscriptionPlans: SubscriptionPlanDefinition[] = [
       image_understanding: true,
       advanced_ai: true,
       priority_support: true,
-      custom_branding: false,
+      custom_branding: true,
       comment_auto_reply: true,
     },
     highlights: [
