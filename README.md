@@ -65,7 +65,7 @@ All authenticated routes are children of `/app` (protected by `protectedLoader` 
 /terms
 
 /app                       Dashboard (DashboardLayout shell)
-/app/inbox                 Unified Inbox
+/app/inbox                 Shared Inbox
 /app/channels              Channel connections
 /app/manage-shop           Shop settings (tabbed)
   /app/manage-shop                      Business info
@@ -132,7 +132,7 @@ import { apiClient } from '@/api';
 
 ## Features
 
-### Unified Inbox (`/app/inbox`)
+### Shared Inbox (`/app/inbox`)
 
 Core feature. Displays all active conversations across all connected channels. Each conversation card shows customer name, channel icon, last message, and AI confidence.
 
@@ -175,10 +175,10 @@ Tabbed settings area:
 
 - **Business Info** — name, address, logo, contact
 - **Chat Settings** — AI automation mode (DRAFT / MANUAL / AUTO), confidence threshold, language (en/bn/mixed), tone/persona, handoff rules
-- **Delivery Settings** — delivery zone configuration, courier mapping, `PlatformPrioritySettings` drag-to-reorder
-- **Payment Settings** — accepted payment methods (BKash, COD, bank transfer), `PlatformPrioritySettings` drag-to-reorder
+- **Delivery Settings** — delivery zone configuration, courier mapping, inline "Set as Default" per provider
+- **Payment Settings** — accepted payment methods (BKash, COD, bank transfer), inline "Set as Default" per gateway
 
-`PlatformPrioritySettings` uses react-dnd for drag-to-reorder. Order is saved to the shop's `payment_platform_priority` / `delivery_platform_priority` JSONB column.
+Default selection is persisted to the shop's `payment_platform_priority` / `delivery_platform_priority` JSONB columns (index 0 = default). The current default is shown with a badge on its provider/gateway card.
 
 ### Products & Categories
 

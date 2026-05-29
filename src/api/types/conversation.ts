@@ -5,6 +5,15 @@
 export type MessageSender = 'customer' | 'agent' | 'ai';
 export type MessageType = 'text' | 'image' | 'file' | 'location';
 
+export type MessageSourceKind = 'rag' | 'faq' | 'product';
+
+export interface MessageSourceReference {
+  kind: MessageSourceKind;
+  id?: string | null;
+  title?: string | null;
+  score?: number | null;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
@@ -14,8 +23,16 @@ export interface Message {
   metadata?: unknown;
   ai_suggestion?: string;
   ai_confidence?: number;
+  source_references?: MessageSourceReference[] | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ConversationMetaChannel {
+  id: string;
+  displayName: string | null;
+  platform: 'facebook' | 'instagram' | null;
+  purposeLabel: string | null;
 }
 
 export interface Conversation {
@@ -28,6 +45,8 @@ export interface Conversation {
     phone?: string;
   };
   channel: 'telegram' | 'messenger' | 'facebook' | 'instagram' | 'web';
+  meta_channel_id?: string | null;
+  metaChannel?: ConversationMetaChannel | null;
   title?: string;
   status: 'active' | 'closed' | 'archived';
   hitl?: boolean;

@@ -48,6 +48,8 @@ export interface MetaChannel {
   disconnectedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Cosmetic merchant-facing tag (e.g. "Sales", "Live selling"). Display only. */
+  purposeLabel: string | null;
 }
 
 export interface MetaOAuthAsset {
@@ -67,8 +69,24 @@ export interface MetaOAuthCallbackResult {
   tempToken: string;
 }
 
+export interface MetaUnifiedAsset {
+  id: string;
+  name: string;
+  platform: MetaPlatform;
+  category?: string | null;
+  pictureUrl?: string | null;
+  username?: string;
+  linkedPageId?: string;
+  linkedPageName?: string;
+}
+
+export interface MetaUnifiedCallbackResult {
+  facebookPages: MetaUnifiedAsset[];
+  instagramAccounts: MetaUnifiedAsset[];
+  tempToken: string;
+}
+
 export interface MetaConnectAssetResult extends MetaChannel {
-  webhookSubscribed: boolean;
   webhookWarning: string | null;
 }
 
@@ -139,10 +157,30 @@ export async function handleMetaOAuthCallback(
   return res.data.data;
 }
 
+// Unified FB+IG consent — one popup covers both platforms. Returns the
+// merchant's FB pages and any IG business accounts linked to them.
+export async function initiateMetaUnifiedOAuth(): Promise<{ redirectUrl: string; state: string }> {
+  const res: AxiosResponse<ApiResponse<{ redirectUrl: string; state: string }>> =
+    await httpClient.post(`${BASE}/oauth/initiate-unified`, {});
+  return res.data.data;
+}
+
+export async function handleMetaUnifiedOAuthCallback(
+  code: string,
+  state: string,
+): Promise<MetaUnifiedCallbackResult> {
+  const res: AxiosResponse<ApiResponse<MetaUnifiedCallbackResult>> = await httpClient.post(
+    `${BASE}/oauth/callback-unified`,
+    { code, state },
+  );
+  return res.data.data;
+}
+
 export async function connectMetaAsset(input: {
   assetId: string;
   displayName: string;
   tempToken: string;
+  platform: 'facebook' | 'instagram';
 }): Promise<MetaConnectAssetResult> {
   const res: AxiosResponse<ApiResponse<MetaConnectAssetResult>> = await httpClient.post(
     `${BASE}/oauth/connect-asset`,
@@ -172,11 +210,61 @@ export async function pingMetaChannel(channelId: string): Promise<MetaChannelPin
   return res.data.data;
 }
 
+export async function updateMetaChannelPurposeLabel(
+  channelId: string,
+  purposeLabel: string | null,
+): Promise<MetaChannel> {
+  const res: AxiosResponse<ApiResponse<MetaChannel>> = await httpClient.patch(
+    `${BASE}/${channelId}/purpose-label`,
+    { purposeLabel },
+  );
+  return res.data.data;
+}
+
 export async function getMetaChannelConsentSummary(
   channelId: string,
 ): Promise<MetaChannelConsentSummary> {
   const res: AxiosResponse<ApiResponse<MetaChannelConsentSummary>> = await httpClient.get(
     `${BASE}/${channelId}/consent-summary`,
+  );
+  return res.data.data;
+}
+
+/** Per-channel AI / automation behaviour. Available on every plan. */
+export type MetaAutomationMode =
+  | 'AI_ACTIVE'
+  | 'AI_SUGGEST_ONLY'
+  | 'HUMAN_ACTIVE'
+  | 'MANUAL'
+  | 'DRAFT';
+
+export interface MetaChannelSettings {
+  aiAutoReply: boolean;
+  automationMode: MetaAutomationMode;
+  confidenceThresholdSend: number;
+  confidenceThresholdSuggest: number;
+  allowOrderCreation: boolean;
+  commentToDmEnabled: boolean;
+  commentToDmKeywords: string[];
+  purposeLabel: string | null;
+}
+
+export async function getMetaChannelSettings(
+  channelId: string,
+): Promise<MetaChannelSettings> {
+  const res: AxiosResponse<ApiResponse<MetaChannelSettings>> = await httpClient.get(
+    `${BASE}/${channelId}/settings`,
+  );
+  return res.data.data;
+}
+
+export async function updateMetaChannelSettings(
+  channelId: string,
+  patch: Partial<MetaChannelSettings>,
+): Promise<MetaChannelSettings> {
+  const res: AxiosResponse<ApiResponse<MetaChannelSettings>> = await httpClient.patch(
+    `${BASE}/${channelId}/settings`,
+    patch,
   );
   return res.data.data;
 }
