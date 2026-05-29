@@ -332,3 +332,4 @@ No database migrations for frontend. No health check step (nginx serves static f
 - **No channel limits in UI** — do not show or enforce channel count; all channels are available on all plans
 - **Plan codes in logic, display names in i18n** — use `PACKAGE_1`/`PACKAGE_2`/`PARTNER` in code; translate to user-facing strings via i18n keys
 - **One shop per user** — no shop-switch UI; `DashboardLayout` does not render a shop selector
+<!-- push-marker: small automated change for main push 2026-05-29 -->
