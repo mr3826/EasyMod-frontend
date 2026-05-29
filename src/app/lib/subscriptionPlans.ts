@@ -43,7 +43,7 @@ export const subscriptionPlans: SubscriptionPlanDefinition[] = [
       image_understanding: true,
       advanced_ai: true,
       priority_support: true,
-      custom_branding: false,
+      custom_branding: true,
       comment_auto_reply: true,
     },
     highlights: [
@@ -70,7 +70,7 @@ export const subscriptionPlans: SubscriptionPlanDefinition[] = [
       image_understanding: true,
       advanced_ai: true,
       priority_support: true,
-      custom_branding: false,
+      custom_branding: true,
       comment_auto_reply: true,
     },
     highlights: [
@@ -117,6 +117,12 @@ export const subscriptionPlans: SubscriptionPlanDefinition[] = [
 export const findPlanByName = (name: string) =>
   subscriptionPlans.find(
     (plan) => plan.name.toLowerCase() === name.toLowerCase()
+  );
+
+/** Match by plan code (e.g. "PACKAGE_1" → Package 1 plan). */
+export const findPlanByCode = (code: string) =>
+  subscriptionPlans.find(
+    (plan) => plan.id.toLowerCase() === code.toLowerCase()
   );
 
 export const getPlanPrice = (
